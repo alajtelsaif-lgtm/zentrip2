@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.zentrip.api.AdminControllerTest
+-------------------------------------------------------------------------------
+Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.802 s -- in com.zentrip.api.AdminControllerTest

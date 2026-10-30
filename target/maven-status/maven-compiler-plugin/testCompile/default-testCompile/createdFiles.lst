@@ -1,0 +1,12 @@
+com\zentrip\api\RequestyChatServiceTest.class
+com\zentrip\api\AiChatControllerTest.class
+com\zentrip\api\AdminControllerTest.class
+com\zentrip\api\AdminRoleBootstrapTest.class
+com\zentrip\api\PasswordResetServiceTest.class
+com\zentrip\api\GooglePlacesRatingSyncTest.class
+com\zentrip\api\PartnerControllerTest.class
+com\zentrip\api\ApiControllerTest.class
+com\zentrip\api\HotelListingTest.class
+com\zentrip\api\ProfilePhotoStorageTest.class
+com\zentrip\api\TravelPreferencesControllerTest.class
+com\zentrip\api\PartnerBookingPriceTest.class
