@@ -3787,7 +3787,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeMonuments.
   ///
   /// In ar, this message translates to:
-  /// **'المعالم السياحية'**
+  /// **'أماكن شهيرة في البلدان'**
   String get homeMonuments;
 
   /// No description provided for @carTypeElectric.
@@ -3927,6 +3927,18 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'العروض'**
   String get adminOffers;
+
+  /// No description provided for @adminCatalog.
+  ///
+  /// In ar, this message translates to:
+  /// **'الكتالوج'**
+  String get adminCatalog;
+
+  /// No description provided for @adminPlaces.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأماكن'**
+  String get adminPlaces;
 
   /// No description provided for @adminReservations.
   ///
@@ -4101,12 +4113,6 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'تأجير سيارات'**
   String get adminServiceCar;
-
-  /// No description provided for @adminServiceAttraction.
-  ///
-  /// In ar, this message translates to:
-  /// **'معلم سياحي'**
-  String get adminServiceAttraction;
 
   /// No description provided for @adminServiceTransfer.
   ///
@@ -4297,7 +4303,7 @@ abstract class AppLocalizations {
   /// No description provided for @adminAddMonument.
   ///
   /// In ar, this message translates to:
-  /// **'إضافة معلم'**
+  /// **'إضافة مكان'**
   String get adminAddMonument;
 
   /// No description provided for @adminCatalogEmpty.
@@ -4423,7 +4429,7 @@ abstract class AppLocalizations {
   /// No description provided for @adminEditMonument.
   ///
   /// In ar, this message translates to:
-  /// **'تعديل المعلم'**
+  /// **'تعديل المكان'**
   String get adminEditMonument;
 
   /// No description provided for @adminCategory.
@@ -4695,12 +4701,6 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'تأجير سيارة'**
   String get partnerTypeCar;
-
-  /// No description provided for @partnerTypeAttraction.
-  ///
-  /// In ar, this message translates to:
-  /// **'معلم سياحي'**
-  String get partnerTypeAttraction;
 
   /// No description provided for @partnerTypeTransfer.
   ///

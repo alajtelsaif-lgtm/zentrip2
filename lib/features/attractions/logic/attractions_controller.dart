@@ -24,7 +24,7 @@ class AttractionsController extends ChangeNotifier {
     'cafe',
   ];
 
-  /// الفئات اللي بتتحسب "معالم سياحية" (بتظهر في قسم المعالم بالرئيسية).
+  /// Place categories shown in the popular-places home section.
   static const monumentCategories = {
     'historical',
     'natural',
@@ -36,13 +36,17 @@ class AttractionsController extends ChangeNotifier {
   static bool isMonument(AttractionModel a) =>
       monumentCategories.contains(a.category);
 
-  /// المعالم المميزة للرئيسية — بتتجاب من نفس المصدر اللي بتستخدمه الشاشة
-  /// الكاملة، مرتّبة بالتقييم.
+  /// Featured places come from the public places catalog and are sorted by rating.
   static Future<List<AttractionModel>> loadFeaturedMonuments(
       {int limit = 8}) async {
     final all = await ApiService.instance.searchAttractions(city: '');
     final monuments = all.where(isMonument).toList()
-      ..sort((a, b) => b.rating.compareTo(a.rating));
+      ..sort((a, b) {
+        final reviewPopularity = b.reviewCount.compareTo(a.reviewCount);
+        return reviewPopularity != 0
+            ? reviewPopularity
+            : b.rating.compareTo(a.rating);
+      });
     return monuments.take(limit).toList();
   }
 
@@ -72,8 +76,16 @@ class AttractionsController extends ChangeNotifier {
 
   void _apply() {
     List<AttractionModel> r = List.of(_all);
-    if (selectedCategory != 'all') r = r.where((a) => a.category == selectedCategory).toList();
-    if (searchQuery.isNotEmpty) r = r.where((a) => a.name.toLowerCase().contains(searchQuery.toLowerCase()) || a.city.toLowerCase().contains(searchQuery.toLowerCase())).toList();
+    if (selectedCategory != 'all') {
+      r = r.where((a) => a.category == selectedCategory).toList();
+    }
+    if (searchQuery.isNotEmpty) {
+      r = r
+          .where((a) =>
+              a.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+              a.city.toLowerCase().contains(searchQuery.toLowerCase()))
+          .toList();
+    }
     results = r;
   }
 }

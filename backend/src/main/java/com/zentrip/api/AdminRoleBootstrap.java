@@ -234,7 +234,7 @@ public class AdminRoleBootstrap implements ApplicationRunner {
             String name = fields[2].trim();
             String serviceType = fields[3].trim().toLowerCase(Locale.ROOT);
             if (email.isBlank() || !email.contains("@") || slug.isBlank() || name.isBlank()
-                    || !List.of("airline", "hotel", "car", "attraction", "transfer", "travel")
+                    || !List.of("airline", "hotel", "car", "transfer", "travel")
                             .contains(serviceType)) {
                 throw new IllegalStateException(
                         "APP_PARTNER_ACCOUNTS contains an invalid account, company, or service type.");

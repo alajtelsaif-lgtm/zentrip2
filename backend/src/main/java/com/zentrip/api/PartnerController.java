@@ -44,7 +44,7 @@ public class PartnerController {
     private static final Logger LOG = LoggerFactory.getLogger(PartnerController.class);
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final List<String> LISTING_TYPES =
-            List.of("flight", "hotel", "car", "attraction", "transfer", "package");
+            List.of("flight", "hotel", "car", "transfer", "package");
     private static final Map<String, LocationMetadata> LOCATIONS = Map.ofEntries(
             Map.entry("Tripoli", new LocationMetadata("MJI", "Libya", "Western Libya")),
             Map.entry("Misrata", new LocationMetadata("MRA", "Libya", "Central Libya")),

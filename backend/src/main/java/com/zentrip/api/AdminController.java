@@ -31,7 +31,7 @@ import java.util.Set;
 public class AdminController {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Set<String> PARTNER_SERVICE_TYPES =
-            Set.of("airline", "hotel", "car", "attraction", "transfer", "travel");
+            Set.of("airline", "hotel", "car", "transfer", "travel");
     private final JdbcTemplate jdbc;
 
     public AdminController(JdbcTemplate jdbc) {

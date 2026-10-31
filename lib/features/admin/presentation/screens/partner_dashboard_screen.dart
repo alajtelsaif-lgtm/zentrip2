@@ -15,6 +15,7 @@ import '../../logic/hotel_location_parser.dart';
 import '../../../../global_widgets/app_logo.dart';
 import '../../../../global_widgets/app_network_image.dart';
 import '../../../../global_widgets/app_snackbar.dart';
+import '../../../../global_widgets/confirm_dialog.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/admin_dashboard_model.dart';
 import '../../../../models/flight_model.dart';
@@ -194,6 +195,21 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
     }
   }
 
+  Future<void> _logout() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showAppConfirmDialog(
+      context,
+      title: l10n.logoutConfirmTitle,
+      message: l10n.logoutConfirmMessage,
+      confirmLabel: l10n.logout,
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) return;
+    await ApiService.instance.logout();
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.auth, (_) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -285,15 +301,6 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
               _PartnerSection.customers),
           const Spacer(),
           Divider(color: isDark ? AppColors.darkBorder : AppColors.divider),
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-            leading: const Icon(Icons.open_in_new_rounded, size: 20),
-            title: Text(l10n.partnerBackToApp,
-                style: const TextStyle(fontSize: 13)),
-            onTap: () =>
-                Navigator.pushReplacementNamed(context, AppRoutes.home),
-          ),
-          const SizedBox(height: 10),
           CircleAvatar(
             radius: 18,
             backgroundColor: AppColors.primarySurface,
@@ -398,12 +405,11 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
               tooltip: l10n.adminRefresh,
               onPressed: _loading ? null : _refresh,
               icon: const Icon(Icons.refresh_rounded)),
-          if (!isWide)
-            IconButton(
-                tooltip: l10n.partnerBackToApp,
-                onPressed: () =>
-                    Navigator.pushReplacementNamed(context, AppRoutes.home),
-                icon: const Icon(Icons.home_outlined)),
+          IconButton(
+            tooltip: l10n.logout,
+            onPressed: _logout,
+            icon: const Icon(Icons.logout_rounded),
+          ),
         ],
       ),
     );
@@ -936,7 +942,6 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
         'airline' => l10n.partnerTypeFlight,
         'hotel' => l10n.partnerTypeHotel,
         'car' => l10n.partnerTypeCar,
-        'attraction' => l10n.partnerTypeAttraction,
         'transfer' => l10n.partnerTypeTransfer,
         'travel' => l10n.partnerTypePackage,
         _ => l10n.partnerServiceType,
@@ -946,7 +951,6 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
         'flight' => 'airline',
         'hotel' => 'hotel',
         'car' => 'car',
-        'attraction' => 'attraction',
         'transfer' => 'transfer',
         'package' => 'travel',
         _ => '',
@@ -999,7 +1003,6 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
         'airline' => 'flight',
         'hotel' => 'hotel',
         'car' => 'car',
-        'attraction' => 'attraction',
         'transfer' => 'transfer',
         'travel' => 'package',
         _ => 'hotel',

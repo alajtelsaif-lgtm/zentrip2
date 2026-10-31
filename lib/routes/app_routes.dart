@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/services/api_service.dart';
 import '../features/splash/presentation/screen/splash_screen.dart';
 import '../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
@@ -61,6 +62,17 @@ abstract class AppRoutes {
   static const String partnerDashboard = '/partner-dashboard';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    final user = ApiService.instance.currentUser;
+    if (user?.isAdmin == true || user?.isPartner == true) {
+      final dashboardRoute = user!.isAdmin ? adminDashboard : partnerDashboard;
+      if (settings.name != dashboardRoute) {
+        final dashboard = user.isAdmin
+            ? const AdminDashboardScreen()
+            : const PartnerDashboardScreen();
+        return _fade(dashboard, RouteSettings(name: dashboardRoute));
+      }
+    }
+
     switch (settings.name) {
       case splash:
         return _fade(const SplashScreen(), settings);

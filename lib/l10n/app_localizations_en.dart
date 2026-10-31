@@ -1985,7 +1985,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get packageCatDesert => 'Desert';
 
   @override
-  String get homeMonuments => 'Tourist monuments';
+  String get homeMonuments => 'Popular places by country';
 
   @override
   String get carTypeElectric => 'Electric';
@@ -2056,6 +2056,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminOffers => 'Offers';
+
+  @override
+  String get adminCatalog => 'Catalog';
+
+  @override
+  String get adminPlaces => 'Places';
 
   @override
   String get adminReservations => 'Reservations';
@@ -2146,9 +2152,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminServiceCar => 'Car rental';
-
-  @override
-  String get adminServiceAttraction => 'Attraction';
 
   @override
   String get adminServiceTransfer => 'Transfer';
@@ -2245,7 +2248,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminAddOffer => 'Add offer';
 
   @override
-  String get adminAddMonument => 'Add monument';
+  String get adminAddMonument => 'Add place';
 
   @override
   String get adminCatalogEmpty => 'No catalog entries yet.';
@@ -2308,7 +2311,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminEditOffer => 'Edit offer';
 
   @override
-  String get adminEditMonument => 'Edit monument';
+  String get adminEditMonument => 'Edit place';
 
   @override
   String get adminCategory => 'Category';
@@ -2446,9 +2449,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get partnerTypeCar => 'Car rental';
-
-  @override
-  String get partnerTypeAttraction => 'Attraction';
 
   @override
   String get partnerTypeTransfer => 'Transfer';

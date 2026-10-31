@@ -185,7 +185,6 @@ class AdminPartnersManagementState extends State<AdminPartnersManagement> {
         'airline' => l10n.adminServiceAirline,
         'hotel' => l10n.adminServiceHotel,
         'car' => l10n.adminServiceCar,
-        'attraction' => l10n.adminServiceAttraction,
         'transfer' => l10n.adminServiceTransfer,
         'travel' => l10n.adminServiceTravel,
         _ => type,
@@ -386,7 +385,6 @@ class _AddPartnerDialogState extends State<_AddPartnerDialog> {
       'airline': l10n.adminServiceAirline,
       'hotel': l10n.adminServiceHotel,
       'car': l10n.adminServiceCar,
-      'attraction': l10n.adminServiceAttraction,
       'transfer': l10n.adminServiceTransfer,
       'travel': l10n.adminServiceTravel,
     };

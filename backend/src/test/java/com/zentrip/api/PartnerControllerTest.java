@@ -532,7 +532,7 @@ class PartnerControllerTest {
     }
 
     @Test
-    void publicInventoryMapsCustomerContractsForCarsAttractionsTransfersAndPackages() {
+    void publicInventoryMapsCustomerContractsForCarsTransfersAndPackages() {
         assertPublicListing("car", Map.of(
                 "category", "suv",
                 "seats", 5,
@@ -545,16 +545,6 @@ class PartnerControllerTest {
                         "category", "suv",
                         "price_per_day", new BigDecimal("48.00"),
                         "has_gps", true));
-        assertPublicListing("attraction", Map.of(
-                "category", "museum",
-                "opening_hours", "09:00-17:00",
-                "latitude", 32.9,
-                "longitude", 13.2,
-                "tags", List.of("history")),
-                Map.of(
-                        "category", "museum",
-                        "entry_fee", new BigDecimal("48.00"),
-                        "opening_hours", "09:00-17:00"));
         assertPublicListing("transfer", Map.of(
                 "vehicle_type", "minivan",
                 "max_passengers", 6,
@@ -579,6 +569,15 @@ class PartnerControllerTest {
                         "location", "Tripoli",
                         "flight_price_per_person", new BigDecimal("48.00"),
                         "duration_nights", 3));
+    }
+
+    @Test
+    void attractionsAreNotPartnerInventory() {
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.publicInventory("attraction", null));
+
+        assertEquals(400, exception.getStatusCode().value());
     }
 
     @Test

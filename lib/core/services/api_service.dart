@@ -344,10 +344,19 @@ class ApiService {
       });
     }
     return _request(() async {
-      await _dio.post('/auth/logout');
-      await _clearToken();
-      await _clearLocalUser();
-      currentUser = null;
+      try {
+        await _dio.post('/auth/logout');
+      } finally {
+        try {
+          await _clearToken();
+        } finally {
+          try {
+            await _clearLocalUser();
+          } finally {
+            currentUser = null;
+          }
+        }
+      }
     });
   }
 
@@ -1461,12 +1470,6 @@ class ApiService {
           ? all
           : all.where((a) => a.category == category).toList();
     }
-    final partnerAttractions = (await _loadPartnerInventory('attraction',
-            city: city))
-        .map(AttractionModel.fromJson)
-        .where(
-            (attraction) => category == null || attraction.category == category)
-        .toList();
     try {
       final res = await _dio.get(
         '/attractions/search',
@@ -1478,13 +1481,12 @@ class ApiService {
       final attractions = (res.data['attractions'] as List)
           .map((a) => AttractionModel.fromJson(a as Map<String, dynamic>))
           .toList();
-      return [...partnerAttractions, ...attractions];
+      return attractions;
     } catch (_) {
       final all = MockDataService.attractions();
-      final fallback = category == null
+      return category == null
           ? all
           : all.where((a) => a.category == category).toList();
-      return [...partnerAttractions, ...fallback];
     }
   }
 
@@ -1504,13 +1506,6 @@ class ApiService {
           .where((a) => a.category != 'restaurant' && a.category != 'cafe')
           .toList();
     }
-    final partnerAttractions = (await _loadPartnerInventory('attraction'))
-        .map(AttractionModel.fromJson)
-        .where((attraction) =>
-            (category == null || attraction.category == category) &&
-            _isWithinRadius(attraction.latitude, attraction.longitude, lat, lng,
-                radiusMeters))
-        .toList();
     try {
       final res = await _dio.get(
         '/attractions/nearby',
@@ -1524,15 +1519,14 @@ class ApiService {
       final attractions = (res.data['attractions'] as List)
           .map((a) => AttractionModel.fromJson(a as Map<String, dynamic>))
           .toList();
-      return [...partnerAttractions, ...attractions];
+      return attractions;
     } catch (_) {
       final all = MockDataService.attractions();
-      final fallback = category != null
+      return category != null
           ? all.where((a) => a.category == category).toList()
           : all
               .where((a) => a.category != 'restaurant' && a.category != 'cafe')
               .toList();
-      return [...partnerAttractions, ...fallback];
     }
   }
 
@@ -1559,22 +1553,6 @@ class ApiService {
         radiusMeters: radiusMeters,
         category: 'cafe',
       );
-
-  bool _isWithinRadius(
-    double? candidateLat,
-    double? candidateLng,
-    double lat,
-    double lng,
-    double radiusMeters,
-  ) {
-    final distance = hotelDistanceMeters(
-      fromLatitude: lat,
-      fromLongitude: lng,
-      toLatitude: candidateLat,
-      toLongitude: candidateLng,
-    );
-    return distance != null && distance <= radiusMeters;
-  }
 
   String _formatDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

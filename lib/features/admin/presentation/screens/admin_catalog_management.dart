@@ -35,6 +35,12 @@ class AdminCatalogManagementState extends State<AdminCatalogManagement> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant AdminCatalogManagement oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.kind != widget.kind) _load();
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;

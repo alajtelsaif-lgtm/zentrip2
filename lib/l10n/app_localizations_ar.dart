@@ -1971,7 +1971,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get packageCatDesert => 'صحراء';
 
   @override
-  String get homeMonuments => 'المعالم السياحية';
+  String get homeMonuments => 'أماكن شهيرة في البلدان';
 
   @override
   String get carTypeElectric => 'كهربائية';
@@ -2042,6 +2042,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get adminOffers => 'العروض';
+
+  @override
+  String get adminCatalog => 'الكتالوج';
+
+  @override
+  String get adminPlaces => 'الأماكن';
 
   @override
   String get adminReservations => 'الحجوزات';
@@ -2132,9 +2138,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get adminServiceCar => 'تأجير سيارات';
-
-  @override
-  String get adminServiceAttraction => 'معلم سياحي';
 
   @override
   String get adminServiceTransfer => 'توصيل';
@@ -2230,7 +2233,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get adminAddOffer => 'إضافة عرض';
 
   @override
-  String get adminAddMonument => 'إضافة معلم';
+  String get adminAddMonument => 'إضافة مكان';
 
   @override
   String get adminCatalogEmpty => 'لا توجد عناصر في الكتالوج بعد.';
@@ -2293,7 +2296,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get adminEditOffer => 'تعديل العرض';
 
   @override
-  String get adminEditMonument => 'تعديل المعلم';
+  String get adminEditMonument => 'تعديل المكان';
 
   @override
   String get adminCategory => 'الفئة';
@@ -2429,9 +2432,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get partnerTypeCar => 'تأجير سيارة';
-
-  @override
-  String get partnerTypeAttraction => 'معلم سياحي';
 
   @override
   String get partnerTypeTransfer => 'توصيل';

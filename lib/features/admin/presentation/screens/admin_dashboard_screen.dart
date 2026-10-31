@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../global_widgets/app_logo.dart';
+import '../../../../global_widgets/confirm_dialog.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/admin_dashboard_model.dart';
 import '../../../../routes/app_routes.dart';
@@ -29,7 +30,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String? _error;
   String _customerQuery = '';
   final _partnersKey = GlobalKey<AdminPartnersManagementState>();
-  final _offersKey = GlobalKey<AdminCatalogManagementState>();
+  final _catalogKey = GlobalKey<AdminCatalogManagementState>();
+  AdminCatalogKind _catalogKind = AdminCatalogKind.offers;
 
   @override
   void initState() {
@@ -118,9 +120,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final state = _partnersKey.currentState;
       if (state != null) await state.reload();
     } else if (_section == _AdminSection.offers) {
-      final state = _offersKey.currentState;
+      final state = _catalogKey.currentState;
       if (state != null) await state.reload();
     }
+  }
+
+  Future<void> _logout() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showAppConfirmDialog(
+      context,
+      title: l10n.logoutConfirmTitle,
+      message: l10n.logoutConfirmMessage,
+      confirmLabel: l10n.logout,
+      isDanger: true,
+    );
+    if (!confirmed || !mounted) return;
+    await ApiService.instance.logout();
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.auth, (_) => false);
   }
 
   @override
@@ -221,7 +238,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 8),
           _navItem(
-            l10n.adminOffers,
+            l10n.adminCatalog,
             Icons.local_offer_outlined,
             _AdminSection.offers,
           ),
@@ -239,15 +256,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const Spacer(),
           Divider(color: isDark ? AppColors.darkBorder : AppColors.divider),
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-            leading: const Icon(Icons.open_in_new_rounded, size: 20),
-            title:
-                Text(l10n.adminBackToApp, style: const TextStyle(fontSize: 13)),
-            onTap: () =>
-                Navigator.pushReplacementNamed(context, AppRoutes.home),
-          ),
-          const SizedBox(height: 10),
           _AdminIdentity(name: name),
         ],
       ),
@@ -303,7 +311,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             label: l10n.adminPartners),
         NavigationDestination(
             icon: const Icon(Icons.local_offer_outlined),
-            label: l10n.adminOffers),
+            label: l10n.adminCatalog),
         NavigationDestination(
             icon: const Icon(Icons.book_online_outlined),
             label: l10n.adminReservations),
@@ -360,13 +368,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             onPressed: _loading ? null : _refresh,
             icon: const Icon(Icons.refresh_rounded),
           ),
-          if (!isWide)
-            IconButton(
-              tooltip: l10n.adminBackToApp,
-              onPressed: () =>
-                  Navigator.pushReplacementNamed(context, AppRoutes.home),
-              icon: const Icon(Icons.home_outlined),
-            ),
+          IconButton(
+            tooltip: l10n.logout,
+            onPressed: _logout,
+            icon: const Icon(Icons.logout_rounded),
+          ),
           const SizedBox(width: 4),
           CircleAvatar(
             radius: 18,
@@ -385,7 +391,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String _sectionTitle(AppLocalizations l10n) => switch (_section) {
         _AdminSection.overview => l10n.adminOverview,
         _AdminSection.partners => l10n.adminPartners,
-        _AdminSection.offers => l10n.adminOffers,
+        _AdminSection.offers => l10n.adminCatalog,
         _AdminSection.reservations => l10n.adminReservations,
         _AdminSection.customers => l10n.adminCustomers,
       };
@@ -397,9 +403,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             height: constraints.maxHeight,
             child: _section == _AdminSection.partners
                 ? AdminPartnersManagement(key: _partnersKey)
-                : AdminCatalogManagement(
-                    key: _offersKey,
-                    kind: AdminCatalogKind.offers,
+                : Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: SegmentedButton<AdminCatalogKind>(
+                            segments: [
+                              ButtonSegment(
+                                value: AdminCatalogKind.monuments,
+                                icon: const Icon(Icons.place_outlined),
+                                label: Text(
+                                    AppLocalizations.of(context).adminPlaces),
+                              ),
+                              ButtonSegment(
+                                value: AdminCatalogKind.offers,
+                                icon: const Icon(Icons.local_offer_outlined),
+                                label: Text(
+                                    AppLocalizations.of(context).adminOffers),
+                              ),
+                            ],
+                            selected: {_catalogKind},
+                            onSelectionChanged: (selection) {
+                              setState(() => _catalogKind = selection.first);
+                            },
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: AdminCatalogManagement(
+                          key: _catalogKey,
+                          kind: _catalogKind,
+                        ),
+                      ),
+                    ],
                   ),
           ),
         ),
@@ -442,8 +480,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             _AdminSection.partners =>
               AdminPartnersManagement(key: _partnersKey),
             _AdminSection.offers => AdminCatalogManagement(
-                key: _offersKey,
-                kind: AdminCatalogKind.offers,
+                key: _catalogKey,
+                kind: _catalogKind,
               ),
             _AdminSection.reservations => _reservationsView(l10n),
             _AdminSection.customers => _customersView(l10n, isWide),

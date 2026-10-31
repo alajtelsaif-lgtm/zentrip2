@@ -108,7 +108,7 @@ class AdminControllerTest {
                 () -> controller.addPartner(Map.of(
                         "name", "Example partner",
                         "email", "traveler@example.com",
-                        "service_type", "administrator"),
+                        "service_type", "attraction"),
                         authenticatedRequest()));
 
         assertEquals(400, exception.getStatusCode().value());
