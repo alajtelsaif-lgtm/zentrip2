@@ -1161,22 +1161,13 @@ public class PartnerController {
         applyGeneratedAttributes(listingAttributes, type, id, partner, active);
         jdbc.update("""
                 UPDATE partner_listings
-                SET attributes = jsonb_set(COALESCE(attributes, '{}'::jsonb),
-                        '{location_name}', to_jsonb(COALESCE(location_name, '')), TRUE)
-                WHERE id = ? AND partner_id = ?
-                """, id, partner.id());
-        jdbc.update("""
-                UPDATE partner_listings
-                SET attributes = jsonb_set(COALESCE(attributes, '{}'::jsonb),
-                        '{google_maps_url}', to_jsonb(COALESCE(google_maps_url, '')), TRUE),
-                    attributes = jsonb_set(COALESCE(attributes, '{}'::jsonb),
-                        '{place_id}', to_jsonb(COALESCE(place_id, '')), TRUE),
-                    attributes = jsonb_set(COALESCE(attributes, '{}'::jsonb),
-                        '{google_rating}', to_jsonb(google_rating), TRUE),
-                    attributes = jsonb_set(COALESCE(attributes, '{}'::jsonb),
-                        '{google_review_count}', to_jsonb(google_review_count), TRUE),
-                    attributes = jsonb_set(COALESCE(attributes, '{}'::jsonb),
-                        '{tax_and_fees_percentage}', to_jsonb(tax_and_fees_percentage), TRUE)
+                SET attributes = COALESCE(attributes, '{}'::jsonb) || jsonb_build_object(
+                    'location_name', COALESCE(location_name, ''),
+                    'google_maps_url', COALESCE(google_maps_url, ''),
+                    'place_id', COALESCE(place_id, ''),
+                    'google_rating', google_rating,
+                    'google_review_count', google_review_count,
+                    'tax_and_fees_percentage', tax_and_fees_percentage)
                 WHERE id = ? AND partner_id = ?
                 """, id, partner.id());
         googlePlacesRatingSync.refreshAsync(
@@ -1853,7 +1844,7 @@ public class PartnerController {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(connection -> {
             PreparedStatement statement =
-                    connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+                    connection.prepareStatement(sql, new String[]{"id"});
             for (int i = 0; i < args.length; i++) {
                 statement.setObject(i + 1, args[i]);
             }

@@ -258,7 +258,7 @@ class ApiControllerTest {
                 any(org.springframework.jdbc.support.KeyHolder.class));
         java.sql.Connection connection = mock(java.sql.Connection.class);
         java.sql.PreparedStatement statement = mock(java.sql.PreparedStatement.class);
-        when(connection.prepareStatement(any(String.class), eq(java.sql.Statement.RETURN_GENERATED_KEYS)))
+        when(connection.prepareStatement(any(String.class), org.mockito.AdditionalMatchers.aryEq(new String[]{"id"})))
                 .thenReturn(statement);
         creator.getValue().createPreparedStatement(connection);
 
@@ -321,7 +321,7 @@ class ApiControllerTest {
                         "passenger_count", 2), authenticatedRequest()));
 
         assertEquals(409, error.getStatusCode().value());
-        verify(jdbc).update(contains("$.seats_available"), eq(2), eq(51L), eq(2));
+        verify(jdbc).update(contains("'{seats_available}'"), eq(2), eq(51L), eq(2));
         verify(jdbc, never()).update(
                 any(org.springframework.jdbc.core.PreparedStatementCreator.class),
                 any(org.springframework.jdbc.support.KeyHolder.class));
@@ -404,8 +404,8 @@ class ApiControllerTest {
                                                                 "passenger_count", "2",
                                                                 "refund_status", "",
                                                                 "refund_method", "")));
-                when(jdbc.update(contains("JSON_SET"), eq(12L), eq(7L))).thenReturn(1);
-                when(jdbc.update(contains("$.seats_available"), eq(2), eq(51L)))
+                when(jdbc.update(contains("jsonb_build_object"), eq(12L), eq(7L))).thenReturn(1);
+                when(jdbc.update(contains("'{seats_available}'"), eq(2), eq(51L)))
                                 .thenReturn(1);
 
                 ResponseEntity<?> response = controller.deleteTrip(12L, authenticatedRequest());
@@ -416,7 +416,7 @@ class ApiControllerTest {
                                 "refund_status", "pending_airline_review",
                                 "refund_method", "original_payment_method"), response.getBody());
                 verify(jdbc).update(
-                                contains("$.seats_available"), eq(2), eq(51L));
+                                contains("'{seats_available}'"), eq(2), eq(51L));
                 verify(jdbc, never()).update(contains("DELETE FROM trips"), eq(12L), eq(7L));
         }
 
@@ -435,7 +435,7 @@ class ApiControllerTest {
 
                 assertEquals(200, response.getStatusCode().value());
                 assertEquals("pending_airline_review", ((Map<?, ?>) response.getBody()).get("refund_status"));
-                verify(jdbc, never()).update(contains("JSON_SET"), eq(12L), eq(7L));
+                verify(jdbc, never()).update(contains("jsonb_build_object"), eq(12L), eq(7L));
                 verify(jdbc, never()).update(contains("$.seats_available"), eq(2), eq(51L));
         }
 
@@ -496,7 +496,7 @@ class ApiControllerTest {
         when(jdbc.update(contains("UPDATE bookings SET status = 'cancelled'"),
                 eq(18L), eq(7L))).thenReturn(1);
         when(jdbc.update(contains("available_rooms + ?"),
-                eq(2), eq(2), eq(42L), eq(2))).thenReturn(1);
+                eq(2), eq(2), eq(42L))).thenReturn(1);
 
         ResponseEntity<?> response = controller.cancelBooking(18L, authenticatedRequest());
 
@@ -505,7 +505,7 @@ class ApiControllerTest {
         verify(jdbc).update(contains("UPDATE bookings SET status = 'cancelled'"),
                 eq(18L), eq(7L));
         verify(jdbc).update(contains("available_rooms + ?"),
-                eq(2), eq(2), eq(42L), eq(2));
+                eq(2), eq(2), eq(42L));
     }
 
     @Test
@@ -594,7 +594,7 @@ class ApiControllerTest {
         when(jdbc.queryForList(contains("FROM bookings"), eq(7L), eq("hotel")))
                 .thenReturn(List.of());
         when(jdbc.update(
-                contains("SET attributes = JSON_SET"),
+                contains("SET attributes = jsonb_set"),
                 eq(2), eq(2), eq(42L), eq(2)))
                 .thenReturn(0);
 
@@ -720,7 +720,7 @@ class ApiControllerTest {
         assertEquals("ZT-12345678", booking.get("reference"));
         assertEquals(List.of("1A"), booking.get("seats"));
         assertEquals(List.of("extra_baggage"), booking.get("extras"));
-        verify(jdbc, never()).update(contains("SET attributes = JSON_SET"),
+        verify(jdbc, never()).update(contains("SET attributes = jsonb_set"),
                 any(Object[].class));
     }
 

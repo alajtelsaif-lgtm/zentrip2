@@ -74,6 +74,7 @@ public class ApiController {
     }
 
     @PostMapping("/auth/register")
+    @Transactional
     public ResponseEntity<?> register(@RequestParam String name,
                                       @RequestParam String email,
                                       @RequestParam String phone,
@@ -1012,17 +1013,10 @@ public class ApiController {
             int updated = jdbc.update("""
                     UPDATE trips
                     SET status = 'cancelled',
-                        details = jsonb_set(COALESCE(details, '{}'::jsonb),
-                            '{refund_status}', to_jsonb('pending_airline_review'), TRUE),
-                        updated_at = NOW()
-                    WHERE id = ? AND user_id = ?
-                    """, id, userId);
-            jdbc.update("""
-                    UPDATE trips
-                    SET details = jsonb_set(COALESCE(details, '{}'::jsonb),
-                            '{refund_method}', to_jsonb('original_payment_method'), TRUE),
-                        details = jsonb_set(COALESCE(details, '{}'::jsonb),
-                            '{refund_requested_at}', to_jsonb(NOW()), TRUE),
+                        details = COALESCE(details, '{}'::jsonb) || jsonb_build_object(
+                            'refund_status', 'pending_airline_review',
+                            'refund_method', 'original_payment_method',
+                            'refund_requested_at', NOW()),
                         updated_at = NOW()
                     WHERE id = ? AND user_id = ?
                     """, id, userId);
@@ -1596,7 +1590,7 @@ public class ApiController {
                     available_rooms = available_rooms + ?,
                     updated_at = NOW()
                 WHERE id = ? AND type = 'hotel'
-                """, roomCount, roomCount, number(rawListingId), roomCount);
+                """, roomCount, roomCount, number(rawListingId));
         if (updated != 1) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Could not restore hotel room inventory");
@@ -1681,7 +1675,7 @@ public class ApiController {
     private long insert(String sql, Object... args) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update((PreparedStatementCreator) connection -> {
-            PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            PreparedStatement statement = connection.prepareStatement(sql, new String[]{"id"});
             for (int i = 0; i < args.length; i++) statement.setObject(i + 1, args[i]);
             return statement;
         }, keyHolder);

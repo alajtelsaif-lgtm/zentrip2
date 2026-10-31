@@ -93,7 +93,7 @@ class PartnerBookingPriceTest {
         verify(jdbc).update(creator.capture(), any(KeyHolder.class));
         Connection connection = mock(Connection.class);
         PreparedStatement statement = mock(PreparedStatement.class);
-        when(connection.prepareStatement(any(String.class), eq(Statement.RETURN_GENERATED_KEYS)))
+        when(connection.prepareStatement(any(String.class), org.mockito.AdditionalMatchers.aryEq(new String[]{"id"})))
                 .thenReturn(statement);
         creator.getValue().createPreparedStatement(connection);
         verify(statement).setObject(5, new BigDecimal("336.00"));

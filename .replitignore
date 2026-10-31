@@ -1,2 +1,4 @@
 .local/toolchains/
 generated-artifacts/
+attached_assets/*.env
+backend/.env

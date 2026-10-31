@@ -2,7 +2,7 @@ modules = ["java-graalvm22.3", "python-base-3.13"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["maven"]
+packages = ["maven", "postgresql"]
 
 [agent]
 expertMode = true
@@ -12,6 +12,9 @@ expertMode = true
 [userenv.shared]
 SUPABASE_ANON_KEY = "sb_publishable_RMsZOpssbB7g8wqIyM3yzQ_i7s8qUp1"
 SUPABASE_URL = "https://zrzhgotsnqclzrkybuzj.supabase.co"
+
+[userenv.development]
+ZENTRIP_PROVIDER_ENV_FILE = "attached_assets/_1793470398811.env"
 
 [workflows]
 runButton = "Project"

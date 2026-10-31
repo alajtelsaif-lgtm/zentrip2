@@ -8,5 +8,6 @@ export JAVA_HOME="$PWD/.local/toolchains/jdk"
 export PATH="$JAVA_HOME/bin:$PWD/.local/toolchains/flutter/bin:$PATH"
 flutter pub get
 flutter build web --release --no-wasm-dry-run
-# Run tests separately; imported regression failures must not prevent packaging.
+# Test in an isolated environment; never pass the live connection into test contexts.
+bash scripts/test-backend.sh
 mvn -B -f backend/pom.xml -DskipTests package

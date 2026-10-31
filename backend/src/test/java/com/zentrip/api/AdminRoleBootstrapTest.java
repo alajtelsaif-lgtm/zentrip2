@@ -22,38 +22,30 @@ class AdminRoleBootstrapTest {
 
     @Test
     void addsAndBackfillsHotelListingColumnsForExistingDatabases() {
-        when(jdbc.queryForObject(
-                contains("information_schema.COLUMNS"),
-                eq(Integer.class),
-                anyString(),
-                anyString()))
-                .thenAnswer(invocation ->
-                        "partner_listings".equals(invocation.getArgument(2)) ? 0 : 1);
-
         new AdminRoleBootstrap(jdbc, "", "").run(args);
 
         verify(jdbc).execute(
-                "ALTER TABLE partner_listings ADD COLUMN location_name VARCHAR(512) NULL");
+                "ALTER TABLE partner_listings ADD COLUMN IF NOT EXISTS location_name VARCHAR(512) NULL");
         verify(jdbc).execute(
-                "ALTER TABLE partner_listings ADD COLUMN google_maps_url VARCHAR(2048) NULL");
+                "ALTER TABLE partner_listings ADD COLUMN IF NOT EXISTS google_maps_url VARCHAR(2048) NULL");
         verify(jdbc).execute(
-                "ALTER TABLE partner_listings ADD COLUMN place_id VARCHAR(255) NULL");
+                "ALTER TABLE partner_listings ADD COLUMN IF NOT EXISTS place_id VARCHAR(255) NULL");
         verify(jdbc).execute(
-                "ALTER TABLE partner_listings ADD COLUMN google_rating "
+                "ALTER TABLE partner_listings ADD COLUMN IF NOT EXISTS google_rating "
                         + "DECIMAL(2,1) NOT NULL DEFAULT 0.0");
         verify(jdbc).execute(
-                "ALTER TABLE partner_listings ADD COLUMN google_review_count "
+                "ALTER TABLE partner_listings ADD COLUMN IF NOT EXISTS google_review_count "
                         + "INTEGER NOT NULL DEFAULT 0");
         verify(jdbc).execute(
-                "ALTER TABLE partner_listings ADD COLUMN amenities JSONB NULL");
+                "ALTER TABLE partner_listings ADD COLUMN IF NOT EXISTS amenities JSONB NULL");
         verify(jdbc).execute(
-                "ALTER TABLE partner_listings ADD COLUMN tax_and_fees_percentage "
+                "ALTER TABLE partner_listings ADD COLUMN IF NOT EXISTS tax_and_fees_percentage "
                         + "DECIMAL(5,2) NOT NULL DEFAULT 12.00");
         verify(jdbc).execute(
-                "ALTER TABLE partner_listings ADD COLUMN available_rooms "
+                "ALTER TABLE partner_listings ADD COLUMN IF NOT EXISTS available_rooms "
                         + "INTEGER NOT NULL DEFAULT 0");
         ArgumentCaptor<String> statements = ArgumentCaptor.forClass(String.class);
-        verify(jdbc, times(9)).execute(statements.capture());
+        verify(jdbc, times(17)).execute(statements.capture());
         assertTrue(statements.getAllValues().stream()
                 .anyMatch(sql -> sql.contains("UPDATE partner_listings")));
     }

@@ -1,0 +1,272 @@
+package com.zentrip.api;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.Map;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/** Real HTTP-controller/JDBC checks against a disposable, loopback-only PostgreSQL database. */
+@SpringBootTest(properties = {
+        "app.bootstrap.enabled=false", "spring.sql.init.mode=never",
+        "google.places.api-key=", "serpapi.key=", "requesty.api-key=",
+        "spring.datasource.hikari.data-source-properties.prepareThreshold=0"
+})
+@AutoConfigureMockMvc
+@EnabledIfEnvironmentVariable(named = "ZENTRIP_POSTGRES_TEST_URL", matches = "jdbc:postgresql://127\\.0\\.0\\.1:.*")
+class PostgresMigrationIntegrationTest {
+    @Autowired MockMvc http;
+    @Autowired JdbcTemplate jdbc;
+    @Autowired ObjectMapper json;
+    long userId;
+    String token;
+
+    @DynamicPropertySource
+    static void localDatabase(DynamicPropertyRegistry properties) {
+        String url = System.getenv("ZENTRIP_POSTGRES_TEST_URL");
+        if (url == null || !url.startsWith("jdbc:postgresql://127.0.0.1:")) {
+            throw new IllegalStateException("These tests may only use a disposable loopback database");
+        }
+        properties.add("spring.datasource.url", () -> url);
+        properties.add("spring.datasource.username", () -> System.getenv("ZENTRIP_POSTGRES_TEST_USER"));
+        properties.add("spring.datasource.password", () -> "");
+    }
+
+    @BeforeEach
+    void customer() {
+        token = UUID.randomUUID().toString();
+        userId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password)
+                VALUES ('Migration Test', ?, 'unused-test-hash') RETURNING id
+                """, Long.class, token + "@example.invalid");
+        jdbc.update("INSERT INTO api_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+                userId, TokenAuthFilter.sha256(token), Timestamp.from(Instant.now().plusSeconds(3600)));
+    }
+
+    long listing(String type, String attributes) {
+        long partnerId = jdbc.queryForObject("""
+                INSERT INTO partners (slug, name, service_type)
+                VALUES (?, 'Migration partner', ?) RETURNING id
+                """, Long.class, UUID.randomUUID().toString(), type);
+        return jdbc.queryForObject("""
+                INSERT INTO partner_listings
+                    (partner_id, type, title, city, country, price, attributes, available_rooms)
+                VALUES (?, ?, 'Migration listing', 'Tripoli', 'Libya', 100, ?::jsonb, 10)
+                RETURNING id
+                """, Long.class, partnerId, type, attributes);
+    }
+
+    JsonNode postJson(String path, Map<String, Object> body, int status) throws Exception {
+        MvcResult result = http.perform(post(path).header("Authorization", "Bearer " + token)
+                        .contentType("application/json").content(json.writeValueAsString(body)))
+                .andExpect(status().is(status)).andReturn();
+        return json.readTree(result.getResponse().getContentAsString());
+    }
+
+    Map<String, Object> booking(String type, long listing) {
+        return Map.of("type", type, "title", "Migration booking", "subtitle", "Test",
+                "date", "2035-11-10T10:00:00+02:00", "end_date", "2035-11-12T10:00:00+02:00",
+                "partner_listing_id", listing, "price", 1, "rooms", 2);
+    }
+
+    @Test
+    void registrationReturnsOneGeneratedIdAndValidSession() throws Exception {
+        String email = UUID.randomUUID() + "@example.invalid";
+        MvcResult result = http.perform(multipart("/api/auth/register")
+                        .param("name", "New Customer").param("email", email).param("phone", "123456789")
+                        .param("password", "test-password-123").param("password_confirmation", "test-password-123"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.token").isString()).andReturn();
+        String session = json.readTree(result.getResponse().getContentAsString()).get("token").asText();
+        http.perform(get("/api/auth/me").header("Authorization", "Bearer " + session))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.user.email").value(email));
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM users WHERE email = ?", Integer.class, email));
+    }
+
+    @Test
+    void carBookingReturnsIdAndCancellationRestoresInventory() throws Exception {
+        long listing = listing("car", "{\"available_vehicles\":1}");
+        JsonNode response = postJson("/api/bookings", booking("car", listing), 201);
+        long id = response.path("booking").path("id").asLong();
+        assertTrue(id > 0);
+        assertEquals("0", jdbc.queryForObject(
+                "SELECT attributes ->> 'available_vehicles' FROM partner_listings WHERE id = ?", String.class, listing));
+        assertEquals(Instant.parse("2035-11-10T08:00:00Z"), jdbc.queryForObject(
+                "SELECT \"date\" FROM bookings WHERE id = ?", Timestamp.class, id).toInstant());
+        http.perform(delete("/api/bookings/" + id).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        assertEquals("1", jdbc.queryForObject(
+                "SELECT attributes ->> 'available_vehicles' FROM partner_listings WHERE id = ?", String.class, listing));
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM bookings WHERE id = ?", Integer.class, id));
+    }
+
+    @Test
+    void hotelBookingAndRepeatedCancellationRestoreRoomsOnlyOnce() throws Exception {
+        long listing = listing("hotel", "{}");
+        long id = postJson("/api/bookings", booking("hotel", listing), 201)
+                .path("booking").path("id").asLong();
+        assertEquals(8, jdbc.queryForObject(
+                "SELECT available_rooms FROM partner_listings WHERE id = ?", Integer.class, listing));
+        for (int i = 0; i < 2; i++) {
+            http.perform(delete("/api/bookings/" + id).header("Authorization", "Bearer " + token))
+                    .andExpect(status().isOk());
+        }
+        assertEquals(10, jdbc.queryForObject(
+                "SELECT available_rooms FROM partner_listings WHERE id = ?", Integer.class, listing));
+    }
+
+    @Test
+    void taxiBookingCreatesBothTransferAndSchedule() throws Exception {
+        JsonNode response = postJson("/api/transfers", Map.of(
+                "provider_name", "Migration taxi", "vehicle_type", "sedan",
+                "pickup_location", "Tripoli Airport", "dropoff_location", "Tripoli",
+                "pickup_time", "2035-11-10T10:00:00+02:00", "duration_minutes", 60, "price", 50), 201);
+        long id = response.path("transfer").path("id").asLong();
+        assertTrue(id > 0);
+        assertEquals(60, jdbc.queryForObject(
+                "SELECT duration_minutes FROM transfer_schedules WHERE transfer_id = ?", Integer.class, id));
+        assertEquals(Instant.parse("2035-11-10T08:00:00Z"), jdbc.queryForObject(
+                "SELECT pickup_time FROM transfers WHERE id = ?", Timestamp.class, id).toInstant());
+    }
+
+    @Test
+    void flightCancellationPreservesJsonAndRestoresSeatsOnce() throws Exception {
+        long listing = listing("flight", "{\"seats_available\":5}");
+        long trip = jdbc.queryForObject("""
+                INSERT INTO trips (user_id, partner_listing_id, title, destination, details)
+                VALUES (?, ?, 'Test flight', 'Tripoli', '{"passenger_count":2,"other":"preserved"}'::jsonb)
+                RETURNING id
+                """, Long.class, userId, listing);
+        for (int i = 0; i < 2; i++) {
+            http.perform(delete("/api/trips/" + trip).header("Authorization", "Bearer " + token))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.refund_status").value("pending_airline_review"));
+        }
+        Map<String, Object> record = jdbc.queryForMap("""
+                SELECT status, details ->> 'other' AS other,
+                       details ->> 'refund_status' AS refund_status,
+                       details ->> 'refund_method' AS refund_method,
+                       details ->> 'refund_requested_at' AS refund_requested_at
+                FROM trips WHERE id = ?
+                """, trip);
+        assertEquals("cancelled", record.get("status"));
+        assertEquals("preserved", record.get("other"));
+        assertEquals("pending_airline_review", record.get("refund_status"));
+        assertEquals("original_payment_method", record.get("refund_method"));
+        assertNotNull(record.get("refund_requested_at"));
+        assertEquals("7", jdbc.queryForObject(
+                "SELECT attributes ->> 'seats_available' FROM partner_listings WHERE id = ?", String.class, listing));
+    }
+
+    @Test
+    void failedBookingRollsBackInventoryReservation() throws Exception {
+        long listing = listing("car", "{\"available_vehicles\":1}");
+        Map<String, Object> body = new java.util.HashMap<>(booking("car", listing));
+        body.put("title", "x".repeat(256)); // PostgreSQL rejects this after inventory is reserved.
+        postJson("/api/bookings", body, 500);
+        assertEquals("1", jdbc.queryForObject(
+                "SELECT attributes ->> 'available_vehicles' FROM partner_listings WHERE id = ?", String.class, listing));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT count(*) FROM bookings WHERE user_id = ?", Integer.class, userId));
+    }
+
+    @Test
+    void publicSearchAndMetadataQueriesExecuteOnPostgres() throws Exception {
+        listing("hotel", "{\"latitude\":32.89,\"longitude\":13.19}");
+        http.perform(get("/api/hotels/search").param("city", "triPOL"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.hotels").isNotEmpty());
+        http.perform(get("/api/hotels/nearby").param("lat", "32.89").param("lon", "13.19")
+                        .param("radius", "5")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.hotels").isNotEmpty());
+        http.perform(get("/api/offers")).andExpect(status().isOk());
+        http.perform(get("/api/attractions/search")).andExpect(status().isOk());
+    }
+
+    @Test
+    void partnerListingCreationReturnsOnlyItsGeneratedId() throws Exception {
+        long existing = listing("car", "{\"available_vehicles\":1}");
+        long partnerId = jdbc.queryForObject(
+                "SELECT partner_id FROM partner_listings WHERE id = ?", Long.class, existing);
+        jdbc.update("UPDATE users SET role = 'partner', partner_id = ? WHERE id = ?", partnerId, userId);
+        JsonNode response = postJson("/api/partner/listings", Map.of(
+                "type", "car", "title", "New migration car", "city", "Tripoli",
+                "image_url", "https://example.invalid/car.png", "price", 80,
+                "attributes", Map.of("available_vehicles", 2)), 200);
+        long id = response.path("listing").path("id").asLong();
+        assertTrue(id > 0);
+        assertEquals(partnerId, jdbc.queryForObject(
+                "SELECT partner_id FROM partner_listings WHERE id = ?", Long.class, id));
+        http.perform(get("/api/partner/dashboard").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void flightBookingReservesPassengerInventoryAndReturnsGeneratedId() throws Exception {
+        long listing = listing("flight", "{\"seats_available\":5}");
+        JsonNode response = postJson("/api/trips", Map.of(
+                "origin_code", "MRA", "origin_city", "Misrata",
+                "destination_code", "MJI", "destination_city", "Tripoli",
+                "departure_date", "2035-11-10T10:00:00+02:00",
+                "arrival_date", "2035-11-10T11:00:00+02:00",
+                "flight_number", "ZT51", "partner_listing_id", listing, "passenger_count", 2), 201);
+        long id = response.path("trip").path("id").asLong();
+        assertTrue(id > 0);
+        assertEquals("3", jdbc.queryForObject(
+                "SELECT attributes ->> 'seats_available' FROM partner_listings WHERE id = ?", String.class, listing));
+        http.perform(delete("/api/trips/" + id).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        assertEquals("5", jdbc.queryForObject(
+                "SELECT attributes ->> 'seats_available' FROM partner_listings WHERE id = ?", String.class, listing));
+    }
+
+    @Test
+    void soldOutBookingDoesNotCreateReservationOrNegativeInventory() throws Exception {
+        long listing = listing("hotel", "{}");
+        jdbc.update("UPDATE partner_listings SET available_rooms = 1 WHERE id = ?", listing);
+        postJson("/api/bookings", booking("hotel", listing), 409);
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT available_rooms FROM partner_listings WHERE id = ?", Integer.class, listing));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT count(*) FROM bookings WHERE user_id = ?", Integer.class, userId));
+    }
+
+    @Test
+    void postgresUpsertUpdatesPreferencesInsteadOfDuplicatingThem() throws Exception {
+        for (String destination : new String[]{"Tripoli", "Misrata"}) {
+            http.perform(put("/api/preferences/travel").header("Authorization", "Bearer " + token)
+                            .contentType("application/json").content(json.writeValueAsString(Map.of(
+                                    "preferred_destination", destination,
+                                    "budget_level", "balanced", "travel_pace", "balanced",
+                                    "trip_duration_days", 7, "travelers", 2, "interests", java.util.List.of()))))
+                    .andExpect(status().isOk());
+        }
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT count(*) FROM travel_preferences WHERE user_id = ?", Integer.class, userId));
+        assertEquals("Misrata", jdbc.queryForObject(
+                "SELECT preferred_destination FROM travel_preferences WHERE user_id = ?", String.class, userId));
+    }
+
+    @Test
+    void staffSummaryAndReservationUnionsWorkWithPostgresTypes() throws Exception {
+        jdbc.update("UPDATE users SET role = 'admin' WHERE id = ?", userId);
+        for (String path : new String[]{"/api/admin/dashboard", "/api/admin/reservations", "/api/admin/customers"}) {
+            http.perform(get(path).header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+        }
+    }
+}
