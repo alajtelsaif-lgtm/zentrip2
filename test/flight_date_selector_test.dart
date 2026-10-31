@@ -72,6 +72,8 @@ void main() {
     expect(find.text('CGK'), findsOneWidget);
     expect(find.text('DPS'), findsOneWidget);
     expect(find.text('Flight Date'), findsOneWidget);
+    expect(find.byIcon(Icons.flight_outlined), findsNothing);
+    expect(find.text('Search Flights'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('5'));
     await tester.pumpAndSettle();

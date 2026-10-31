@@ -218,7 +218,6 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
                     params: _params!,
                     onEdit: _editSearch,
                     onSelectDepartureDate: _selectDepartureDate,
-                    l10n: l10n,
                   );
                 }
                 return _FlightResults(
@@ -1079,19 +1078,16 @@ class _NoFlights extends StatelessWidget {
   final FlightSearchParams params;
   final VoidCallback onEdit;
   final ValueChanged<DateTime> onSelectDepartureDate;
-  final AppLocalizations l10n;
 
   const _NoFlights({
     required this.params,
     required this.onEdit,
     required this.onSelectDepartureDate,
-    required this.l10n,
   });
 
   @override
   Widget build(BuildContext context) {
-    final date = MaterialLocalizations.of(context)
-        .formatMediumDate(params.departureDate);
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         _SearchSummary(params: params, onEdit: onEdit, l10n: l10n),
@@ -1099,18 +1095,6 @@ class _NoFlights extends StatelessWidget {
           departureDate: params.departureDate,
           lastDate: params.isRoundTrip ? params.returnDate : null,
           onSelected: onSelectDepartureDate,
-        ),
-        Expanded(
-          child: _MessageState(
-            icon: Icons.flight_outlined,
-            title: l10n.flightNoResultsForSearch(
-              params.originCode,
-              params.destinationCode,
-              date,
-            ),
-            buttonLabel: l10n.searchFlightsBtn,
-            onPressed: onEdit,
-          ),
         ),
       ],
     );
