@@ -5,6 +5,8 @@ import '../../../../core/services/api_service.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/admin_dashboard_model.dart';
+import '../../../../models/legacy_attraction_review_model.dart';
+import 'admin_legacy_attraction_review_dialog.dart';
 
 class AdminPartnersManagement extends StatefulWidget {
   const AdminPartnersManagement({super.key});
@@ -16,9 +18,11 @@ class AdminPartnersManagement extends StatefulWidget {
 
 class AdminPartnersManagementState extends State<AdminPartnersManagement> {
   List<AdminPartner> _partners = const [];
+  List<LegacyAttractionPartner> _legacyAttractions = const [];
   bool _loading = true;
   bool _saving = false;
   String? _error;
+  String? _legacyError;
 
   @override
   void initState() {
@@ -32,6 +36,8 @@ class AdminPartnersManagementState extends State<AdminPartnersManagement> {
       _error = null;
     });
     final result = await ApiService.instance.getAdminPartners();
+    final legacyResult =
+        await ApiService.instance.getAdminLegacyAttractionPartners();
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -39,6 +45,12 @@ class AdminPartnersManagementState extends State<AdminPartnersManagement> {
         _partners = result.data!;
       } else {
         _error = result.errorMessage;
+      }
+      if (legacyResult.isSuccess && legacyResult.data != null) {
+        _legacyAttractions = legacyResult.data!;
+        _legacyError = null;
+      } else {
+        _legacyError = legacyResult.errorMessage;
       }
     });
   }
@@ -112,6 +124,57 @@ class AdminPartnersManagementState extends State<AdminPartnersManagement> {
     await reload();
   }
 
+  Future<void> _reviewAttraction(LegacyAttractionPartner partner) async {
+    final l10n = AppLocalizations.of(context);
+    final placesResult = await ApiService.instance.getAdminMonuments();
+    if (!mounted) return;
+    if (placesResult.isFailure || placesResult.data == null) {
+      AppSnackbar.error(context, placesResult.errorMessage ?? l10n.genericError);
+      return;
+    }
+    final decisions = await showDialog<List<Map<String, dynamic>>>(
+      context: context,
+      builder: (_) => AdminLegacyAttractionReviewDialog(
+        partner: partner,
+        places: placesResult.data!,
+      ),
+    );
+    if (decisions == null || !mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.adminLegacyAttractionConfirmTitle),
+        content: Text(l10n.adminLegacyAttractionConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(l10n.adminLegacyAttractionApproveRetire),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _saving = true);
+    final result =
+        await ApiService.instance.reviewAndRetireLegacyAttractionPartner(
+      id: partner.id,
+      listingDecisions: decisions,
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (result.isFailure) {
+      AppSnackbar.error(context, result.errorMessage ?? l10n.genericError);
+      return;
+    }
+    AppSnackbar.success(context, l10n.adminLegacyAttractionReviewSaved);
+    await reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -162,8 +225,52 @@ class AdminPartnersManagementState extends State<AdminPartnersManagement> {
             ),
           ),
           const SizedBox(height: 14),
-          if (_partners.isEmpty) _PartnerEmptyState(text: l10n.adminNoPartners),
-          for (final partner in _partners)
+          Text(
+            l10n.adminLegacyAttractionReviewTitle,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          if (_legacyError != null)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.error_outline_rounded),
+                title: Text(_legacyError!),
+                trailing: IconButton(
+                  onPressed: reload,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+              ),
+            ),
+          if (_legacyAttractions.isEmpty && _legacyError == null)
+            _PartnerEmptyState(text: l10n.adminNoPartners),
+          for (final partner in _legacyAttractions)
+            _LegacyAttractionCard(
+              partner: partner,
+              saving: _saving,
+              onReview: partner.isReviewed || _saving
+                  ? null
+                  : () => _reviewAttraction(partner),
+            ),
+          const SizedBox(height: 20),
+          Text(
+            l10n.adminPartners,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          if (_partners
+                  .where((p) => p.serviceType.toLowerCase() != 'attraction')
+                  .isEmpty &&
+              _legacyAttractions.isEmpty)
+            _PartnerEmptyState(text: l10n.adminNoPartners),
+          for (final partner
+              in _partners.where(
+                  (p) => p.serviceType.toLowerCase() != 'attraction'))
             _PartnerCard(
               partner: partner,
               serviceLabel: _serviceLabel(partner.serviceType, l10n),
@@ -185,10 +292,133 @@ class AdminPartnersManagementState extends State<AdminPartnersManagement> {
         'airline' => l10n.adminServiceAirline,
         'hotel' => l10n.adminServiceHotel,
         'car' => l10n.adminServiceCar,
+        'attraction' => l10n.adminServiceAttraction,
         'transfer' => l10n.adminServiceTransfer,
         'travel' => l10n.adminServiceTravel,
         _ => type,
       };
+}
+
+class _LegacyAttractionCard extends StatelessWidget {
+  final LegacyAttractionPartner partner;
+  final bool saving;
+  final VoidCallback? onReview;
+
+  const _LegacyAttractionCard({
+    required this.partner,
+    required this.saving,
+    required this.onReview,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final statusColor =
+        partner.isActive ? AppColors.accentGreen : AppColors.textSecondary;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: AppColors.primarySurface,
+                  child: Icon(Icons.attractions_rounded,
+                      color: AppColors.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    partner.name,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Chip(
+                  label: Text(partner.isActive
+                      ? l10n.adminPartnerStatusActive
+                      : l10n.adminPartnerStatusInactive),
+                  labelStyle: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            if (partner.accounts.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SelectableText(
+                partner.accounts.join(', '),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _PartnerStat(
+                  label: l10n.adminPartnerAccounts,
+                  value: partner.accounts.length,
+                ),
+                _PartnerStat(
+                  label: l10n.adminPartnerListings,
+                  value: partner.listings.length,
+                ),
+              ],
+            ),
+            if (partner.listings.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(l10n.adminLegacyAttractionNoListings),
+              )
+            else ...[
+              const SizedBox(height: 8),
+              for (final listing in partner.listings)
+                Padding(
+                  padding: const EdgeInsets.only(top: 5),
+                  child: Text(
+                    '• ${listing.title.isEmpty ? '#${listing.id}' : listing.title}'
+                    ' — ${listing.type}'
+                    '${listing.city.isEmpty ? '' : ', ${listing.city}'}'
+                    '${listing.country.isEmpty ? '' : ', ${listing.country}'}'
+                    ' — ${listing.active ? l10n.adminPartnerStatusActive : l10n.adminPartnerStatusInactive}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+            ],
+            const Divider(height: 24),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: partner.isReviewed
+                  ? Text(
+                      l10n.adminLegacyAttractionAccountReviewedBy(
+                        partner.reviewedByName?.isNotEmpty == true
+                            ? partner.reviewedByName!
+                            : l10n.adminDashboard,
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    )
+                  : FilledButton.icon(
+                      onPressed: saving ? null : onReview,
+                      icon: saving
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.fact_check_outlined),
+                      label: Text(l10n.adminLegacyAttractionReviewAction),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PartnerCard extends StatelessWidget {

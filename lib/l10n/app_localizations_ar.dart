@@ -2131,6 +2131,60 @@ class AppLocalizationsAr extends AppLocalizations {
   String get adminNoPartners => 'لم يتم العثور على شركاء.';
 
   @override
+  String get adminLegacyAttractionReviewTitle =>
+      'مراجعة شركاء المعالم السابقين';
+
+  @override
+  String get adminLegacyAttractionReviewDescription =>
+      'راجع الحساب والقوائم. لكل معلم، اختر مكاناً موجوداً أو أنشئ مكاناً منسقاً أو اتركه دون ربط. لن تُلغى صلاحية الشريك إلا بعد موافقتك.';
+
+  @override
+  String get adminLegacyAttractionReviewAction => 'مراجعة وإلغاء الوصول';
+
+  @override
+  String get adminLegacyAttractionReviewed => 'تمت المراجعة وإلغاء الوصول';
+
+  @override
+  String get adminLegacyAttractionApproveRetire => 'الموافقة وإلغاء الوصول';
+
+  @override
+  String get adminLegacyAttractionConfirmTitle =>
+      'هل توافق على إلغاء وصول الشريك؟';
+
+  @override
+  String get adminLegacyAttractionConfirmBody =>
+      'ستفقد حسابات الشريك صلاحية الشريك. ستبقى الشركة وسجل القوائم محفوظين، وستضاف الأماكن المحددة إلى الكتالوج المنسق.';
+
+  @override
+  String get adminLegacyAttractionReviewSaved =>
+      'تمت الموافقة على المراجعة وإلغاء وصول الشريك.';
+
+  @override
+  String get adminLegacyAttractionCreatePlace => 'إنشاء مكان منسق';
+
+  @override
+  String get adminLegacyAttractionOmit => 'اتركه دون ربط';
+
+  @override
+  String get adminLegacyAttractionUseExisting => 'استخدم مكاناً موجوداً';
+
+  @override
+  String get adminLegacyAttractionNonPlaceListing =>
+      'لا يمكن إضافة هذا النوع إلى الأماكن. ستبقى القائمة محفوظة.';
+
+  @override
+  String get adminLegacyAttractionNoListings =>
+      'لا توجد قوائم مرتبطة بهذا الحساب.';
+
+  @override
+  String get adminLegacyAttractionReviewPlace => 'ربط المكان';
+
+  @override
+  String adminLegacyAttractionAccountReviewedBy(Object name) {
+    return 'تمت المراجعة بواسطة $name';
+  }
+
+  @override
   String get adminServiceAirline => 'شركة طيران';
 
   @override
@@ -2144,6 +2198,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get adminServiceTravel => 'باقات سياحية';
+
+  @override
+  String get adminServiceAttraction => 'المعالم (حسابات سابقة)';
 
   @override
   String get adminRequiredField => 'هذا الحقل مطلوب.';

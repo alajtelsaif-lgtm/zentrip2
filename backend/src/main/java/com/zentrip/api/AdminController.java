@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.Map;
 import java.util.Locale;
 import java.util.Set;
+import java.util.LinkedHashSet;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -84,7 +85,8 @@ public class AdminController {
                 SELECT p.id, p.name, p.slug, p.service_type, p.status, p.created_at,
                        COALESCE(accounts.account_count, 0) AS account_count,
                        COALESCE(accounts.contact_emails, '') AS contact_emails,
-                       COALESCE(listings.listing_count, 0) AS listing_count
+                       COALESCE(listings.listing_count, 0) AS listing_count,
+                       reviews.approved_at AS attraction_reviewed_at
                 FROM partners p
                 LEFT JOIN (
                     SELECT partner_id, COUNT(*) AS account_count,
@@ -98,9 +100,216 @@ public class AdminController {
                     FROM partner_listings
                     GROUP BY partner_id
                 ) listings ON listings.partner_id = p.id
+                LEFT JOIN legacy_attraction_partner_reviews reviews
+                    ON reviews.partner_id = p.id
                 ORDER BY (LOWER(p.status) = 'active') DESC, LOWER(p.name), p.id
                 """);
         return Map.of("partners", rows);
+    }
+
+    @GetMapping("/partners/legacy-attractions")
+    public Map<String, Object> legacyAttractionPartners(HttpServletRequest request) {
+        requireAdminId(request);
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT p.id AS partner_id, p.name AS partner_name, p.slug,
+                       p.status, p.created_at, reviews.approved_at,
+                       reviewer.name AS reviewed_by_name,
+                       u.email AS account_email,
+                       l.id AS listing_id, l.type AS listing_type, l.title,
+                       l.city, l.country, l.description, l.image_url, l.price,
+                       l.active AS listing_active, l.attributes::text AS listing_attributes,
+                       l.google_rating, l.google_review_count, l.location_name,
+                       l.google_maps_url, l.place_id
+                FROM partners p
+                LEFT JOIN users u ON u.partner_id = p.id
+                LEFT JOIN legacy_attraction_partner_reviews reviews
+                    ON reviews.partner_id = p.id
+                LEFT JOIN users reviewer ON reviewer.id = reviews.reviewed_by
+                LEFT JOIN partner_listings l ON l.partner_id = p.id
+                WHERE LOWER(p.service_type) = 'attraction'
+                ORDER BY p.id, l.id, u.email
+                """);
+
+        Map<Long, Map<String, Object>> partnersById = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            long partnerId = ((Number) row.get("partner_id")).longValue();
+            Map<String, Object> partner = partnersById.computeIfAbsent(partnerId, id -> {
+                Map<String, Object> value = new LinkedHashMap<>();
+                value.put("id", id);
+                value.put("name", row.get("partner_name"));
+                value.put("slug", row.get("slug"));
+                value.put("status", row.get("status"));
+                value.put("created_at", row.get("created_at"));
+                value.put("reviewed_at", row.get("approved_at"));
+                value.put("reviewed_by_name", row.get("reviewed_by_name"));
+                value.put("accounts", new LinkedHashSet<String>());
+                value.put("listings", new ArrayList<Map<String, Object>>());
+                value.put("_listing_ids", new LinkedHashSet<Long>());
+                return value;
+            });
+            if (row.get("account_email") != null) {
+                @SuppressWarnings("unchecked")
+                Set<String> accounts = (Set<String>) partner.get("accounts");
+                accounts.add(text(row.get("account_email")));
+            }
+            if (row.get("listing_id") != null) {
+                @SuppressWarnings("unchecked")
+                Set<Long> addedListingIds = (Set<Long>) partner.get("_listing_ids");
+                long listingId = ((Number) row.get("listing_id")).longValue();
+                if (!addedListingIds.add(listingId)) continue;
+                Map<String, Object> listing = new LinkedHashMap<>();
+                listing.put("id", listingId);
+                listing.put("type", row.get("listing_type"));
+                listing.put("title", row.get("title"));
+                listing.put("city", row.get("city"));
+                listing.put("country", row.get("country"));
+                listing.put("description", row.get("description"));
+                listing.put("image_url", row.get("image_url"));
+                listing.put("price", row.get("price"));
+                listing.put("active", row.get("listing_active"));
+                listing.put("attributes", parseObject(row.get("listing_attributes")));
+                listing.put("google_rating", row.get("google_rating"));
+                listing.put("google_review_count", row.get("google_review_count"));
+                listing.put("location_name", row.get("location_name"));
+                listing.put("google_maps_url", row.get("google_maps_url"));
+                listing.put("place_id", row.get("place_id"));
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> listings =
+                        (List<Map<String, Object>>) partner.get("listings");
+                listings.add(listing);
+            }
+        }
+        for (Map<String, Object> partner : partnersById.values()) {
+            @SuppressWarnings("unchecked")
+            Set<String> accounts = (Set<String>) partner.get("accounts");
+            partner.put("accounts", List.copyOf(accounts));
+            partner.remove("_listing_ids");
+        }
+        return Map.of("partners", List.copyOf(partnersById.values()));
+    }
+
+    @PostMapping("/partners/{id}/attraction-review")
+    @Transactional
+    public Map<String, Object> reviewAndRetireAttractionPartner(
+            @PathVariable long id,
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        long adminId = requireAdminId(request);
+        if (!booleanValue(body.get("approved"), false)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Admin approval is required before retiring access");
+        }
+
+        List<Map<String, Object>> partnerRows = jdbc.queryForList("""
+                SELECT id, service_type, status
+                FROM partners
+                WHERE id = ?
+                FOR UPDATE
+                """, id);
+        if (partnerRows.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attraction partner not found");
+        }
+        Map<String, Object> partner = partnerRows.getFirst();
+        if (!"attraction".equalsIgnoreCase(text(partner.get("service_type")))) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "This review is only for attraction partners");
+        }
+        String status = text(partner.get("status"));
+        if (!"active".equalsIgnoreCase(status)
+                && !"inactive".equalsIgnoreCase(status)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Attraction partner must be active or inactive");
+        }
+        Integer priorReview = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM legacy_attraction_partner_reviews WHERE partner_id = ?",
+                Integer.class,
+                id);
+        if (priorReview != null && priorReview > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "This attraction partner has already been reviewed");
+        }
+
+        List<Map<String, Object>> sourceListings = jdbc.queryForList("""
+                SELECT id, type, title, city, country, description, image_url, price,
+                       attributes::text AS attributes, google_rating, google_review_count
+                FROM partner_listings
+                WHERE partner_id = ? AND LOWER(type) = 'attraction'
+                ORDER BY id
+                FOR UPDATE
+                """, id);
+        List<Map<String, Object>> submitted = reviewDecisions(body.get("listings"));
+        Map<Long, Map<String, Object>> decisionsByListing = new LinkedHashMap<>();
+        for (Map<String, Object> decision : submitted) {
+            long listingId = positiveLong(decision.get("listing_id"), "listing_id");
+            if (decisionsByListing.putIfAbsent(listingId, decision) != null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Each attraction listing must be reviewed once");
+            }
+        }
+        Set<Long> sourceIds = new LinkedHashSet<>();
+        for (Map<String, Object> listing : sourceListings) {
+            sourceIds.add(((Number) listing.get("id")).longValue());
+        }
+        if (!sourceIds.equals(decisionsByListing.keySet())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Review every attraction listing before approving this account");
+        }
+
+        List<Map<String, Object>> auditDecisions = new ArrayList<>();
+        int mappedCount = 0;
+        int skippedCount = 0;
+        for (Map<String, Object> source : sourceListings) {
+            long listingId = ((Number) source.get("id")).longValue();
+            Map<String, Object> decision = decisionsByListing.get(listingId);
+            String action = requiredText(decision, "action", 30)
+                    .toLowerCase(Locale.ROOT);
+            Map<String, Object> audit = new LinkedHashMap<>();
+            audit.put("listing_id", listingId);
+            audit.put("action", action);
+            switch (action) {
+                case "existing" -> {
+                    String monumentId = requiredText(decision, "monument_id", 64);
+                    requireCatalogItem(
+                            "SELECT COUNT(*) FROM tourist_monuments "
+                                    + "WHERE id = ? AND is_active = TRUE",
+                            monumentId,
+                            "Selected active place was not found");
+                    audit.put("monument_id", monumentId);
+                    mappedCount++;
+                }
+                case "create" -> {
+                    String monumentId = createMonumentFromLegacyListing(source);
+                    audit.put("monument_id", monumentId);
+                    mappedCount++;
+                }
+                case "omit" -> skippedCount++;
+                default -> throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Choose an existing place, create a place, or leave the listing unmapped");
+            }
+            auditDecisions.add(audit);
+        }
+
+        jdbc.update("""
+                INSERT INTO legacy_attraction_partner_reviews
+                    (partner_id, reviewed_by, decisions, mapped_listing_count, omitted_listing_count)
+                VALUES (?, ?, CAST(? AS JSONB), ?, ?)
+                """, id, adminId, jsonList(auditDecisions), mappedCount, skippedCount);
+        jdbc.update("""
+                UPDATE partners
+                SET status = 'inactive', updated_at = NOW()
+                WHERE id = ?
+                """, id);
+        jdbc.update("""
+                UPDATE users
+                SET role = 'customer', updated_at = NOW()
+                WHERE partner_id = ? AND role = 'partner'
+                """, id);
+        return Map.of(
+                "message", "Attraction partner reviewed and access retired",
+                "mapped_listing_count", mappedCount,
+                "omitted_listing_count", skippedCount);
     }
 
     @PostMapping("/partners")
@@ -178,8 +387,14 @@ public class AdminController {
                 UPDATE partners
                 SET status = 'inactive', updated_at = NOW()
                 WHERE id = ? AND LOWER(status) = 'active'
+                    AND LOWER(service_type) <> 'attraction'
                 """, id);
         if (updated == 0) {
+            if (isAttractionPartner(id)) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Review and approve this attraction partner before retiring access");
+            }
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Active partner not found");
         }
         jdbc.update("""
@@ -200,8 +415,14 @@ public class AdminController {
                 UPDATE partners
                 SET status = 'active', updated_at = NOW()
                 WHERE id = ? AND LOWER(status) <> 'active'
+                    AND LOWER(service_type) <> 'attraction'
                 """, id);
         if (updated == 0) {
+            if (isAttractionPartner(id)) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Attraction partner access cannot be restored through partner management");
+            }
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Inactive partner not found");
         }
         jdbc.update("""
@@ -641,6 +862,162 @@ public class AdminController {
         } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
             throw new IllegalStateException("Stored catalog tags are invalid JSON", exception);
         }
+    }
+
+    private static Map<String, Object> parseObject(Object raw) {
+        if (raw instanceof Map<?, ?> values) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            values.forEach((key, value) -> result.put(String.valueOf(key), value));
+            return result;
+        }
+        if (raw == null || raw.toString().isBlank()) return new LinkedHashMap<>();
+        try {
+            return JSON.readValue(
+                    raw.toString(),
+                    JSON.getTypeFactory().constructMapType(
+                            Map.class, String.class, Object.class));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+            throw new IllegalStateException("Stored partner listing attributes are invalid JSON", exception);
+        }
+    }
+
+    private static List<Map<String, Object>> reviewDecisions(Object raw) {
+        if (!(raw instanceof List<?> values)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "listings must contain a decision for every attraction");
+        }
+        List<Map<String, Object>> decisions = new ArrayList<>();
+        for (Object value : values) {
+            if (!(value instanceof Map<?, ?> fields)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Each listing decision must be an object");
+            }
+            Map<String, Object> decision = new LinkedHashMap<>();
+            fields.forEach((key, fieldValue) ->
+                    decision.put(String.valueOf(key), fieldValue));
+            decisions.add(decision);
+        }
+        return decisions;
+    }
+
+    private static long positiveLong(Object raw, String key) {
+        try {
+            long value = Long.parseLong(String.valueOf(raw));
+            if (value <= 0) throw new NumberFormatException();
+            return value;
+        } catch (NumberFormatException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, key + " must be a positive integer");
+        }
+    }
+
+    private String createMonumentFromLegacyListing(Map<String, Object> source) {
+        Map<String, Object> attributes = parseObject(source.get("attributes"));
+        String title = text(source.get("title")).trim();
+        String city = text(source.get("city")).trim();
+        String country = text(source.get("country")).trim();
+        String description = text(source.get("description")).trim();
+        if (title.isEmpty() || city.isEmpty() || description.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "A place needs a title, city, and description; choose an existing place or omit it");
+        }
+        String location = country.isEmpty() ? city : city + ", " + country;
+        String categoryValue = attributeText(attributes, "category", "landmark")
+                .toLowerCase(Locale.ROOT);
+        Set<String> allowedCategories =
+                Set.of("landmark", "museum", "park", "beach", "restaurant", "shopping");
+        String category = allowedCategories.contains(categoryValue)
+                ? categoryValue
+                : "landmark";
+        String categoryTag = attributeText(
+                attributes, "category_tag", attributeText(attributes, "category", ""));
+        String workingHours = attributeText(
+                attributes, "opening_hours", attributeText(attributes, "working_hours", ""));
+        String bestTime = attributeText(attributes, "best_time_to_visit", "");
+        List<String> tags = parseStringList(attributes.get("tags"));
+        java.math.BigDecimal rating = sourceRating(
+                attributes.get("rating"), source.get("google_rating"));
+        int reviewCount = sourceReviewCount(
+                attributes.get("review_count"), source.get("google_review_count"));
+        Object entryFee = attributes.get("entry_fee") != null
+                ? attributes.get("entry_fee")
+                : source.get("price");
+        java.math.BigDecimal validEntryFee =
+                entryFee == null ? null : nonNegativeMoney(entryFee, "entry_fee");
+        String id = UUID.randomUUID().toString();
+        jdbc.update("""
+                INSERT INTO tourist_monuments (
+                    id, title, location, category_tag, category, rating,
+                    review_count, description, working_hours, best_time_to_visit,
+                    entry_fee, image_url, tags, is_active
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS JSONB), TRUE)
+                """,
+                id,
+                title,
+                location,
+                categoryTag,
+                category,
+                rating,
+                reviewCount,
+                description,
+                workingHours,
+                bestTime,
+                validEntryFee,
+                text(source.get("image_url")),
+                jsonList(tags));
+        return id;
+    }
+
+    private static String attributeText(
+            Map<String, Object> attributes, String key, String fallback) {
+        Object value = attributes.get(key);
+        return value == null ? fallback : text(value).trim();
+    }
+
+    private static java.math.BigDecimal sourceRating(Object preferred, Object fallback) {
+        java.math.BigDecimal value = sourceDecimal(preferred, fallback);
+        if (value.signum() < 0 || value.compareTo(java.math.BigDecimal.valueOf(5)) > 0) {
+            return java.math.BigDecimal.ZERO;
+        }
+        return value;
+    }
+
+    private static java.math.BigDecimal sourceDecimal(Object preferred, Object fallback) {
+        for (Object candidate : List.of(
+                preferred == null ? "" : preferred,
+                fallback == null ? "" : fallback)) {
+            try {
+                if (!String.valueOf(candidate).isBlank()) {
+                    return new java.math.BigDecimal(String.valueOf(candidate));
+                }
+            } catch (NumberFormatException ignored) {
+                // Try the next source value, then default to zero.
+            }
+        }
+        return java.math.BigDecimal.ZERO;
+    }
+
+    private static int sourceReviewCount(Object preferred, Object fallback) {
+        for (Object candidate : List.of(
+                preferred == null ? "" : preferred,
+                fallback == null ? "" : fallback)) {
+            try {
+                int value = Integer.parseInt(String.valueOf(candidate));
+                return Math.max(value, 0);
+            } catch (NumberFormatException ignored) {
+                // Try the next source value, then default to zero.
+            }
+        }
+        return 0;
+    }
+
+    private boolean isAttractionPartner(long id) {
+        Integer count = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM partners
+                WHERE id = ? AND LOWER(service_type) = 'attraction'
+                """, Integer.class, id);
+        return count != null && count > 0;
     }
 
     private static String jsonList(Object raw) {

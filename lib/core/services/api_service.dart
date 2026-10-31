@@ -28,6 +28,7 @@ import 'api_result.dart';
 import '../../models/map_search_result.dart';
 import '../../models/admin_dashboard_model.dart';
 import '../../models/partner_dashboard_model.dart';
+import '../../models/legacy_attraction_review_model.dart';
 
 /// طبقة الشبكة المركزية — كل التواصل مع الـ PHP Laravel API يمر من هنا.
 /// الـ Controllers لا تُنشئ Dio مباشرةً أبداً، بل تستدعي ApiService.instance.
@@ -815,6 +816,32 @@ class ApiService {
       return (response.data['partners'] as List)
           .map((item) => AdminPartner.fromJson(item as Map<String, dynamic>))
           .toList();
+    });
+  }
+
+  Future<ApiResult<List<LegacyAttractionPartner>>>
+      getAdminLegacyAttractionPartners() {
+    return _request(() async {
+      final response = await _dio.get('/admin/partners/legacy-attractions');
+      return (response.data['partners'] as List)
+          .map((item) => LegacyAttractionPartner.fromJson(
+              Map<String, dynamic>.from(item as Map)))
+          .toList();
+    });
+  }
+
+  Future<ApiResult<void>> reviewAndRetireLegacyAttractionPartner({
+    required int id,
+    required List<Map<String, dynamic>> listingDecisions,
+  }) {
+    return _request(() async {
+      await _dio.post(
+        '/admin/partners/$id/attraction-review',
+        data: {
+          'approved': true,
+          'listings': listingDecisions,
+        },
+      );
     });
   }
 

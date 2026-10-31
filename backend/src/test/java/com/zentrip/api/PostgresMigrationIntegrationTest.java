@@ -158,6 +158,118 @@ class PostgresMigrationIntegrationTest {
     }
 
     @Test
+    void legacyAttractionReviewMapsChosenPlacesAndRetiresOnlyAfterAdminApproval()
+            throws Exception {
+        jdbc.update("UPDATE users SET role = 'admin' WHERE id = ?", userId);
+        long partnerId = jdbc.queryForObject("""
+                INSERT INTO partners (slug, name, service_type, status)
+                VALUES (?, 'Legacy Attractions', 'attraction', 'active')
+                RETURNING id
+                """, Long.class, UUID.randomUUID().toString());
+        String ownerEmail = UUID.randomUUID() + "@example.invalid";
+        long ownerId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password, role, partner_id)
+                VALUES ('Attraction Owner', ?, 'unused-test-hash', 'partner', ?)
+                RETURNING id
+                """, Long.class, ownerEmail, partnerId);
+        jdbc.update("""
+                INSERT INTO tourist_monuments
+                    (id, title, location, description, tags)
+                VALUES ('integration-existing-place', 'Existing Place', 'Tripoli, Libya',
+                        'Already curated', '[]'::jsonb)
+                """);
+        long createListingId = jdbc.queryForObject("""
+                INSERT INTO partner_listings
+                    (partner_id, type, title, city, country, description, image_url,
+                     price, active, attributes)
+                VALUES (?, 'attraction', 'Old City Museum', 'Tripoli', 'Libya',
+                        'Historic museum', 'https://example.invalid/museum.jpg',
+                        3.50, TRUE,
+                        '{"category":"museum","rating":4.8,"review_count":27,
+                          "opening_hours":"9:00-17:00","tags":["History","Artifacts"]}'::jsonb)
+                RETURNING id
+                """, Long.class, partnerId);
+        long omitListingId = jdbc.queryForObject("""
+                INSERT INTO partner_listings
+                    (partner_id, type, title, city, country, description, attributes)
+                VALUES (?, 'attraction', 'Unverified site', 'Tripoli', 'Libya',
+                        'Details need research', '{}'::jsonb)
+                RETURNING id
+                """, Long.class, partnerId);
+        long existingListingId = jdbc.queryForObject("""
+                INSERT INTO partner_listings
+                    (partner_id, type, title, city, country, description, attributes)
+                VALUES (?, 'attraction', 'Existing Place Duplicate', 'Tripoli', 'Libya',
+                        'Same landmark', '{}'::jsonb)
+                RETURNING id
+                """, Long.class, partnerId);
+        long otherTypeListingId = jdbc.queryForObject("""
+                INSERT INTO partner_listings
+                    (partner_id, type, title, city, country, description, attributes)
+                VALUES (?, 'hotel', 'Legacy hotel', 'Tripoli', 'Libya',
+                        'Non-place inventory', '{}'::jsonb)
+                RETURNING id
+                """, Long.class, partnerId);
+
+        http.perform(get("/api/admin/partners/legacy-attractions")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.partners[?(@.id == " + partnerId + ")].listings.length()")
+                        .value(4))
+                .andExpect(jsonPath("$.partners[?(@.id == " + partnerId + ")].accounts[0]")
+                        .value(ownerEmail));
+
+        http.perform(delete("/api/admin/partners/" + partnerId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict());
+        assertEquals("active", jdbc.queryForObject(
+                "SELECT status FROM partners WHERE id = ?", String.class, partnerId));
+
+        JsonNode approved = postJson("/api/admin/partners/" + partnerId + "/attraction-review",
+                Map.of(
+                        "approved", true,
+                        "listings", java.util.List.of(
+                                Map.of("listing_id", createListingId, "action", "create"),
+                                Map.of("listing_id", omitListingId, "action", "omit"),
+                                Map.of("listing_id", existingListingId,
+                                        "action", "existing",
+                                        "monument_id", "integration-existing-place"))),
+                200);
+        assertEquals(2, approved.path("mapped_listing_count").asInt());
+        assertEquals(1, approved.path("omitted_listing_count").asInt());
+
+        assertEquals("inactive", jdbc.queryForObject(
+                "SELECT status FROM partners WHERE id = ?", String.class, partnerId));
+        assertEquals("customer", jdbc.queryForObject(
+                "SELECT role FROM users WHERE id = ?", String.class, ownerId));
+        assertEquals(4, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM partner_listings WHERE partner_id = ?",
+                Integer.class, partnerId));
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM partner_listings WHERE id = ? AND active = TRUE",
+                Integer.class, createListingId));
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM partner_listings WHERE id = ?",
+                Integer.class, otherTypeListingId));
+        assertEquals("Old City Museum", jdbc.queryForObject(
+                "SELECT title FROM tourist_monuments WHERE id <> 'integration-existing-place' "
+                        + "AND title = 'Old City Museum'",
+                String.class));
+        assertEquals("[\"History\", \"Artifacts\"]", jdbc.queryForObject(
+                "SELECT tags::text FROM tourist_monuments WHERE title = 'Old City Museum'",
+                String.class));
+        assertEquals(userId, jdbc.queryForObject(
+                "SELECT reviewed_by FROM legacy_attraction_partner_reviews WHERE partner_id = ?",
+                Long.class, partnerId));
+
+        http.perform(get("/api/admin/partners/legacy-attractions")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.partners[?(@.id == " + partnerId + ")].reviewed_at")
+                        .exists());
+    }
+
+    @Test
     void registrationReturnsOneGeneratedIdAndValidSession() throws Exception {
         String email = UUID.randomUUID() + "@example.invalid";
         MvcResult result = http.perform(multipart("/api/auth/register")

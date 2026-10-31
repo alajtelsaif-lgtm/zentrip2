@@ -4096,6 +4096,96 @@ abstract class AppLocalizations {
   /// **'لم يتم العثور على شركاء.'**
   String get adminNoPartners;
 
+  /// No description provided for @adminLegacyAttractionReviewTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'مراجعة شركاء المعالم السابقين'**
+  String get adminLegacyAttractionReviewTitle;
+
+  /// No description provided for @adminLegacyAttractionReviewDescription.
+  ///
+  /// In ar, this message translates to:
+  /// **'راجع الحساب والقوائم. لكل معلم، اختر مكاناً موجوداً أو أنشئ مكاناً منسقاً أو اتركه دون ربط. لن تُلغى صلاحية الشريك إلا بعد موافقتك.'**
+  String get adminLegacyAttractionReviewDescription;
+
+  /// No description provided for @adminLegacyAttractionReviewAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'مراجعة وإلغاء الوصول'**
+  String get adminLegacyAttractionReviewAction;
+
+  /// No description provided for @adminLegacyAttractionReviewed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تمت المراجعة وإلغاء الوصول'**
+  String get adminLegacyAttractionReviewed;
+
+  /// No description provided for @adminLegacyAttractionApproveRetire.
+  ///
+  /// In ar, this message translates to:
+  /// **'الموافقة وإلغاء الوصول'**
+  String get adminLegacyAttractionApproveRetire;
+
+  /// No description provided for @adminLegacyAttractionConfirmTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'هل توافق على إلغاء وصول الشريك؟'**
+  String get adminLegacyAttractionConfirmTitle;
+
+  /// No description provided for @adminLegacyAttractionConfirmBody.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستفقد حسابات الشريك صلاحية الشريك. ستبقى الشركة وسجل القوائم محفوظين، وستضاف الأماكن المحددة إلى الكتالوج المنسق.'**
+  String get adminLegacyAttractionConfirmBody;
+
+  /// No description provided for @adminLegacyAttractionReviewSaved.
+  ///
+  /// In ar, this message translates to:
+  /// **'تمت الموافقة على المراجعة وإلغاء وصول الشريك.'**
+  String get adminLegacyAttractionReviewSaved;
+
+  /// No description provided for @adminLegacyAttractionCreatePlace.
+  ///
+  /// In ar, this message translates to:
+  /// **'إنشاء مكان منسق'**
+  String get adminLegacyAttractionCreatePlace;
+
+  /// No description provided for @adminLegacyAttractionOmit.
+  ///
+  /// In ar, this message translates to:
+  /// **'اتركه دون ربط'**
+  String get adminLegacyAttractionOmit;
+
+  /// No description provided for @adminLegacyAttractionUseExisting.
+  ///
+  /// In ar, this message translates to:
+  /// **'استخدم مكاناً موجوداً'**
+  String get adminLegacyAttractionUseExisting;
+
+  /// No description provided for @adminLegacyAttractionNonPlaceListing.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يمكن إضافة هذا النوع إلى الأماكن. ستبقى القائمة محفوظة.'**
+  String get adminLegacyAttractionNonPlaceListing;
+
+  /// No description provided for @adminLegacyAttractionNoListings.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد قوائم مرتبطة بهذا الحساب.'**
+  String get adminLegacyAttractionNoListings;
+
+  /// No description provided for @adminLegacyAttractionReviewPlace.
+  ///
+  /// In ar, this message translates to:
+  /// **'ربط المكان'**
+  String get adminLegacyAttractionReviewPlace;
+
+  /// No description provided for @adminLegacyAttractionAccountReviewedBy.
+  ///
+  /// In ar, this message translates to:
+  /// **'تمت المراجعة بواسطة {name}'**
+  String adminLegacyAttractionAccountReviewedBy(Object name);
+
   /// No description provided for @adminServiceAirline.
   ///
   /// In ar, this message translates to:
@@ -4125,6 +4215,12 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'باقات سياحية'**
   String get adminServiceTravel;
+
+  /// No description provided for @adminServiceAttraction.
+  ///
+  /// In ar, this message translates to:
+  /// **'المعالم (حسابات سابقة)'**
+  String get adminServiceAttraction;
 
   /// No description provided for @adminRequiredField.
   ///

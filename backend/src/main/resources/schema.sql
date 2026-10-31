@@ -177,6 +177,20 @@ CREATE TABLE IF NOT EXISTS tourist_monuments (
 );
 CREATE INDEX IF NOT EXISTS tourist_monuments_active_order_index ON tourist_monuments (is_active, sort_order, title);
 
+CREATE TABLE IF NOT EXISTS legacy_attraction_partner_reviews (
+    id BIGSERIAL PRIMARY KEY,
+    partner_id BIGINT NOT NULL UNIQUE,
+    reviewed_by BIGINT NOT NULL,
+    approved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    decisions JSONB NOT NULL,
+    mapped_listing_count INTEGER NOT NULL DEFAULT 0 CHECK (mapped_listing_count >= 0),
+    omitted_listing_count INTEGER NOT NULL DEFAULT 0 CHECK (omitted_listing_count >= 0),
+    CONSTRAINT legacy_attraction_reviews_partner_foreign
+        FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE RESTRICT,
+    CONSTRAINT legacy_attraction_reviews_admin_foreign
+        FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE RESTRICT
+);
+
 CREATE TABLE IF NOT EXISTS attraction_visit_counts (
     attraction_id VARCHAR(64) NOT NULL PRIMARY KEY,
     visit_count BIGINT NOT NULL DEFAULT 0 CHECK (visit_count >= 0),

@@ -2145,6 +2145,59 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminNoPartners => 'No partners found.';
 
   @override
+  String get adminLegacyAttractionReviewTitle =>
+      'Legacy attraction partner review';
+
+  @override
+  String get adminLegacyAttractionReviewDescription =>
+      'Review account access and listings. For each attraction, use an existing place, create a curated place, or leave it unmapped. Partner access is retired only after you approve.';
+
+  @override
+  String get adminLegacyAttractionReviewAction => 'Review and retire';
+
+  @override
+  String get adminLegacyAttractionReviewed => 'Reviewed and retired';
+
+  @override
+  String get adminLegacyAttractionApproveRetire => 'Approve and retire access';
+
+  @override
+  String get adminLegacyAttractionConfirmTitle => 'Approve partner retirement?';
+
+  @override
+  String get adminLegacyAttractionConfirmBody =>
+      'Partner accounts will lose partner access. Company and listing history will be kept, and selected places will be added to the curated catalog.';
+
+  @override
+  String get adminLegacyAttractionReviewSaved =>
+      'Review approved. Partner access was retired.';
+
+  @override
+  String get adminLegacyAttractionCreatePlace => 'Create a curated place';
+
+  @override
+  String get adminLegacyAttractionOmit => 'Leave unmapped';
+
+  @override
+  String get adminLegacyAttractionUseExisting => 'Use an existing place';
+
+  @override
+  String get adminLegacyAttractionNonPlaceListing =>
+      'This listing type cannot be added to Places. It will be retained.';
+
+  @override
+  String get adminLegacyAttractionNoListings =>
+      'No listings are attached to this account.';
+
+  @override
+  String get adminLegacyAttractionReviewPlace => 'Place mapping';
+
+  @override
+  String adminLegacyAttractionAccountReviewedBy(Object name) {
+    return 'Reviewed by $name';
+  }
+
+  @override
   String get adminServiceAirline => 'Airline';
 
   @override
@@ -2158,6 +2211,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminServiceTravel => 'Travel packages';
+
+  @override
+  String get adminServiceAttraction => 'Attractions (legacy)';
 
   @override
   String get adminRequiredField => 'This field is required.';
