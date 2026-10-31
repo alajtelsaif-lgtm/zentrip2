@@ -28,9 +28,9 @@ void main() {
       expect(sheetRect.top, lessThan(size.height * 0.30));
       expect(signRect.top, greaterThanOrEqualTo(32));
       expect(signRect.bottom, lessThan(sheetRect.top));
-      expect(poleRect.height, 54);
+      expect(poleRect.height, 34);
       expect(poleRect.top, greaterThan(signRect.bottom));
-      expect(poleRect.bottom, closeTo(sheetRect.top, 0.01));
+      expect(poleRect.bottom, lessThan(sheetRect.top));
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(const SizedBox.shrink());

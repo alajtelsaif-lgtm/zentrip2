@@ -56,7 +56,10 @@ class _AuthScaffoldState extends State<AuthScaffold>
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
-    final heroHeight = mq.size.height * widget.heroFraction;
+    final usableHeight = (mq.size.height - mq.viewInsets.bottom)
+        .clamp(0.0, double.infinity)
+        .toDouble();
+    final heroHeight = usableHeight * widget.heroFraction;
     final topPad = mq.padding.top;
 
     return Scaffold(
@@ -75,21 +78,20 @@ class _AuthScaffoldState extends State<AuthScaffold>
               right: 0,
               height: heroHeight + 40,
               child: Stack(
-              children: [
-                const Positioned.fill(child: _SkyBackground()),
-                Positioned(
-                  top: topPad + 44,
-                  right: 28,
-                  bottom: 0,
-                  child: _SignPost(icon: widget.signIcon),
-                ),
-                Positioned.fill(
-                  child: _AnimatedPlane(
-                    controller: _planeCtrl,
-                    top: topPad + 62,
+                children: [
+                  const Positioned.fill(child: _SkyBackground()),
+                  Positioned(
+                    top: topPad + 44,
+                    right: 28,
+                    child: _SignPost(icon: widget.signIcon),
                   ),
-                ),
-              ],
+                  Positioned.fill(
+                    child: _AnimatedPlane(
+                      controller: _planeCtrl,
+                      top: topPad + 62,
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -117,13 +119,12 @@ class _AuthScaffoldState extends State<AuthScaffold>
             Positioned(
               left: 0,
               right: 0,
-              bottom: 0,
+              bottom: mq.viewInsets.bottom,
               top: heroHeight,
               child: Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(32)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
                   boxShadow: [
                     BoxShadow(
                       color: Color(0x1A000000),
@@ -135,11 +136,11 @@ class _AuthScaffoldState extends State<AuthScaffold>
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final bottomPadding =
-                        mq.viewInsets.bottom + mq.padding.bottom + 16;
-                    final contentHeight = (constraints.maxHeight -
-                            10 -
-                            bottomPadding)
-                        .clamp(0.0, double.infinity);
+                        (mq.viewInsets.bottom == 0 ? mq.padding.bottom : 0.0) +
+                            16.0;
+                    final contentHeight =
+                        (constraints.maxHeight - 10 - bottomPadding)
+                            .clamp(0.0, double.infinity);
                     return SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(
@@ -149,8 +150,7 @@ class _AuthScaffoldState extends State<AuthScaffold>
                         bottomPadding,
                       ),
                       child: ConstrainedBox(
-                        constraints:
-                            BoxConstraints(minHeight: contentHeight),
+                        constraints: BoxConstraints(minHeight: contentHeight),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -271,6 +271,16 @@ class _MountainPainter extends CustomPainter {
       ..lineTo(x1, h)
       ..close();
 
+    final cloud = Paint()..color = Colors.white.withValues(alpha: 0.9);
+    void drawCloud(double cx, double cy, double s) {
+      canvas.drawCircle(Offset(cx, cy), 14 * s, cloud);
+      canvas.drawCircle(Offset(cx + 16 * s, cy + 4 * s), 12 * s, cloud);
+      canvas.drawCircle(Offset(cx - 16 * s, cy + 5 * s), 11 * s, cloud);
+    }
+
+    drawCloud(w * 0.12, h * 0.24, 1.05);
+    drawCloud(w * 0.90, h * 0.16, 0.9);
+
     canvas.drawPath(mountain(-w * 0.1, w * 0.28, h * 0.30, w * 0.75),
         Paint()..color = const Color(0xFF8E9BE0));
     canvas.drawPath(mountain(w * 0.35, w * 0.72, h * 0.42, w * 1.15),
@@ -283,16 +293,6 @@ class _MountainPainter extends CustomPainter {
         ..close(),
       Paint()..color = Colors.white.withValues(alpha: 0.7),
     );
-
-    final cloud = Paint()..color = Colors.white.withValues(alpha: 0.9);
-    void drawCloud(double cx, double cy, double s) {
-      canvas.drawCircle(Offset(cx, cy), 14 * s, cloud);
-      canvas.drawCircle(Offset(cx + 16 * s, cy + 4 * s), 12 * s, cloud);
-      canvas.drawCircle(Offset(cx - 16 * s, cy + 5 * s), 11 * s, cloud);
-    }
-
-    drawCloud(w * 0.12, h * 0.78, 1.1);
-    drawCloud(w * 0.90, h * 0.62, 0.9);
   }
 
   @override
@@ -306,6 +306,7 @@ class _SignPost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 52,
@@ -317,7 +318,12 @@ class _SignPost extends StatelessWidget {
           ),
           child: Icon(icon, color: Colors.white, size: 28),
         ),
-        Expanded(child: Container(width: 4, color: const Color(0xFF9AA3B5))),
+        Container(
+          key: const ValueKey('bus-stop-sign-pole'),
+          width: 4,
+          height: 34,
+          color: const Color(0xFF9AA3B5),
+        ),
       ],
     );
   }
@@ -438,7 +444,10 @@ class AuthButton extends StatefulWidget {
   final VoidCallback? onTap;
   final bool loading;
   const AuthButton(
-      {super.key, required this.label, required this.onTap, this.loading = false});
+      {super.key,
+      required this.label,
+      required this.onTap,
+      this.loading = false});
 
   @override
   State<AuthButton> createState() => _AuthButtonState();
@@ -505,7 +514,10 @@ class SocialButton extends StatelessWidget {
   final Widget icon;
   final VoidCallback onTap;
   const SocialButton(
-      {super.key, required this.label, required this.icon, required this.onTap});
+      {super.key,
+      required this.label,
+      required this.icon,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {

@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/payment_session.dart';
@@ -59,7 +59,9 @@ class ApiService {
     // Android emulators need 10.0.2.2 to reach the host machine. Physical
     // devices should provide a LAN IP via --dart-define=ZENTRIP_API_URL or by
     // setting the environment before running the app.
-    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:8080/api';
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8080/api';
+    }
     if (kIsWeb) return '/api';
     return 'http://127.0.0.1:8080/api';
   }
@@ -198,12 +200,52 @@ class ApiService {
     });
   }
 
+  Future<MultipartFile> _profilePhotoPart(XFile photo) async {
+    const maxBytes = 5 * 1024 * 1024;
+    final extension = photo.name.contains('.')
+        ? photo.name.split('.').last.toLowerCase()
+        : '';
+    var mimeType = photo.mimeType?.split(';').first.trim().toLowerCase();
+
+    if (mimeType == null ||
+        mimeType.isEmpty ||
+        mimeType == 'application/octet-stream') {
+      mimeType = switch (extension) {
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        _ => '',
+      };
+    }
+    if (mimeType == 'image/jpg') mimeType = 'image/jpeg';
+    if (!const {'image/jpeg', 'image/png', 'image/webp'}.contains(mimeType)) {
+      throw const FormatException('Choose a JPEG, PNG, or WebP profile photo.');
+    }
+
+    final length = await photo.length();
+    if (length == 0 || length > maxBytes) {
+      throw const FormatException('Profile photos must be 5 MB or smaller.');
+    }
+    final bytes = await photo.readAsBytes();
+    if (bytes.isEmpty || bytes.length > maxBytes) {
+      throw const FormatException('Profile photos must be 5 MB or smaller.');
+    }
+
+    final extensionForType =
+        mimeType == 'image/jpeg' ? 'jpg' : mimeType.substring('image/'.length);
+    return MultipartFile.fromBytes(
+      bytes,
+      filename: 'profile.$extensionForType',
+      contentType: DioMediaType.parse(mimeType),
+    );
+  }
+
   Future<ApiResult<UserModel>> register({
     required String name,
     required String email,
     required String phone,
     required String password,
-    File? photo,
+    XFile? photo,
   }) async {
     if (useMockMode) {
       return _request(() async {
@@ -227,11 +269,7 @@ class ApiService {
         'phone': phone,
         'password': password,
         'password_confirmation': password,
-        if (photo != null)
-          'photo': await MultipartFile.fromFile(
-            photo.path,
-            filename: 'profile.jpg',
-          ),
+        if (photo != null) 'photo': await _profilePhotoPart(photo),
       });
       final res = await _dio.post('/auth/register', data: formData);
       final user = UserModel.fromJson(res.data['user'] as Map<String, dynamic>);
@@ -339,7 +377,7 @@ class ApiService {
   Future<ApiResult<UserModel>> updateProfile({
     required String name,
     required String phone,
-    File? photo,
+    XFile? photo,
   }) async {
     if (useMockMode) {
       return _request(() async {
@@ -362,11 +400,7 @@ class ApiService {
         'name': name,
         'phone': phone,
         '_method': 'PUT',
-        if (photo != null)
-          'photo': await MultipartFile.fromFile(
-            photo.path,
-            filename: 'profile.jpg',
-          ),
+        if (photo != null) 'photo': await _profilePhotoPart(photo),
       });
       final res = await _dio.post('/profile', data: formData);
       final user = UserModel.fromJson(res.data['user'] as Map<String, dynamic>);
@@ -604,7 +638,14 @@ class ApiService {
     return _request(() async {
       await _dio.post(
         '/users/fcm-token',
-        data: {'token': token, 'platform': Platform.isIOS ? 'ios' : 'android'},
+        data: {
+          'token': token,
+          'platform': kIsWeb
+              ? 'web'
+              : defaultTargetPlatform == TargetPlatform.iOS
+                  ? 'ios'
+                  : 'android',
+        },
       );
     });
   }
@@ -967,7 +1008,8 @@ class ApiService {
   Future<ApiResult<FlightSeatMap>> getFlightSeatMap(String flightId) {
     return _request(() async {
       final response = await _dio.get('/flights/$flightId/seats');
-      return FlightSeatMap.fromJson(Map<String, dynamic>.from(response.data as Map));
+      return FlightSeatMap.fromJson(
+          Map<String, dynamic>.from(response.data as Map));
     });
   }
 

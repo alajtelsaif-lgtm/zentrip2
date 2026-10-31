@@ -1,10 +1,9 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../routes/app_routes.dart';
 import '../../logic/auth_controller.dart';
+import 'auth_shared.dart' show AuthScaffold;
 
 // ───────────────────────── Colors ─────────────────────────
 class AppColors {
@@ -25,9 +24,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _planeCtrl;
+class _LoginScreenState extends State<LoginScreen> {
   final _auth = AuthController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
@@ -36,17 +33,7 @@ class _LoginScreenState extends State<LoginScreen>
   bool _loading = false;
 
   @override
-  void initState() {
-    super.initState();
-    _planeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 9),
-    )..repeat();
-  }
-
-  @override
   void dispose() {
-    _planeCtrl.dispose();
     _auth.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
@@ -108,90 +95,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.white,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final safeTop = MediaQuery.of(context).viewPadding.top;
-          final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-          final availableHeight = (constraints.maxHeight - keyboardHeight)
-              .clamp(0.0, double.infinity);
-          final heroHeight =
-              (availableHeight * (keyboardHeight > 0 ? 0.16 : 0.28))
-                  .clamp(72.0, keyboardHeight > 0 ? 120.0 : 240.0)
-                  .toDouble();
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              // ── Sky + illustration ──
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: heroHeight + 40,
-                child: Stack(
-                  children: [
-                    const Positioned.fill(child: _SkyBackground()),
-                    Positioned(
-                      top: safeTop + 8,
-                      right: (constraints.maxWidth * 0.07)
-                          .clamp(16.0, 28.0)
-                          .toDouble(),
-                      height: math.max(44.0, heroHeight - safeTop - 8),
-                      child: const _BusStopSign(),
-                    ),
-                    // ── الطائرة المتحركة ──
-                    Positioned.fill(
-                      child: _AnimatedPlane(
-                        controller: _planeCtrl,
-                        top:
-                            math.min(heroHeight * 0.42, availableHeight * 0.16),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ── Bottom sheet ──
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: keyboardHeight,
-                top: heroHeight,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(32)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0x1A000000),
-                        blurRadius: 24,
-                        offset: Offset(0, -6),
-                      ),
-                    ],
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(
-                        24,
-                        10,
-                        24,
-                        16,
-                      ),
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      child: _buildForm(),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+    return AuthScaffold(
+      heroFraction: 0.28,
+      showBack: false,
+      child: _buildForm(),
     );
   }
 
@@ -375,176 +282,6 @@ class _LoginScreenState extends State<LoginScreen>
         ),
       ],
     );
-  }
-}
-
-// ───────────────────────── Animated plane ─────────────────────────
-class _AnimatedPlane extends StatelessWidget {
-  final Animation<double> controller;
-  final double top;
-  const _AnimatedPlane({required this.controller, required this.top});
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, c) {
-      return AnimatedBuilder(
-        animation: controller,
-        builder: (context, _) {
-          final t = controller.value; // 0 → 1
-          const planeSize = 26.0;
-          const trailLen = 90.0;
-
-          // يمين ← يسار أو يسار ← يمين: هنا من اليسار لليمين
-          final x = -trailLen + (c.maxWidth + trailLen * 2) * t;
-          // حركة موجية خفيفة (طفو)
-          final y = top + math.sin(t * math.pi * 4) * 6;
-          // ميل الطائرة حسب اتجاه الحركة
-          final tilt = math.cos(t * math.pi * 4) * 0.12;
-
-          // تلاشي عند الدخول والخروج
-          double opacity = 1;
-          if (t < 0.08) opacity = t / 0.08;
-          if (t > 0.92) opacity = (1 - t) / 0.08;
-
-          return Opacity(
-            opacity: opacity.clamp(0.0, 1.0),
-            child: Stack(
-              children: [
-                // الأثر (Trail)
-                Positioned(
-                  left: x - trailLen,
-                  top: y + planeSize / 2 - 1,
-                  child: Container(
-                    width: trailLen,
-                    height: 2,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(2),
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.white.withValues(alpha: 0),
-                          Colors.white.withValues(alpha: 0.85),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // الطائرة
-                Positioned(
-                  left: x,
-                  top: y,
-                  child: Transform.rotate(
-                    angle: math.pi / 2 + tilt,
-                    child: const Icon(
-                      Icons.flight,
-                      size: planeSize,
-                      color: AppColors.navy,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    });
-  }
-}
-
-// ───────────────────────── Sky / mountains fallback ─────────────────────────
-class _SkyBackground extends StatelessWidget {
-  const _SkyBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppColors.skyTop, AppColors.skyBottom],
-        ),
-      ),
-      child: CustomPaint(painter: _MountainPainter(), size: Size.infinite),
-    );
-  }
-}
-
-class _MountainPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    Path mountain(double x0, double peakX, double peakY, double x1) => Path()
-      ..moveTo(x0, h)
-      ..lineTo(peakX, peakY)
-      ..lineTo(x1, h)
-      ..close();
-
-    canvas.drawPath(
-      mountain(-w * 0.1, w * 0.28, h * 0.30, w * 0.75),
-      Paint()..color = const Color(0xFF8E9BE0),
-    );
-    canvas.drawPath(
-      mountain(w * 0.35, w * 0.72, h * 0.42, w * 1.15),
-      Paint()..color = const Color(0xFF6F82D6),
-    );
-    // قمم ثلجية
-    canvas.drawPath(
-      Path()
-        ..moveTo(w * 0.28 - 28, h * 0.30 + 40)
-        ..lineTo(w * 0.28, h * 0.30)
-        ..lineTo(w * 0.28 + 28, h * 0.30 + 40)
-        ..close(),
-      Paint()..color = Colors.white.withValues(alpha: 0.7),
-    );
-
-    // سحب
-    final cloud = Paint()..color = Colors.white.withValues(alpha: 0.9);
-    void drawCloud(double cx, double cy, double s) {
-      canvas.drawCircle(Offset(cx, cy), 14 * s, cloud);
-      canvas.drawCircle(Offset(cx + 16 * s, cy + 4 * s), 12 * s, cloud);
-      canvas.drawCircle(Offset(cx - 16 * s, cy + 5 * s), 11 * s, cloud);
-    }
-
-    drawCloud(w * 0.12, h * 0.42, 1.2);
-    drawCloud(w * 0.90, h * 0.30, 1.0);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
-}
-
-class _BusStopSign extends StatelessWidget {
-  const _BusStopSign();
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final poleHeight = math.min(54.0, math.max(0.0, constraints.maxHeight - 44));
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5A623),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF7A4A12), width: 2),
-            ),
-            child: const Icon(Icons.directions_bus_rounded,
-                color: Colors.white, size: 24),
-          ),
-          Container(
-            key: const ValueKey('bus-stop-sign-pole'),
-            width: 3,
-            height: poleHeight,
-            color: const Color(0xFF9AA3B5),
-          ),
-        ],
-      );
-    });
   }
 }
 

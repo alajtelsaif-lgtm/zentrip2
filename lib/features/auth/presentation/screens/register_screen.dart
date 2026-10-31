@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../routes/app_routes.dart';
 import '../../logic/auth_controller.dart';
@@ -25,7 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
 
-  File? _photo;
+  XFile? _photo;
   bool _obscurePass = true;
   bool _obscureConfirm = true;
   bool _agree = false;

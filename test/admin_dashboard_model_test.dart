@@ -90,6 +90,55 @@ void main() {
     expect(dashboard.recentReservations.single.listingId, 44);
   });
 
+  test('partner dashboard ignores missing or null-heavy database fields', () {
+    final dashboard = PartnerDashboardData.fromJson({
+      'company': null,
+      'summary': {'listing_count': null, 'booked_value': 'NaN'},
+      'recent_reservations': [
+        null,
+        'invalid row',
+        {
+          'id': null,
+          'title': null,
+          'customer_email': null,
+          'customer_phone': null,
+          'amount': null,
+          'reservation_date': null,
+        },
+      ],
+    });
+    final listing = PartnerListing.fromJson({
+      'id': 11,
+      'type': 'flight',
+      'title': null,
+      'city': null,
+      'country': null,
+      'attributes': {
+        'flight_number': null,
+        'meal_plan': 'Breakfast included',
+        'features': [null, 'Wi-Fi', null],
+        'contact_email': 'private@example.com',
+      },
+    });
+    final malformedListing = PartnerListing.fromJson({
+      'type': 'hotel',
+      'attributes': '{not-json',
+    });
+
+    expect(dashboard.companyName, 'Partner account');
+    expect(dashboard.listingCount, 0);
+    expect(dashboard.bookedValue, 0);
+    expect(dashboard.recentReservations, hasLength(1));
+    expect(dashboard.recentReservations.single.customerEmail, isEmpty);
+    expect(listing.locationName, isEmpty);
+    expect(
+      listing.nonEmptyAttributes.keys,
+      containsAll(['meal_plan', 'features', 'contact_email']),
+    );
+    expect(listing.nonEmptyAttributes.keys, isNot(contains('flight_number')));
+    expect(malformedListing.attributes, isEmpty);
+  });
+
   test('partner listing preserves ownership fields and JSON attributes', () {
     final listing = PartnerListing.fromJson({
       'id': 6,
@@ -100,7 +149,8 @@ void main() {
       'image_url': 'https://example.com/hotel.jpg',
       'price': '84.50',
       'active': true,
-      'attributes': '{"listing_code":"HTL-000006","stars":4,"amenities":["wifi"]}',
+      'attributes':
+          '{"listing_code":"HTL-000006","stars":4,"amenities":["wifi"]}',
     });
 
     expect(listing.id, 6);

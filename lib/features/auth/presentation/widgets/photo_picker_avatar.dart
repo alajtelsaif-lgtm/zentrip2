@@ -1,12 +1,14 @@
-import 'dart:io';
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 
 class PhotoPickerAvatar extends StatefulWidget {
-  final File? initialFile;
-  final void Function(File?) onChanged;
+  final XFile? initialFile;
+  final void Function(XFile?) onChanged;
   final double size;
 
   const PhotoPickerAvatar({
@@ -21,12 +23,37 @@ class PhotoPickerAvatar extends StatefulWidget {
 }
 
 class _PhotoPickerAvatarState extends State<PhotoPickerAvatar> {
-  File? _file;
+  static const _maxPhotoBytes = 5 * 1024 * 1024;
+
+  XFile? _file;
+  Uint8List? _previewBytes;
 
   @override
   void initState() {
     super.initState();
     _file = widget.initialFile;
+    if (_file != null) unawaited(_loadPreview(_file!));
+  }
+
+  @override
+  void didUpdateWidget(covariant PhotoPickerAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_file == widget.initialFile) return;
+    _file = widget.initialFile;
+    _previewBytes = null;
+    if (_file != null) unawaited(_loadPreview(_file!));
+  }
+
+  Future<void> _loadPreview(XFile file) async {
+    try {
+      final length = await file.length();
+      if (length == 0 || length > _maxPhotoBytes) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted || _file != file) return;
+      setState(() => _previewBytes = bytes);
+    } catch (_) {
+      // An unreadable optional preview should not prevent registration.
+    }
   }
 
   Future<void> _pick() async {
@@ -34,28 +61,38 @@ class _PhotoPickerAvatarState extends State<PhotoPickerAvatar> {
     final picker = ImagePicker();
     final result = await showModalBottomSheet<ImageSource>(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
-            Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2))),
+            Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primary),
+              leading: const Icon(Icons.camera_alt_outlined,
+                  color: AppColors.primary),
               title: Text(l10n.commonTakePhoto),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: AppColors.primary),
               title: Text(l10n.commonChooseFromGallery),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             if (_file != null)
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: AppColors.accentRed),
-                title: Text(l10n.commonRemovePhoto, style: const TextStyle(color: AppColors.accentRed)),
+                leading: const Icon(Icons.delete_outline,
+                    color: AppColors.accentRed),
+                title: Text(l10n.commonRemovePhoto,
+                    style: const TextStyle(color: AppColors.accentRed)),
                 onTap: () {
                   setState(() => _file = null);
                   widget.onChanged(null);
@@ -68,12 +105,40 @@ class _PhotoPickerAvatarState extends State<PhotoPickerAvatar> {
       ),
     );
 
-    if (result == null) return;
-    final picked = await picker.pickImage(source: result, maxWidth: 800, imageQuality: 85);
-    if (picked == null) return;
-    final file = File(picked.path);
-    setState(() => _file = file);
-    widget.onChanged(file);
+    if (!mounted || result == null) return;
+    try {
+      final picked = await picker.pickImage(
+        source: result,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 80,
+      );
+      if (!mounted || picked == null) return;
+
+      final length = await picked.length();
+      if (length == 0 || length > _maxPhotoBytes) {
+        _showPhotoError('Choose an image smaller than 5 MB.');
+        return;
+      }
+
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _file = picked;
+        _previewBytes = bytes;
+      });
+      widget.onChanged(picked);
+    } catch (_) {
+      if (mounted) {
+        _showPhotoError('Could not read this image. Please try another.');
+      }
+    }
+  }
+
+  void _showPhotoError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -91,21 +156,36 @@ class _PhotoPickerAvatarState extends State<PhotoPickerAvatar> {
               border: Border.all(color: AppColors.primary, width: 2),
             ),
             clipBehavior: Clip.antiAlias,
-            child: _file != null
-                ? Image.file(_file!, fit: BoxFit.cover)
-                : Icon(Icons.person_rounded, size: widget.size * 0.5, color: AppColors.primary),
+            child: _previewBytes != null
+                ? Image.memory(
+                    _previewBytes!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _placeholder(),
+                  )
+                : _file != null
+                    ? const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : _placeholder(),
           ),
           Positioned(
             bottom: 0,
             right: 0,
             child: Container(
               padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+              decoration: const BoxDecoration(
+                  color: AppColors.primary, shape: BoxShape.circle),
+              child: const Icon(Icons.camera_alt_rounded,
+                  color: Colors.white, size: 14),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _placeholder() => Icon(
+        Icons.person_rounded,
+        size: widget.size * 0.5,
+        color: AppColors.primary,
+      );
 }

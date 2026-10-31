@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../models/user_model.dart';
 import '../../../../core/utils/validators.dart';
@@ -22,7 +22,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _ctrl = ProfileController();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _phoneCtrl;
-  File? _photo;
+  XFile? _photo;
 
   UserModel? get user => ApiService.instance.currentUser;
 
@@ -34,17 +34,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   @override
-  void dispose() { _nameCtrl.dispose(); _phoneCtrl.dispose(); _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final ok = await _ctrl.updateProfile(name: _nameCtrl.text.trim(), phone: _phoneCtrl.text.trim(), photo: _photo);
+    final ok = await _ctrl.updateProfile(
+        name: _nameCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+        photo: _photo);
     if (!mounted) return;
     if (ok) {
-      AppSnackbar.success(context, AppLocalizations.of(context).profileUpdatedSuccess);
+      AppSnackbar.success(
+          context, AppLocalizations.of(context).profileUpdatedSuccess);
       Navigator.pop(context);
     } else {
-      AppSnackbar.error(context, _ctrl.errorMessage ?? AppLocalizations.of(context).genericError);
+      AppSnackbar.error(context,
+          _ctrl.errorMessage ?? AppLocalizations.of(context).genericError);
     }
   }
 
@@ -59,17 +69,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           key: _formKey,
           child: Column(
             children: [
-              Center(child: PhotoPickerAvatar(onChanged: (f) => setState(() => _photo = f))),
+              Center(
+                  child: PhotoPickerAvatar(
+                      onChanged: (f) => setState(() => _photo = f))),
               const SizedBox(height: 28),
-              AuthTextField(controller: _nameCtrl, label: l10n.nameLabel, icon: Icons.person_outline,
-                  validator: Validators.requiredValidator(l10n.nameLabel, minLength: 2)),
+              AuthTextField(
+                  controller: _nameCtrl,
+                  label: l10n.nameLabel,
+                  icon: Icons.person_outline,
+                  validator: Validators.requiredValidator(l10n.nameLabel,
+                      minLength: 2)),
               const SizedBox(height: 14),
-              PhoneField(controller: _phoneCtrl, label: l10n.phoneLabel,
-                  validator: Validators.phoneValidator(l10n.phoneLabel, l10n.genericError)),
+              PhoneField(
+                  controller: _phoneCtrl,
+                  label: l10n.phoneLabel,
+                  validator: Validators.phoneValidator(
+                      l10n.phoneLabel, l10n.genericError)),
               const SizedBox(height: 28),
               ListenableBuilder(
                 listenable: _ctrl,
-                builder: (_, __) => PrimaryButton(label: l10n.saveChanges, isLoading: _ctrl.isLoading, onPressed: _save),
+                builder: (_, __) => PrimaryButton(
+                    label: l10n.saveChanges,
+                    isLoading: _ctrl.isLoading,
+                    onPressed: _save),
               ),
             ],
           ),

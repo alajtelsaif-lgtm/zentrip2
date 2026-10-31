@@ -571,6 +571,14 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
     final status =
         listing.active ? l10n.partnerStatusActive : l10n.partnerStatusPaused;
     final availableRooms = listing.availableRooms;
+    final location = [listing.locationName, listing.country]
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty && value.toLowerCase() != 'null')
+        .join(', ');
+    final dynamicDetails = _dynamicListingDetails(listing);
+    final carSpecs =
+        listing.type == 'car' ? _carSpecs(listing, l10n) : const <Widget>[];
+    final features = _displayAttributeList(listing.attributes['features']);
     return _Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,9 +621,10 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text('${listing.locationName}, ${listing.country}',
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          if (location.isNotEmpty)
+            Text(location,
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
           if (listing.listingCode != null) ...[
             const SizedBox(height: 4),
             Text(
@@ -671,18 +680,21 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                 }).toList(),
               ),
             ],
-            const SizedBox(height: 8),
-            Text(
-              '${l10n.partnerHotelAvailableRooms}: $availableRooms',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
+            if (listing.nonEmptyAttributes.containsKey('available_rooms')) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${l10n.partnerHotelAvailableRooms}: $availableRooms',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
               ),
-            ),
-            if (listing.attributes['location_input'] != null) ...[
+            ],
+            if (_attributeText(listing.attributes['location_input']) !=
+                null) ...[
               const SizedBox(height: 4),
               Text(
-                '${l10n.partnerHotelLocation}: ${listing.attributes['location_input']}',
+                '${l10n.partnerHotelLocation}: ${_attributeText(listing.attributes['location_input'])}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -693,55 +705,49 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
             ],
           ],
           if (listing.type == 'car') ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                _listingSpecChip(Icons.star_rounded,
-                    _displayAttribute(listing, 'rating', fallback: '0.0')),
-                _listingSpecChip(
-                    Icons.local_gas_station_rounded,
-                    _displayAttribute(listing, 'fuel_type',
-                        fallback: 'Petrol')),
-                _listingSpecChip(
-                    Icons.settings_rounded,
-                    _displayAttribute(listing, 'transmission',
-                        fallback: 'Automatic')),
-                _listingSpecChip(
-                    Icons.ac_unit_rounded,
-                    listing.attributes['has_ac'] == true
-                        ? l10n.carHasAc
-                        : l10n.carNoAc),
-                _listingSpecChip(Icons.luggage_rounded,
-                    '${_displayAttribute(listing, 'luggage_capacity', fallback: '2')} ${l10n.partnerMaxLuggage}'),
-                _listingSpecChip(Icons.people_rounded,
-                    '${_displayAttribute(listing, 'seats', fallback: '4')} ${l10n.partnerSeats}'),
-              ],
-            ),
-            if (listing.attributes['features'] is List &&
-                (listing.attributes['features'] as List).isNotEmpty) ...[
+            if (carSpecs.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: carSpecs,
+              ),
+            ],
+            if (features.isNotEmpty) ...[
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: (listing.attributes['features'] as List)
+                children: features
                     .map((feature) => Chip(
                           avatar:
                               const Icon(Icons.check_circle_outline, size: 16),
-                          label: Text('$feature'),
+                          label: Text(feature),
                           visualDensity: VisualDensity.compact,
                         ))
                     .toList(),
               ),
             ],
-            const SizedBox(height: 4),
-            Text(
-              '${l10n.partnerAvailableVehicles}: ${_displayAttribute(listing, 'available_vehicles', fallback: '1')}',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 12,
+            if (_attributeText(listing.attributes['available_vehicles']) !=
+                null) ...[
+              const SizedBox(height: 4),
+              Text(
+                '${l10n.partnerAvailableVehicles}: ${_attributeText(listing.attributes['available_vehicles'])}',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
               ),
+            ],
+          ],
+          if (dynamicDetails.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: dynamicDetails
+                  .map((detail) => _dynamicDetailChip(detail.key, detail.value))
+                  .toList(growable: false),
             ),
           ],
           if (listing.description.isNotEmpty) ...[
@@ -772,20 +778,158 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
     );
   }
 
+  static const _alreadyDisplayedAttributeKeys = <String>{
+    'listing_code',
+    'flight_number',
+    'address',
+    'location_name',
+    'neighborhood',
+    'district',
+    'landmark',
+    'location_input',
+    'amenities',
+    'available_rooms',
+    'available_vehicles',
+    'stars',
+    'room_types',
+    'gallery_images',
+    'google_maps_url',
+    'google_place_id',
+    'place_id',
+    'google_rating',
+    'google_review_count',
+    'latitude',
+    'longitude',
+    'tax_and_fees_percentage',
+    'rating',
+    'fuel_type',
+    'transmission',
+    'has_ac',
+    'luggage_capacity',
+    'seats',
+    'features',
+  };
+
+  List<MapEntry<String, String>> _dynamicListingDetails(
+      PartnerListing listing) {
+    const privateKeyFragments = [
+      'password',
+      'token',
+      'secret',
+      'credential',
+      'private',
+      'internal',
+      'contact',
+      'email',
+      'phone',
+      'photo',
+      'image',
+      'url',
+      'path',
+    ];
+    return listing.nonEmptyAttributes.entries
+        .where((entry) {
+          final key = entry.key.trim().toLowerCase();
+          return key.isNotEmpty &&
+              !_alreadyDisplayedAttributeKeys.contains(key) &&
+              !key.endsWith('_id') &&
+              !privateKeyFragments.any(key.contains);
+        })
+        .map((entry) {
+          final label = entry.key
+              .replaceAll(RegExp(r'([a-z])([A-Z])'), r'$1 $2')
+              .replaceAll(RegExp(r'[_-]+'), ' ')
+              .trim()
+              .split(RegExp(r'\s+'))
+              .where((part) => part.isNotEmpty)
+              .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+              .join(' ');
+          final value = _attributeText(entry.value);
+          return value == null ? null : MapEntry(label, value);
+        })
+        .whereType<MapEntry<String, String>>()
+        .take(6)
+        .toList(growable: false);
+  }
+
+  Widget _dynamicDetailChip(String label, String value) => Container(
+        constraints: const BoxConstraints(maxWidth: 280),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          '$label: $value',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          softWrap: true,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
+
+  List<Widget> _carSpecs(PartnerListing listing, AppLocalizations l10n) {
+    final values = listing.nonEmptyAttributes;
+    final specs = <Widget>[];
+    String? value(String key) => _attributeText(values[key]);
+
+    if (value('rating') case final rating?) {
+      specs.add(_listingSpecChip(Icons.star_rounded, rating));
+    }
+    if (value('fuel_type') case final fuelType?) {
+      specs.add(_listingSpecChip(Icons.local_gas_station_rounded, fuelType));
+    }
+    if (value('transmission') case final transmission?) {
+      specs.add(_listingSpecChip(Icons.settings_rounded, transmission));
+    }
+    if (values.containsKey('has_ac')) {
+      final hasAc = values['has_ac'] == true ||
+          values['has_ac'] == 1 ||
+          '${values['has_ac']}'.toLowerCase() == 'true';
+      specs.add(_listingSpecChip(
+          Icons.ac_unit_rounded, hasAc ? l10n.carHasAc : l10n.carNoAc));
+    }
+    if (value('luggage_capacity') case final luggage?) {
+      specs.add(_listingSpecChip(
+          Icons.luggage_rounded, '$luggage ${l10n.partnerMaxLuggage}'));
+    }
+    if (value('seats') case final seats?) {
+      specs.add(_listingSpecChip(
+          Icons.people_rounded, '$seats ${l10n.partnerSeats}'));
+    }
+    return specs;
+  }
+
+  String? _attributeText(Object? value) {
+    if (value == null || value is Map) return null;
+    if (value is List) {
+      final items = value
+          .map(_attributeText)
+          .whereType<String>()
+          .take(3)
+          .toList(growable: false);
+      return items.isEmpty ? null : items.join(', ');
+    }
+    if (value is double && !value.isFinite) return null;
+    final text =
+        value is bool ? (value ? 'Yes' : 'No') : value.toString().trim();
+    if (text.isEmpty ||
+        text.toLowerCase() == 'null' ||
+        text.toLowerCase() == 'undefined') {
+      return null;
+    }
+    return text.length > 80 ? '${text.substring(0, 77)}…' : text;
+  }
+
+  List<String> _displayAttributeList(Object? value) => value is List
+      ? value.map(_attributeText).whereType<String>().toList(growable: false)
+      : const [];
+
   Widget _listingSpecChip(IconData icon, String label) => Chip(
         avatar: Icon(icon, size: 16),
         label: Text(label),
         visualDensity: VisualDensity.compact,
       );
-
-  String _displayAttribute(
-    PartnerListing listing,
-    String key, {
-    required String fallback,
-  }) {
-    final value = listing.attributes[key];
-    return value == null || '$value'.trim().isEmpty ? fallback : '$value';
-  }
 
   String _serviceLabel(AppLocalizations l10n, String? serviceType) =>
       switch (serviceType) {

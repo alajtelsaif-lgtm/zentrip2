@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zentrip/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:zentrip/features/auth/presentation/screens/login_screen.dart';
 import 'package:zentrip/features/auth/presentation/screens/register_screen.dart';
+import 'package:zentrip/features/auth/presentation/screens/verfiy_screen.dart.dart';
 
 void main() {
   setUp(() {
@@ -42,6 +43,28 @@ void main() {
     await tester.ensureVisible(find.text('Create Account'));
     await tester.pump();
     expect(find.text('Create Account'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('OTP sheet fits compact screens and scrolls to verification',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: VerifyScreen(email: 'traveler@example.com'),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('Verify Code'));
+    await tester.pump();
+    expect(find.text('Verify Code'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

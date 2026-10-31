@@ -26,21 +26,22 @@ class PartnerDashboardData {
   });
 
   factory PartnerDashboardData.fromJson(Map<String, dynamic> json) {
-    final company = json['company'] as Map<String, dynamic>;
-    final summary = json['summary'] as Map<String, dynamic>;
-    final reservations = json['recent_reservations'] as List? ?? const [];
+    final company = _jsonObject(json['company']);
+    final summary = _jsonObject(json['summary']);
+    final rawReservations = json['recent_reservations'];
+    final reservations = rawReservations is List ? rawReservations : const [];
     return PartnerDashboardData(
-      companyName: '${company['name'] ?? ''}',
-      serviceType: '${company['service_type'] ?? ''}',
+      companyName: _displayString(company['name']) ?? 'Partner account',
+      serviceType: _displayString(company['service_type']) ?? '',
       listingCount: _asInt(summary['listing_count']),
       activeListingCount: _asInt(summary['active_listing_count']),
       reservationCount: _asInt(summary['reservation_count']),
       customerCount: _asInt(summary['customer_count']),
       bookedValue: _asDouble(summary['booked_value']),
       recentReservations: reservations
-          .map((item) =>
-              PartnerReservation.fromJson(item as Map<String, dynamic>))
-          .toList(),
+          .whereType<Map>()
+          .map((item) => PartnerReservation.fromJson(_jsonObject(item)))
+          .toList(growable: false),
     );
   }
 }
@@ -65,15 +66,15 @@ class PartnerReservation extends AdminReservation {
 
   factory PartnerReservation.fromJson(Map<String, dynamic> json) =>
       PartnerReservation(
-        id: '${json['id'] ?? ''}',
-        type: '${json['type'] ?? ''}',
-        title: '${json['title'] ?? ''}',
-        customerName: '${json['customer_name'] ?? ''}',
+        id: _displayString(json['id']) ?? '',
+        type: _displayString(json['type']) ?? '',
+        title: _displayString(json['title']) ?? '',
+        customerName: _displayString(json['customer_name']) ?? '',
         reservationDate: DateTime.tryParse('${json['reservation_date'] ?? ''}'),
         amount: _asDouble(json['amount']),
-        status: '${json['status'] ?? ''}',
-        customerEmail: '${json['customer_email'] ?? ''}',
-        customerPhone: '${json['customer_phone'] ?? ''}',
+        status: _displayString(json['status']) ?? '',
+        customerEmail: _displayString(json['customer_email']) ?? '',
+        customerPhone: _displayString(json['customer_phone']) ?? '',
         listingId: json['partner_listing_id'] == null
             ? null
             : _asInt(json['partner_listing_id']),
@@ -126,17 +127,29 @@ class PartnerListing {
   double get taxAndFeesPercentage =>
       _asDouble(attributes['tax_and_fees_percentage'], fallback: 12);
 
+  /// Optional database-backed fields to display only when they contain data.
+  /// Null-heavy records stay intact for edits without creating blank UI rows.
+  Map<String, Object?> get nonEmptyAttributes {
+    return Map<String, Object?>.fromEntries(
+      attributes.entries.where((entry) => _hasDisplayValue(entry.value)),
+    );
+  }
+
   factory PartnerListing.fromJson(Map<String, dynamic> json) {
     final rawAttributes = json['attributes'];
     final Map<String, dynamic> attributes = <String, dynamic>{};
     if (rawAttributes is Map<String, dynamic>) {
       attributes.addAll(rawAttributes);
     } else if (rawAttributes is Map) {
-      attributes.addAll(Map<String, dynamic>.from(rawAttributes));
-    } else if (rawAttributes is String && rawAttributes.isNotEmpty) {
-      final decoded = jsonDecode(rawAttributes);
-      if (decoded is Map) {
-        attributes.addAll(Map<String, dynamic>.from(decoded));
+      attributes.addAll(_jsonObject(rawAttributes));
+    } else if (rawAttributes is String && rawAttributes.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawAttributes);
+        if (decoded is Map) {
+          attributes.addAll(_jsonObject(decoded));
+        }
+      } on FormatException {
+        // Keep the listing usable when optional JSONB data is malformed.
       }
     }
     for (final key in const [
@@ -162,6 +175,7 @@ class PartnerListing {
       'google_place_id',
     ]) {
       if (json.containsKey(key) &&
+          json[key] != null &&
           (!attributes.containsKey(key) ||
               key == 'google_rating' ||
               key == 'google_review_count')) {
@@ -182,11 +196,11 @@ class PartnerListing {
     return PartnerListing(
       id: json['id'] == null ? null : _asInt(json['id']),
       type: '${json['type'] ?? ''}',
-      title: '${json['title'] ?? ''}',
-      city: '${json['city'] ?? ''}',
-      country: '${json['country'] ?? ''}',
-      description: '${json['description'] ?? ''}',
-      imageUrl: '${json['image_url'] ?? ''}',
+      title: _displayString(json['title']) ?? '',
+      city: _displayString(json['city']) ?? '',
+      country: _displayString(json['country']) ?? '',
+      description: _displayString(json['description']) ?? '',
+      imageUrl: _displayString(json['image_url']) ?? '',
       price: _asDouble(json['price']),
       active: json['active'] == true ||
           json['active'] == 1 ||
@@ -237,31 +251,57 @@ class PartnerListing {
 }
 
 int _asInt(dynamic value) {
-  if (value is num) return value.toInt();
+  if (value is num) return value.isFinite ? value.toInt() : 0;
   return int.tryParse('$value') ?? 0;
 }
 
 double _asDouble(dynamic value, {double fallback = 0}) {
-  if (value is num) return value.toDouble();
-  return double.tryParse('$value') ?? fallback;
+  final parsed = value is num ? value.toDouble() : double.tryParse('$value');
+  return parsed != null && parsed.isFinite ? parsed : fallback;
 }
 
 String _firstNonEmpty(List<Object?> values) {
   for (final value in values) {
-    final text = value?.toString().trim() ?? '';
-    if (text.isNotEmpty) return text;
+    final text = _displayString(value);
+    if (text != null) return text;
   }
   return '';
 }
 
 List<String> _stringList(dynamic value) => value is List
     ? value
+        .where((item) => _hasDisplayValue(item))
         .map((item) => item.toString().trim())
-        .where((item) => item.isNotEmpty)
+        .where((item) => item.isNotEmpty && item.toLowerCase() != 'null')
         .toList()
     : const [];
 
 String? _nullableString(Object? value) {
-  final text = value?.toString().trim() ?? '';
-  return text.isEmpty ? null : text;
+  return _displayString(value);
+}
+
+String? _displayString(Object? value) {
+  if (value == null || value is Map || value is List) return null;
+  final text = value.toString().trim();
+  if (text.isEmpty ||
+      text.toLowerCase() == 'null' ||
+      text.toLowerCase() == 'undefined') {
+    return null;
+  }
+  return text;
+}
+
+bool _hasDisplayValue(Object? value) {
+  if (value == null || value is Map) return false;
+  if (value is String) return _displayString(value) != null;
+  if (value is Iterable) return value.any(_hasDisplayValue);
+  return true;
+}
+
+Map<String, dynamic> _jsonObject(Object? value) {
+  if (value is! Map) return <String, dynamic>{};
+  return <String, dynamic>{
+    for (final entry in value.entries)
+      if (entry.key is String) entry.key as String: entry.value,
+  };
 }
