@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.HexFormat;
+import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -67,6 +68,7 @@ public class ApiController {
     private final RestClient http = RestClient.create();
     private final String serpApiKey;
     private static final ObjectMapper JSON = new ObjectMapper();
+    private final VisitBurstRateLimiter visitBurstRateLimiter = new VisitBurstRateLimiter();
 
     public ApiController(JdbcTemplate jdbc,
                          @Value("${serpapi.key:}") String serpApiKey,
@@ -409,6 +411,10 @@ public class ApiController {
         if (!Boolean.TRUE.equals(active)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Place not found");
         }
+        if (!visitBurstRateLimiter.tryAcquire()) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS, "Too many place visits; try again shortly");
+        }
 
         String visitorHash = sha256(visitorId);
         jdbc.update("""
@@ -429,6 +435,28 @@ public class ApiController {
                     """, id);
         }
         return Map.of("counted", inserted > 0);
+    }
+
+    private static final class VisitBurstRateLimiter {
+        private static final int CAPACITY = 60;
+        private static final double REFILL_TOKENS_PER_NANO =
+                (double) CAPACITY / TimeUnit.MINUTES.toNanos(1);
+
+        private double availableTokens = CAPACITY;
+        private long lastRefillNanos = System.nanoTime();
+
+        synchronized boolean tryAcquire() {
+            long now = System.nanoTime();
+            long elapsedNanos = Math.max(0, now - lastRefillNanos);
+            availableTokens = Math.min(
+                    CAPACITY, availableTokens + elapsedNanos * REFILL_TOKENS_PER_NANO);
+            lastRefillNanos = now;
+            if (availableTokens < 1) {
+                return false;
+            }
+            availableTokens -= 1;
+            return true;
+        }
     }
 
     private static String sha256(String value) {

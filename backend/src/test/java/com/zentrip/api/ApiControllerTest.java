@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -227,6 +228,36 @@ class ApiControllerTest {
         assertEquals(Boolean.FALSE, result.get("counted"));
         verify(jdbc, never()).update(
                 contains("INSERT INTO attraction_visit_counts"), eq("place-1"));
+    }
+
+    @Test
+    void attractionVisitBlocksBurstsOfDistinctAnonymousVisitors() {
+        ApiController rateLimitedController =
+                new ApiController(jdbc, "", photoStorage, passwordResetService);
+        when(jdbc.queryForObject(
+                contains("FROM tourist_monuments"), eq(Boolean.class), eq("place-1")))
+                .thenReturn(true);
+        when(jdbc.update(
+                contains("INSERT INTO attraction_visit_dedup"),
+                eq("place-1"), any(String.class)))
+                .thenReturn(1);
+
+        for (int i = 0; i < 60; i++) {
+            String visitorId = String.format("%032x", i + 1);
+            Map<String, Object> result = rateLimitedController.recordAttractionVisit(
+                    "place-1", Map.of("visitor_id", visitorId));
+            assertEquals(Boolean.TRUE, result.get("counted"));
+        }
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> rateLimitedController.recordAttractionVisit(
+                        "place-1", Map.of("visitor_id", "00000000000000000000000000000061")));
+
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, error.getStatusCode());
+        verify(jdbc, times(60)).update(
+                contains("INSERT INTO attraction_visit_counts"), eq("place-1"));
+        verify(jdbc, times(60)).update(
+                contains("INSERT INTO attraction_visit_dedup"), eq("place-1"), any(String.class));
     }
 
     @Test
