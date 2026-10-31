@@ -2,6 +2,9 @@ package com.zentrip.api;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -19,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.HexFormat;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -346,8 +350,23 @@ public class ApiController {
         List<Map<String, Object>> monuments = jdbc.queryForList("""
                 SELECT id, title, location, category_tag, category, rating,
                        review_count, description, working_hours,
-                       best_time_to_visit, entry_fee, image_url, tags
+                       best_time_to_visit, entry_fee, image_url, tags,
+                       COALESCE(visit_counts.visit_count, 0) AS visit_count,
+                       COALESCE(country_counts.country_visit_count, 0) AS country_visit_count
                 FROM tourist_monuments
+                LEFT JOIN attraction_visit_counts visit_counts
+                    ON visit_counts.attraction_id = tourist_monuments.id
+                LEFT JOIN (
+                    SELECT LOWER(TRIM(SPLIT_PART(monuments.location, ',', 2))) AS country_key,
+                           SUM(COALESCE(counts.visit_count, 0)) AS country_visit_count
+                    FROM tourist_monuments monuments
+                    LEFT JOIN attraction_visit_counts counts
+                        ON counts.attraction_id = monuments.id
+                    WHERE monuments.is_active = TRUE
+                    GROUP BY LOWER(TRIM(SPLIT_PART(monuments.location, ',', 2)))
+                ) country_counts
+                    ON country_counts.country_key =
+                       LOWER(TRIM(SPLIT_PART(tourist_monuments.location, ',', 2)))
                 WHERE is_active = TRUE
                   AND (? = '' OR LOWER(location) LIKE ?)
                   AND (? = '' OR category = ?)
@@ -371,6 +390,55 @@ public class ApiController {
             return attraction;
         }).toList();
         return Map.of("attractions", payload);
+    }
+
+    @PostMapping("/attractions/{id}/visits")
+    @Transactional
+    public Map<String, Object> recordAttractionVisit(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> body) {
+        String visitorId = text(body.get("visitor_id")).trim();
+        if (id.isBlank() || id.length() > 64
+                || !visitorId.matches("^[a-f0-9]{32}$")) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "Invalid place visit details");
+        }
+        Boolean active = jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM tourist_monuments WHERE id = ? AND is_active = TRUE)",
+                Boolean.class, id);
+        if (!Boolean.TRUE.equals(active)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Place not found");
+        }
+
+        String visitorHash = sha256(visitorId);
+        jdbc.update("""
+                DELETE FROM attraction_visit_dedup
+                WHERE counted_at < NOW() - INTERVAL '48 hours'
+                """);
+        int inserted = jdbc.update("""
+                INSERT INTO attraction_visit_dedup (attraction_id, visitor_hash)
+                VALUES (?, ?)
+                ON CONFLICT (attraction_id, visitor_hash) DO NOTHING
+                """, id, visitorHash);
+        if (inserted > 0) {
+            jdbc.update("""
+                    INSERT INTO attraction_visit_counts (attraction_id, visit_count)
+                    VALUES (?, 1)
+                    ON CONFLICT (attraction_id)
+                    DO UPDATE SET visit_count = attraction_visit_counts.visit_count + 1
+                    """, id);
+        }
+        return Map.of("counted", inserted > 0);
+    }
+
+    private static String sha256(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
     }
 
     private static List<String> parseHighlights(Object raw) {

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -1488,6 +1489,40 @@ class ApiService {
           ? all
           : all.where((a) => a.category == category).toList();
     }
+  }
+
+  /// Records one anonymous place visit per device and UTC day.
+  Future<void> recordAttractionVisit(String attractionId) async {
+    if (useMockMode) return;
+    final visitorId = await _dailyAttractionVisitorId();
+    await _dio.post(
+      '/attractions/${Uri.encodeComponent(attractionId)}/visits',
+      data: {'visitor_id': visitorId},
+    );
+  }
+
+  Future<String> _dailyAttractionVisitorId() async {
+    final preferences = await SharedPreferences.getInstance();
+    final now = DateTime.now().toUtc();
+    final date = '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+    const dateKey = 'attraction_visitor_token_date';
+    const tokenKey = 'attraction_visitor_token';
+    if (preferences.getString(dateKey) == date) {
+      final existing = preferences.getString(tokenKey);
+      if (existing != null && RegExp(r'^[a-f0-9]{32}$').hasMatch(existing)) {
+        return existing;
+      }
+    }
+
+    final random = Random.secure();
+    final token = List<int>.generate(16, (_) => random.nextInt(256))
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join();
+    await preferences.setString(dateKey, date);
+    await preferences.setString(tokenKey, token);
+    return token;
   }
 
   Future<List<AttractionModel>> nearbyAttractions({

@@ -36,16 +36,22 @@ class AttractionsController extends ChangeNotifier {
   static bool isMonument(AttractionModel a) =>
       monumentCategories.contains(a.category);
 
-  /// Featured places come from the public places catalog and are sorted by rating.
+  /// Featured places come from the catalog and are ranked by recorded visits.
   static Future<List<AttractionModel>> loadFeaturedMonuments(
       {int limit = 8}) async {
     final all = await ApiService.instance.searchAttractions(city: '');
-    final monuments = all.where(isMonument).toList()
+    return rankFeaturedMonuments(all, limit: limit);
+  }
+
+  @visibleForTesting
+  static List<AttractionModel> rankFeaturedMonuments(
+    Iterable<AttractionModel> attractions, {
+    int limit = 8,
+  }) {
+    final monuments = attractions.where(isMonument).toList()
       ..sort((a, b) {
-        final reviewPopularity = b.reviewCount.compareTo(a.reviewCount);
-        return reviewPopularity != 0
-            ? reviewPopularity
-            : b.rating.compareTo(a.rating);
+        final visits = b.visitCount.compareTo(a.visitCount);
+        return visits != 0 ? visits : b.rating.compareTo(a.rating);
       });
     return monuments.take(limit).toList();
   }

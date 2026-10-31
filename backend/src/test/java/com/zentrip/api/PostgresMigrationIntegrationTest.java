@@ -284,6 +284,51 @@ class PostgresMigrationIntegrationTest {
     }
 
     @Test
+    void anonymousPlaceVisitsDeduplicateAndRollUpByCountry() throws Exception {
+        String firstPlace = "visit-" + UUID.randomUUID();
+        String secondPlace = "visit-" + UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO tourist_monuments (id, title, location, category, description, tags)
+                VALUES (?, 'Visit fixture one', 'Tripoli, Libya', 'landmark', 'Fixture', '[]'::jsonb),
+                       (?, 'Visit fixture two', 'Benghazi, Libya', 'landmark', 'Fixture', '[]'::jsonb)
+                """, firstPlace, secondPlace);
+
+        assertVisitCounted(firstPlace, "a".repeat(32), true);
+        assertVisitCounted(firstPlace, "a".repeat(32), false);
+        assertVisitCounted(secondPlace, "b".repeat(32), true);
+
+        JsonNode response = json.readTree(http.perform(get("/api/attractions/search"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        JsonNode first = findAttraction(response.path("attractions"), firstPlace);
+        JsonNode second = findAttraction(response.path("attractions"), secondPlace);
+
+        assertEquals(1, first.path("visit_count").asInt());
+        assertEquals(2, first.path("country_visit_count").asInt());
+        assertEquals(1, second.path("visit_count").asInt());
+        assertEquals(2, second.path("country_visit_count").asInt());
+    }
+
+    private void assertVisitCounted(String placeId, String visitorId, boolean expected)
+            throws Exception {
+        JsonNode response = json.readTree(http.perform(
+                        post("/api/attractions/" + placeId + "/visits")
+                                .contentType("application/json")
+                                .content(json.writeValueAsString(Map.of("visitor_id", visitorId))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        assertEquals(expected, response.path("counted").asBoolean());
+    }
+
+    private static JsonNode findAttraction(JsonNode attractions, String id) {
+        for (JsonNode attraction : attractions) {
+            if (id.equals(attraction.path("id").asText())) return attraction;
+        }
+        fail("Place not returned from attraction search: " + id);
+        return null;
+    }
+
+    @Test
     void partnerListingCreationReturnsOnlyItsGeneratedId() throws Exception {
         long existing = listing("car", "{\"available_vehicles\":1}");
         long partnerId = jdbc.queryForObject(

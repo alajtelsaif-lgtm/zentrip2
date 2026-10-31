@@ -170,7 +170,9 @@ class ApiControllerTest {
                         Map.entry("best_time_to_visit", "Oct - Apr"),
                         Map.entry("entry_fee", new BigDecimal("5.00")),
                         Map.entry("image_url", "https://example.com/leptis.jpg"),
-                        Map.entry("tags", "[\"Theatre\",\"Market\"]"))));
+                        Map.entry("tags", "[\"Theatre\",\"Market\"]"),
+                        Map.entry("visit_count", 41L),
+                        Map.entry("country_visit_count", 72L))));
 
         Map<String, Object> response = controller.searchMonuments("Khoms", null);
         Map<?, ?> monument = (Map<?, ?>) ((List<?>) response.get("attractions")).getFirst();
@@ -181,6 +183,60 @@ class ApiControllerTest {
         assertEquals("Historical", monument.get("category_tag"));
         assertEquals("8:00 AM - 5:00 PM", monument.get("opening_hours"));
         assertEquals(List.of("Theatre", "Market"), monument.get("tags"));
+        assertEquals(41L, monument.get("visit_count"));
+        assertEquals(72L, monument.get("country_visit_count"));
+    }
+
+    @Test
+    void attractionVisitStoresOnlyAHashAndIncrementsTheCountOnce() {
+        String visitorId = "0123456789abcdef0123456789abcdef";
+        when(jdbc.queryForObject(
+                contains("FROM tourist_monuments"), eq(Boolean.class), eq("place-1")))
+                .thenReturn(true);
+        when(jdbc.update(
+                contains("INSERT INTO attraction_visit_dedup"),
+                eq("place-1"), any(String.class)))
+                .thenReturn(1);
+
+        Map<String, Object> result = controller.recordAttractionVisit(
+                "place-1", Map.of("visitor_id", visitorId));
+
+        assertEquals(Boolean.TRUE, result.get("counted"));
+        verify(jdbc).update(
+                contains("INSERT INTO attraction_visit_dedup"),
+                eq("place-1"),
+                org.mockito.ArgumentMatchers.<String>argThat(
+                        hash -> hash.matches("^[a-f0-9]{64}$") && !hash.equals(visitorId)));
+        verify(jdbc).update(contains("INSERT INTO attraction_visit_counts"), eq("place-1"));
+    }
+
+    @Test
+    void duplicateAttractionVisitDoesNotIncrementTheAggregate() {
+        String visitorId = "0123456789abcdef0123456789abcdef";
+        when(jdbc.queryForObject(
+                contains("FROM tourist_monuments"), eq(Boolean.class), eq("place-1")))
+                .thenReturn(true);
+        when(jdbc.update(
+                contains("INSERT INTO attraction_visit_dedup"),
+                eq("place-1"), any(String.class)))
+                .thenReturn(0);
+
+        Map<String, Object> result = controller.recordAttractionVisit(
+                "place-1", Map.of("visitor_id", visitorId));
+
+        assertEquals(Boolean.FALSE, result.get("counted"));
+        verify(jdbc, never()).update(
+                contains("INSERT INTO attraction_visit_counts"), eq("place-1"));
+    }
+
+    @Test
+    void attractionVisitRejectsMalformedVisitorIdentifiersBeforeDatabaseWrites() {
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> controller.recordAttractionVisit(
+                        "place-1", Map.of("visitor_id", "not-a-random-device-token")));
+
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, error.getStatusCode());
+        verifyNoInteractions(jdbc);
     }
 
     @Test

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -25,12 +27,26 @@ class AttractionDetailScreen extends StatefulWidget {
 class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
   AttractionModel? _attraction;
   bool _isBooking = false;
+  bool _visitRecorded = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _attraction ??=
         ModalRoute.of(context)?.settings.arguments as AttractionModel?;
+    final attraction = _attraction;
+    if (attraction != null && !_visitRecorded) {
+      _visitRecorded = true;
+      unawaited(_recordVisit(attraction.id));
+    }
+  }
+
+  Future<void> _recordVisit(String attractionId) async {
+    try {
+      await ApiService.instance.recordAttractionVisit(attractionId);
+    } catch (error) {
+      debugPrint('Could not record place visit: $error');
+    }
   }
 
   Future<void> _bookTicket() async {
