@@ -507,8 +507,8 @@ class _MountainPainter extends CustomPainter {
       canvas.drawCircle(Offset(cx - 16 * s, cy + 5 * s), 11 * s, cloud);
     }
 
-    drawCloud(w * 0.12, h * 0.78, 1.2);
-    drawCloud(w * 0.90, h * 0.62, 1.0);
+    drawCloud(w * 0.12, h * 0.42, 1.2);
+    drawCloud(w * 0.90, h * 0.30, 1.0);
   }
 
   @override
@@ -520,24 +520,31 @@ class _BusStopSign extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF5A623),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF7A4A12), width: 2),
+    return LayoutBuilder(builder: (context, constraints) {
+      final poleHeight = math.min(54.0, math.max(0.0, constraints.maxHeight - 44));
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5A623),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF7A4A12), width: 2),
+            ),
+            child: const Icon(Icons.directions_bus_rounded,
+                color: Colors.white, size: 24),
           ),
-          child: const Icon(Icons.directions_bus_rounded,
-              color: Colors.white, size: 24),
-        ),
-        Expanded(
-          child: Container(width: 3, color: const Color(0xFF9AA3B5)),
-        ),
-      ],
-    );
+          Container(
+            key: const ValueKey('bus-stop-sign-pole'),
+            width: 3,
+            height: poleHeight,
+            color: const Color(0xFF9AA3B5),
+          ),
+        ],
+      );
+    });
   }
 }
 
