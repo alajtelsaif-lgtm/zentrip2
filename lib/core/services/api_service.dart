@@ -59,7 +59,7 @@ class ApiService {
     // devices should provide a LAN IP via --dart-define=ZENTRIP_API_URL or by
     // setting the environment before running the app.
     if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:8080/api';
-    if (kIsWeb) return 'http://localhost:8080/api';
+    if (kIsWeb) return '/api';
     return 'http://127.0.0.1:8080/api';
   }
 

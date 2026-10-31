@@ -43,3 +43,7 @@ backend/.phpunit.result.cache
 *.sqlite-journal
 # Widget Preview related
 .widget_preview/
+
+# Local Replit SDKs and generated output
+.local/toolchains/
+/generated-artifacts/

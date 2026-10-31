@@ -3,6 +3,7 @@ package com.zentrip.api;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +13,7 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Component
+@ConditionalOnProperty(name = "app.bootstrap.enabled", havingValue = "true", matchIfMissing = true)
 public class AdminRoleBootstrap implements ApplicationRunner {
     private final JdbcTemplate jdbc;
     private final String adminEmail;

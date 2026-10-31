@@ -1,7 +1,42 @@
-modules = ["java-graalvm22.3"]
+modules = ["java-graalvm22.3", "python-base-3.13"]
 
 [nix]
 channel = "stable-25_05"
+packages = ["maven"]
 
 [agent]
 expertMode = true
+
+[userenv]
+
+[userenv.shared]
+SUPABASE_ANON_KEY = "sb_publishable_RMsZOpssbB7g8wqIyM3yzQ_i7s8qUp1"
+SUPABASE_URL = "https://zrzhgotsnqclzrkybuzj.supabase.co"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start Zentrip"
+
+[[workflows.workflow]]
+name = "Start Zentrip"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/start-replit.sh"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
