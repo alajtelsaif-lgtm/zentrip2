@@ -51,8 +51,10 @@ void main() {
 
     expect(find.text('MJI'), findsWidgets);
     expect(find.text('CAI'), findsWidgets);
-    expect(find.text('Tripoli'), findsOneWidget);
-    expect(find.text('Cairo'), findsOneWidget);
+    expect(find.text('Select Flight'), findsOneWidget);
+    expect(find.text('Flight Date'), findsOneWidget);
+    expect(find.text('Tripoli'), findsNWidgets(2));
+    expect(find.text('Cairo'), findsNWidgets(2));
     expect(find.text('Zentrip Air'), findsOneWidget);
     expect(find.text('ZA 204'), findsOneWidget);
     expect(find.text('Direct'), findsOneWidget);

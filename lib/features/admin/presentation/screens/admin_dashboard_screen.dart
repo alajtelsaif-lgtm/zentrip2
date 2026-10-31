@@ -64,8 +64,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         section == _AdminSection.offers) {
       return;
     }
-    if (section == _AdminSection.reservations && _reservations.isNotEmpty)
+    if (section == _AdminSection.reservations && _reservations.isNotEmpty) {
       return;
+    }
     if (section == _AdminSection.customers && _customers.isNotEmpty) return;
 
     setState(() => _loadingSection = true);
@@ -498,7 +499,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 value: '${data.partnerCount}',
                 icon: Icons.business_outlined,
                 color: AppColors.accentPurple,
-                footnote: l10n.adminPartnerListings,
+                footnote: l10n.adminActivePartnerListings,
                 footnoteValue: '${data.activePartnerListingCount}',
               ),
               _MetricCard(

@@ -89,8 +89,15 @@ class PostgresMigrationIntegrationTest {
     @Test
     void adminPartnerChangesCanBeReversedWithoutDeletingTheirHistory() throws Exception {
         jdbc.update("UPDATE users SET role = 'admin' WHERE id = ?", userId);
-        String email = jdbc.queryForObject(
-                "SELECT email FROM users WHERE id = ?", String.class, userId);
+        String ownerToken = UUID.randomUUID().toString();
+        String email = ownerToken + "@example.invalid";
+        long ownerId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password)
+                VALUES ('Partner Owner', ?, 'unused-test-hash') RETURNING id
+                """, Long.class, email);
+        jdbc.update("INSERT INTO api_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+                ownerId, TokenAuthFilter.sha256(ownerToken),
+                Timestamp.from(Instant.now().plusSeconds(3600)));
 
         JsonNode created = postJson("/api/admin/partners", Map.of(
                 "name", "Integration Airline",
@@ -99,9 +106,9 @@ class PostgresMigrationIntegrationTest {
         long partnerId = created.path("partner").path("id").asLong();
         assertTrue(partnerId > 0);
         assertEquals("partner", jdbc.queryForObject(
-                "SELECT role FROM users WHERE id = ?", String.class, userId));
+                "SELECT role FROM users WHERE id = ?", String.class, ownerId));
         assertEquals(partnerId, jdbc.queryForObject(
-                "SELECT partner_id FROM users WHERE id = ?", Long.class, userId));
+                "SELECT partner_id FROM users WHERE id = ?", Long.class, ownerId));
 
         long listingId = jdbc.queryForObject("""
                 INSERT INTO partner_listings
@@ -110,7 +117,7 @@ class PostgresMigrationIntegrationTest {
                 RETURNING id
                 """, Long.class, partnerId);
         http.perform(get("/api/partner/dashboard")
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk());
         http.perform(get("/api/admin/partners")
                         .header("Authorization", "Bearer " + token))
@@ -129,13 +136,13 @@ class PostgresMigrationIntegrationTest {
         assertEquals("inactive", jdbc.queryForObject(
                 "SELECT status FROM partners WHERE id = ?", String.class, partnerId));
         assertEquals("customer", jdbc.queryForObject(
-                "SELECT role FROM users WHERE id = ?", String.class, userId));
+                "SELECT role FROM users WHERE id = ?", String.class, ownerId));
         assertEquals(partnerId, jdbc.queryForObject(
-                "SELECT partner_id FROM users WHERE id = ?", Long.class, userId));
+                "SELECT partner_id FROM users WHERE id = ?", Long.class, ownerId));
         assertEquals(1, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM partner_listings WHERE id = ?", Integer.class, listingId));
         http.perform(get("/api/partner/dashboard")
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isForbidden());
 
         http.perform(post("/api/admin/partners/" + partnerId + "/activate")
@@ -144,9 +151,9 @@ class PostgresMigrationIntegrationTest {
         assertEquals("active", jdbc.queryForObject(
                 "SELECT status FROM partners WHERE id = ?", String.class, partnerId));
         assertEquals("partner", jdbc.queryForObject(
-                "SELECT role FROM users WHERE id = ?", String.class, userId));
+                "SELECT role FROM users WHERE id = ?", String.class, ownerId));
         http.perform(get("/api/partner/dashboard")
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk());
     }
 

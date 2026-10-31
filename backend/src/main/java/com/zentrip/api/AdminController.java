@@ -50,8 +50,10 @@ public class AdminController {
                     (SELECT COUNT(*) FROM users) AS total_user_count,
                     (SELECT COUNT(*) FROM partners
                         WHERE LOWER(status) = 'active') AS partner_count,
-                    (SELECT COUNT(*) FROM partner_listings
-                        WHERE active = TRUE) AS active_partner_listing_count,
+                    (SELECT COUNT(*) FROM partner_listings pl
+                        JOIN partners p ON p.id = pl.partner_id
+                        WHERE pl.active = TRUE AND LOWER(p.status) = 'active')
+                        AS active_partner_listing_count,
                     (SELECT COUNT(*) FROM bookings WHERE LOWER(status) <> 'cancelled')
                       + (SELECT COUNT(*) FROM trips WHERE LOWER(status) <> 'cancelled')
                       + (SELECT COUNT(*) FROM transfers WHERE LOWER(status) <> 'cancelled')

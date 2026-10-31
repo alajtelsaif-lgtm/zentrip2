@@ -3985,8 +3985,14 @@ abstract class AppLocalizations {
   /// No description provided for @adminPartnerListings.
   ///
   /// In ar, this message translates to:
-  /// **'القوائم النشطة'**
+  /// **'القوائم'**
   String get adminPartnerListings;
+
+  /// No description provided for @adminActivePartnerListings.
+  ///
+  /// In ar, this message translates to:
+  /// **'القوائم المتاحة'**
+  String get adminActivePartnerListings;
 
   /// No description provided for @adminPartnerAccounts.
   ///

@@ -2071,7 +2071,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get adminPartnerCount => 'الشركاء النشطون';
 
   @override
-  String get adminPartnerListings => 'القوائم النشطة';
+  String get adminPartnerListings => 'القوائم';
+
+  @override
+  String get adminActivePartnerListings => 'القوائم المتاحة';
 
   @override
   String get adminPartnerAccounts => 'حسابات الشركاء';

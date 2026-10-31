@@ -121,6 +121,12 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
             current.departureDate.day == date.day)) {
       return;
     }
+    if (current.isRoundTrip &&
+        current.returnDate != null &&
+        DateUtils.dateOnly(date)
+            .isAfter(DateUtils.dateOnly(current.returnDate!))) {
+      return;
+    }
     final updated = FlightSearchParams(
       originCode: current.originCode,
       originCity: current.originCity,
@@ -211,6 +217,7 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
                   return _NoFlights(
                     params: _params!,
                     onEdit: _editSearch,
+                    onSelectDepartureDate: _selectDepartureDate,
                     l10n: l10n,
                   );
                 }
@@ -253,6 +260,7 @@ class _FlightResults extends StatelessWidget {
         _SearchSummary(params: params, onEdit: onEdit, l10n: l10n),
         FlightDateSelector(
           departureDate: params.departureDate,
+          lastDate: params.isRoundTrip ? params.returnDate : null,
           onSelected: onSelectDepartureDate,
         ),
         Padding(
@@ -312,6 +320,7 @@ class _SearchSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final dateText = MaterialLocalizations.of(context)
         .formatMediumDate(params.departureDate);
     final returnText = params.returnDate == null
@@ -321,125 +330,129 @@ class _SearchSummary extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.18),
-            blurRadius: 16,
-            offset: const Offset(0, 7),
+            color: AppColors.primary.withValues(alpha: isDark ? 0.12 : 0.2),
+            blurRadius: 22,
+            offset: const Offset(0, 9),
           ),
         ],
       ),
-      child: Row(
+      child: Stack(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        params.originCode,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: Icon(Icons.flight_rounded,
-                          size: 18, color: Colors.white70),
-                    ),
-                    Flexible(
-                      child: Text(
-                        params.destinationCode,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        params.originCity,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 28),
-                    Expanded(
-                      child: Text(
-                        params.destinationCity,
-                        maxLines: 1,
-                        textAlign: TextAlign.end,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 4,
-                  children: [
-                    _SummaryLabel(
-                      icon: Icons.calendar_today_rounded,
-                      text: returnText == null
-                          ? dateText
-                          : '$dateText – $returnText',
-                    ),
-                    _SummaryLabel(
-                      icon: Icons.people_alt_rounded,
-                      text: '${params.passengers} · ${l10n.homeTravelersLabel}',
-                    ),
-                    _SummaryLabel(
-                      icon: Icons.airline_seat_recline_extra,
-                      text: _seatClassLabel(params.seatClass, l10n),
-                    ),
-                    _SummaryLabel(
-                      icon: Icons.sync_alt_rounded,
-                      text: params.isRoundTrip ? l10n.roundTrip : l10n.oneWay,
-                    ),
-                  ],
-                ),
-              ],
+          Positioned(
+            right: -24,
+            top: 20,
+            child: Icon(
+              Icons.public_rounded,
+              size: 144,
+              color: Colors.white.withValues(alpha: 0.035),
             ),
           ),
-          const SizedBox(width: 8),
-          IconButton.filledTonal(
-            tooltip: l10n.searchFlights,
-            onPressed: onEdit,
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withValues(alpha: 0.16),
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.edit_rounded),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_month_rounded,
+                    size: 15,
+                    color: Colors.white.withValues(alpha: 0.78),
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      returnText == null
+                          ? dateText
+                          : '$dateText  ·  $returnText',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.searchFlights,
+                    onPressed: onEdit,
+                    visualDensity: VisualDensity.compact,
+                    style: IconButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.white.withValues(alpha: 0.14),
+                      minimumSize: const Size(36, 36),
+                    ),
+                    icon: const Icon(Icons.tune_rounded, size: 19),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: _RouteEndpoint(
+                      city: params.originCity,
+                      code: params.originCode,
+                      alignEnd: false,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: 56,
+                          height: 20,
+                          child: CustomPaint(
+                            painter: _RouteLinePainter(
+                              color: Colors.white.withValues(alpha: 0.62),
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.flight_rounded,
+                          size: 20,
+                          color: Colors.white.withValues(alpha: 0.96),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: _RouteEndpoint(
+                      city: params.destinationCity,
+                      code: params.destinationCode,
+                      alignEnd: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 15),
+              Wrap(
+                spacing: 13,
+                runSpacing: 7,
+                alignment: WrapAlignment.center,
+                children: [
+                  _SummaryLabel(
+                    icon: Icons.people_alt_rounded,
+                    text: '${params.passengers} · ${l10n.homeTravelersLabel}',
+                  ),
+                  _SummaryLabel(
+                    icon: Icons.airline_seat_recline_extra,
+                    text: _seatClassLabel(params.seatClass, l10n),
+                  ),
+                  _SummaryLabel(
+                    icon: Icons.sync_alt_rounded,
+                    text: params.isRoundTrip ? l10n.roundTrip : l10n.oneWay,
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -447,13 +460,98 @@ class _SearchSummary extends StatelessWidget {
   }
 }
 
+class _RouteEndpoint extends StatelessWidget {
+  final String city;
+  final String code;
+  final bool alignEnd;
+
+  const _RouteEndpoint({
+    required this.city,
+    required this.code,
+    required this.alignEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveAlignEnd =
+        alignEnd != (Directionality.of(context) == TextDirection.rtl);
+    return Column(
+      crossAxisAlignment:
+          effectiveAlignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          city,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.78),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 1),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment:
+              effectiveAlignEnd ? Alignment.centerRight : Alignment.centerLeft,
+          child: Text(
+            code,
+            maxLines: 1,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 34,
+              height: 1.05,
+              letterSpacing: 0.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RouteLinePainter extends CustomPainter {
+  final Color color;
+
+  const _RouteLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.3
+      ..style = PaintingStyle.stroke;
+    final path = Path()
+      ..moveTo(1, size.height - 2)
+      ..quadraticBezierTo(
+        size.width * 0.48,
+        -size.height * 0.3,
+        size.width - 1,
+        size.height - 2,
+      );
+    canvas.drawPath(path, paint);
+    final pointPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(1, size.height - 2), 2.2, pointPaint);
+    canvas.drawCircle(Offset(size.width - 1, size.height - 2), 2.2, pointPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RouteLinePainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
 class FlightDateSelector extends StatelessWidget {
   final DateTime departureDate;
+  final DateTime? lastDate;
   final ValueChanged<DateTime> onSelected;
 
   const FlightDateSelector({
     super.key,
     required this.departureDate,
+    this.lastDate,
     required this.onSelected,
   });
 
@@ -466,9 +564,15 @@ class FlightDateSelector extends StatelessWidget {
       departureDate.month,
       departureDate.day,
     );
+    final today = DateUtils.dateOnly(DateTime.now());
+    final endDate = lastDate == null
+        ? DateTime(firstDate.year + 1, firstDate.month, firstDate.day)
+        : DateUtils.dateOnly(lastDate!);
+    final dayCount =
+        (endDate.difference(firstDate).inDays + 1).clamp(1, 7).toInt();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -478,23 +582,42 @@ class FlightDateSelector extends StatelessWidget {
                 child: Text(
                   l10n.flightDateLabel,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontSize: 17,
                         fontWeight: FontWeight.w800,
                       ),
                 ),
               ),
               Text(
                 materialL10n.formatMonthYear(firstDate),
-                style: Theme.of(context).textTheme.bodySmall,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: l10n.flightDateLabel,
+                visualDensity: VisualDensity.compact,
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: firstDate,
+                    firstDate: firstDate.isBefore(today) ? firstDate : today,
+                    lastDate: endDate,
+                  );
+                  if (picked != null) onSelected(picked);
+                },
+                icon: const Icon(Icons.calendar_month_rounded, size: 19),
               ),
             ],
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 76,
+            height: 78,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: 7,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemCount: dayCount,
+              separatorBuilder: (_, __) => const SizedBox(width: 9),
               itemBuilder: (context, index) {
                 final date = firstDate.add(Duration(days: index));
                 return _FlightDateCard(
@@ -526,20 +649,27 @@ class _FlightDateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final materialL10n = MaterialLocalizations.of(context);
     final weekday = materialL10n.narrowWeekdays[date.weekday % 7];
-    final background = Theme.of(context).colorScheme.surface;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final background = theme.colorScheme.surface;
     return SizedBox(
-      width: 61,
+      width: 64,
       child: Material(
         color: selected ? AppColors.primary : background,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: selected ? AppColors.primary : AppColors.border,
+                color: selected
+                    ? AppColors.primaryLight
+                    : isDark
+                        ? AppColors.darkBorder
+                        : AppColors.border,
+                width: selected ? 1.4 : 1,
               ),
             ),
             child: Column(
@@ -548,16 +678,25 @@ class _FlightDateCard extends StatelessWidget {
                 Text(
                   weekday,
                   style: TextStyle(
-                    color: selected ? Colors.white70 : AppColors.textSecondary,
+                    color: selected
+                        ? Colors.white.withValues(alpha: 0.76)
+                        : isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.textSecondary,
                     fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${date.day}',
                   style: TextStyle(
-                    color: selected ? Colors.white : null,
-                    fontSize: 18,
+                    color: selected
+                        ? Colors.white
+                        : isDark
+                            ? AppColors.darkTextPrimary
+                            : AppColors.textPrimary,
+                    fontSize: 19,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -939,11 +1078,13 @@ class _SortChip extends StatelessWidget {
 class _NoFlights extends StatelessWidget {
   final FlightSearchParams params;
   final VoidCallback onEdit;
+  final ValueChanged<DateTime> onSelectDepartureDate;
   final AppLocalizations l10n;
 
   const _NoFlights({
     required this.params,
     required this.onEdit,
+    required this.onSelectDepartureDate,
     required this.l10n,
   });
 
@@ -951,15 +1092,27 @@ class _NoFlights extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = MaterialLocalizations.of(context)
         .formatMediumDate(params.departureDate);
-    return _MessageState(
-      icon: Icons.flight_outlined,
-      title: l10n.flightNoResultsForSearch(
-        params.originCode,
-        params.destinationCode,
-        date,
-      ),
-      buttonLabel: l10n.searchFlightsBtn,
-      onPressed: onEdit,
+    return Column(
+      children: [
+        _SearchSummary(params: params, onEdit: onEdit, l10n: l10n),
+        FlightDateSelector(
+          departureDate: params.departureDate,
+          lastDate: params.isRoundTrip ? params.returnDate : null,
+          onSelected: onSelectDepartureDate,
+        ),
+        Expanded(
+          child: _MessageState(
+            icon: Icons.flight_outlined,
+            title: l10n.flightNoResultsForSearch(
+              params.originCode,
+              params.destinationCode,
+              date,
+            ),
+            buttonLabel: l10n.searchFlightsBtn,
+            onPressed: onEdit,
+          ),
+        ),
+      ],
     );
   }
 }

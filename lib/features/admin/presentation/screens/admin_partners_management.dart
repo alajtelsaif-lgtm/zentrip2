@@ -86,8 +86,10 @@ class AdminPartnersManagementState extends State<AdminPartnersManagement> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    setState(() => _saving = true);
     final result = await ApiService.instance.disableAdminPartner(partner.id);
     if (!mounted) return;
+    setState(() => _saving = false);
     if (result.isFailure) {
       AppSnackbar.error(context, result.errorMessage ?? l10n.genericError);
       return;
@@ -98,8 +100,10 @@ class AdminPartnersManagementState extends State<AdminPartnersManagement> {
 
   Future<void> _activatePartner(AdminPartner partner) async {
     final l10n = AppLocalizations.of(context);
+    setState(() => _saving = true);
     final result = await ApiService.instance.activateAdminPartner(partner.id);
     if (!mounted) return;
+    setState(() => _saving = false);
     if (result.isFailure) {
       AppSnackbar.error(context, result.errorMessage ?? l10n.genericError);
       return;
@@ -144,7 +148,7 @@ class AdminPartnersManagementState extends State<AdminPartnersManagement> {
           Align(
             alignment: AlignmentDirectional.centerEnd,
             child: FilledButton.icon(
-              onPressed: _saving ? null : _addPartner,
+              onPressed: _saving || _loading ? null : _addPartner,
               icon: _saving
                   ? const SizedBox.square(
                       dimension: 18,
@@ -166,9 +170,11 @@ class AdminPartnersManagementState extends State<AdminPartnersManagement> {
               statusActionLabel: partner.isActive
                   ? l10n.adminDisablePartner
                   : l10n.adminRestorePartner,
-              onStatusAction: () => partner.isActive
-                  ? _disablePartner(partner)
-                  : _activatePartner(partner),
+              onStatusAction: _saving || _loading
+                  ? null
+                  : () => partner.isActive
+                      ? _disablePartner(partner)
+                      : _activatePartner(partner),
             ),
         ],
       ),
@@ -190,7 +196,7 @@ class _PartnerCard extends StatelessWidget {
   final AdminPartner partner;
   final String serviceLabel;
   final String statusActionLabel;
-  final VoidCallback onStatusAction;
+  final VoidCallback? onStatusAction;
 
   const _PartnerCard({
     required this.partner,

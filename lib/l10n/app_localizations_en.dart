@@ -2085,7 +2085,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminPartnerCount => 'Active partners';
 
   @override
-  String get adminPartnerListings => 'Active listings';
+  String get adminPartnerListings => 'Listings';
+
+  @override
+  String get adminActivePartnerListings => 'Available listings';
 
   @override
   String get adminPartnerAccounts => 'Partner accounts';
