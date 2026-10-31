@@ -269,4 +269,83 @@ class PostgresMigrationIntegrationTest {
             http.perform(get(path).header("Authorization", "Bearer " + token)).andExpect(status().isOk());
         }
     }
+
+    @Test
+    void seatMapReadsRealFaresCabinsAndLiveHolds() throws Exception {
+        long flight = listing("flight", """
+                {"seat_layout":"2-2","seat_rows":16,"seats_available":50,
+                 "business_price":331,"extra_legroom_rows":[2,9],
+                 "cabins":[{"id":"front","name":"Forward cabin","row_start":1,"row_end":8},
+                           {"id":"rear","name":"Rear cabin","row_start":9,"row_end":16}]}
+                """);
+        jdbc.update("""
+                INSERT INTO flight_seat_holds
+                    (flight_listing_id,user_id,seat_number,status,expires_at)
+                VALUES (?,?,'1A','confirmed',NOW()+INTERVAL '15 minutes'),
+                       (?,?,'9D','reserved',NOW()+INTERVAL '15 minutes'),
+                       (?,?,'9A','reserved',NOW()-INTERVAL '1 minute')
+                """, flight, userId, flight, userId, flight, userId);
+        http.perform(get("/api/flights/" + flight + "/seats").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.seat_letters.length()").value(4))
+                .andExpect(jsonPath("$.row_count").value(16))
+                .andExpect(jsonPath("$.occupied_seats.length()").value(2))
+                .andExpect(jsonPath("$.fares[0].price").value(100))
+                .andExpect(jsonPath("$.fares[0].available_seats").value(49))
+                .andExpect(jsonPath("$.fares[1].price").value(331))
+                .andExpect(jsonPath("$.fares[1].shared_inventory").value(true))
+                .andExpect(jsonPath("$.cabins[0].name").value("Forward cabin"))
+                .andExpect(jsonPath("$.cabins[0].total_seats").value(32))
+                .andExpect(jsonPath("$.cabins[0].available_seats").value(31))
+                .andExpect(jsonPath("$.cabins[1].rows[0]").value(9))
+                .andExpect(jsonPath("$.extra_legroom_rows[0]").value(2))
+                .andExpect(jsonPath("$.pricing.extra_legroom_fee").value(15));
+    }
+
+    @Test
+    void seatMapDoesNotInventAdditionalCabinsOrUnpricedClasses() throws Exception {
+        long flight = listing("flight", """
+                {"seat_layout":"3-3","seat_rows":30,"seats_available":10}
+                """);
+        http.perform(get("/api/flights/" + flight + "/seats").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cabins.length()").value(1))
+                .andExpect(jsonPath("$.cabins[0].rows.length()").value(30))
+                .andExpect(jsonPath("$.cabins[0].total_seats").value(180))
+                .andExpect(jsonPath("$.cabins[0].available_seats").value(10))
+                .andExpect(jsonPath("$.fares.length()").value(1));
+    }
+
+    @Test
+    void invalidCabinRangesReturnAnExplicitConfigurationError() throws Exception {
+        long flight = listing("flight", """
+                {"seat_layout":"2-2","seat_rows":16,"seats_available":64,
+                 "cabins":[{"rows":[1,2]},{"rows":[2,3]}]}
+                """);
+        http.perform(get("/api/flights/" + flight + "/seats").header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict());
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT count(*) FROM flight_seat_holds WHERE flight_listing_id = ?", Integer.class, flight));
+    }
+
+    @Test
+    void selectedFareAndConfiguredLegroomUseTheSamePricingAtConfirmation() throws Exception {
+        long flight = listing("flight", """
+                {"seat_layout":"2-2","seat_rows":16,"seats_available":64,
+                 "business_price":331,"extra_legroom_rows":[2],
+                 "origin_code":"MRA","origin_city":"Misrata",
+                 "destination_code":"MJI","destination_city":"Tripoli",
+                 "departure_time":"2035-11-20T10:00:00+02:00",
+                 "arrival_time":"2035-11-20T11:00:00+02:00"}
+                """);
+        postJson("/api/flights/" + flight + "/seats/reserve", Map.of("seats", java.util.List.of("2A")), 200);
+        JsonNode confirmed = postJson("/api/bookings/confirm", Map.of(
+                "flight_id", flight, "seats", java.util.List.of("2A"), "seat_class", "business",
+                "extras", java.util.List.of("flexible_ticket")), 201);
+        assertEquals(412.96, confirmed.path("booking").path("total_price").asDouble(), .001);
+        assertEquals("Business", jdbc.queryForObject(
+                "SELECT seat_class FROM trips WHERE user_id = ?", String.class, userId));
+        assertEquals("confirmed", jdbc.queryForObject(
+                "SELECT status FROM flight_seat_holds WHERE flight_listing_id = ?", String.class, flight));
+    }
 }

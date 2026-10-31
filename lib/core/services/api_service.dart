@@ -12,6 +12,7 @@ import '../../models/booking_model.dart';
 import '../../models/travel_package_model.dart';
 import '../../models/mock_data_service.dart';
 import '../../models/flight_model.dart';
+import '../../models/flight_seat_map.dart';
 import '../../models/flight_booking_model.dart';
 import '../../models/hotel_model.dart';
 import '../../models/car_model.dart';
@@ -961,6 +962,13 @@ class ApiService {
         .map((flight) =>
             FlightModel.fromJson(Map<String, dynamic>.from(flight as Map)))
         .toList();
+  }
+
+  Future<ApiResult<FlightSeatMap>> getFlightSeatMap(String flightId) {
+    return _request(() async {
+      final response = await _dio.get('/flights/$flightId/seats');
+      return FlightSeatMap.fromJson(Map<String, dynamic>.from(response.data as Map));
+    });
   }
 
   Future<ApiResult<Set<String>>> getOccupiedFlightSeats(

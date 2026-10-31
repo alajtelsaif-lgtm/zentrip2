@@ -34,6 +34,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -442,15 +443,18 @@ public class ApiController {
     }
 
     @GetMapping("/flights/{flightId}/seats")
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Map<String, Object> flightSeats(
             @PathVariable long flightId,
             HttpServletRequest request) {
         requireUserId(request);
         Map<String, Object> listing = flightListing(flightId, false);
-        return Map.of(
-                "occupied_seats", occupiedFlightSeats(flightId),
-                "seat_layout", listing.get("seat_layout"),
-                "row_count", listing.get("row_count"));
+        List<String> occupied = occupiedFlightSeats(flightId);
+        Integer holds = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM flight_seat_holds
+                WHERE flight_listing_id = ? AND status = 'reserved' AND expires_at > NOW()
+                """, Integer.class, flightId);
+        return FlightSeatConfiguration.response(listing, occupied, holds == null ? 0 : holds);
     }
 
     @PostMapping("/flights/{flightId}/seats/reserve")
@@ -583,15 +587,15 @@ public class ApiController {
         BigDecimal baseFare = flightFare(listing, seatClass);
         BigDecimal seatFees = BigDecimal.valueOf(
                 seats.stream().filter(seat -> isPremiumSeat(seat, listing)).count())
-                .multiply(new BigDecimal("15"));
+                .multiply(FlightSeatConfiguration.LEGROOM_FEE);
         BigDecimal extraFees = extras.stream()
                 .map(ApiController::flightExtraPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalPrice = baseFare.multiply(BigDecimal.valueOf(seats.size()))
                 .add(seatFees)
                 .add(extraFees)
-                .multiply(new BigDecimal("1.12"))
-                .add(new BigDecimal("12"))
+                .multiply(BigDecimal.ONE.add(FlightSeatConfiguration.TAX_RATE))
+                .add(FlightSeatConfiguration.BOOKING_FEE)
                 .setScale(2, RoundingMode.HALF_UP);
 
         reserveFlightSeats(flightId, seats.size());
@@ -826,11 +830,7 @@ public class ApiController {
     }
 
     private static BigDecimal flightExtraPrice(String extra) {
-        return switch (extra) {
-            case "extra_baggage" -> new BigDecimal("18");
-            case "flexible_ticket" -> new BigDecimal("12");
-            default -> BigDecimal.ZERO;
-        };
+        return FlightSeatConfiguration.EXTRAS.getOrDefault(extra, BigDecimal.ZERO);
     }
 
     private List<String> occupiedFlightSeats(long flightId) {
@@ -859,11 +859,7 @@ public class ApiController {
 
     private boolean isPremiumSeat(String seat, Map<String, Object> listing) {
         int row = Integer.parseInt(seat.substring(0, seat.length() - 1));
-        if (row == 1) return true;
-        if ("2-2".equals(listing.get("seat_layout"))) {
-            return row == 7 || row == 8;
-        }
-        return row == 11 || row == 12;
+        return FlightSeatConfiguration.premiumRows(listing).contains(row);
     }
 
     private static String requiredAttribute(

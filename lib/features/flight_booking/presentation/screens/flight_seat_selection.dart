@@ -1,23 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/api_result.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../global_widgets/payment_checkout_screen.dart';
-import '../../../../features/aircraft/aircraft.dart';
-import '../../../../features/aircraft/airbus_a320.dart';
-import '../../../../features/aircraft/atr72.dart';
 import '../../../../models/flight_booking_model.dart';
 import '../../../../models/flight_model.dart';
-import '../../../../l10n/app_localizations.dart';
+import '../../../../models/flight_seat_map.dart';
 import 'booking_confirmed_screen.dart';
 import 'flight_primary_button.dart';
+import 'flight_seat_map_view.dart';
+import 'flight_seat_widgets.dart';
 
-const _extraPrices = <String, double>{
-  'extra_baggage': 18,
-  'flexible_ticket': 12,
-};
+const _navy = Color(0xFF1E1B4B);
+const _page = Color(0xFFF3F5FA);
+const _ink = Color(0xFF172033);
+const _line = Color(0xFFE7EAF1);
+
+typedef FlightSeatMapLoader = Future<ApiResult<FlightSeatMap>> Function(String);
 
 class FlightSeatSelectionScreen extends StatefulWidget {
   final FlightModel flight;
@@ -26,6 +29,7 @@ class FlightSeatSelectionScreen extends StatefulWidget {
   final DateTime? returnDate;
   final int seatsPerSide;
   final int rowCount;
+  final FlightSeatMapLoader? seatMapLoader;
 
   const FlightSeatSelectionScreen({
     super.key,
@@ -35,6 +39,7 @@ class FlightSeatSelectionScreen extends StatefulWidget {
     required this.returnDate,
     required this.seatsPerSide,
     required this.rowCount,
+    this.seatMapLoader,
   });
 
   @override
@@ -42,20 +47,20 @@ class FlightSeatSelectionScreen extends StatefulWidget {
       _FlightSeatSelectionScreenState();
 }
 
-class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen> {
-  Set<String> _occupiedSeats = {};
+class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
+    with WidgetsBindingObserver {
+  FlightSeatMap? _seatMap;
   final Set<String> _selectedSeats = {};
-  bool _loadingSeats = true;
-  bool _submitting = false;
-  String? _seatError;
+  final Set<String> _heldSeats = {};
   final Set<String> _selectedExtras = {};
-
-  Aircraft get _aircraft {
-    final name = widget.flight.aircraftName.toLowerCase();
-    return name.contains('atr') || widget.flight.usesTwoByTwoSeatLayout
-        ? atr72
-        : airbusA320;
-  }
+  bool _loading = true;
+  bool _submitting = false;
+  bool _refreshing = false;
+  String? _seatError;
+  String? _lostSeatMessage;
+  String? _selectedFareId;
+  String? _selectedCabinId;
+  Timer? _refreshTimer;
 
   String? get _flightId {
     final id = widget.flight.partnerListingId?.toString() ??
@@ -63,72 +68,150 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen> {
     return RegExp(r'^\d+$').hasMatch(id) ? id : null;
   }
 
-  int get _rowCount => widget.rowCount.clamp(1, _aircraft.rowCount).toInt();
-  int get _seatCount => widget.seatsPerSide * 2;
-  List<String> get _seatLetters => _aircraft.letters.take(_seatCount).toList();
-
-  double get _farePerPassenger {
-    return switch (widget.seatClass.toLowerCase()) {
-      'business' => widget.flight.businessPrice ?? widget.flight.economyPrice,
-      'first' => widget.flight.firstPrice ?? widget.flight.economyPrice,
-      _ => widget.flight.economyPrice,
-    };
+  FlightSeatFare? get _fare {
+    final map = _seatMap;
+    if (map == null || map.fares.isEmpty) return null;
+    for (final fare in map.fares) {
+      if (fare.id == _selectedFareId) return fare;
+    }
+    return map.fares.first;
   }
 
-  bool _isPremiumSeat(String seat) {
-    final row = int.tryParse(seat.substring(0, seat.length - 1));
-    return row != null && _aircraft.legroomRows.contains(row);
+  FlightSeatCabin? get _cabin {
+    final map = _seatMap;
+    if (map == null || map.cabins.isEmpty) return null;
+    for (final cabin in map.cabins) {
+      if (cabin.id == _selectedCabinId) return cabin;
+    }
+    return map.cabins.first;
   }
 
   double get _totalPrice {
-    final seatFees = _selectedSeats.where(_isPremiumSeat).length * 15.0;
+    final map = _seatMap;
+    final fare = _fare;
+    if (map == null || fare == null) return 0;
+    final premiumCount = _selectedSeats.where((seat) {
+      final row = int.tryParse(seat.substring(0, seat.length - 1));
+      return row != null && map.extraLegroomRows.contains(row);
+    }).length;
     final extras = _selectedExtras.fold<double>(
       0,
-      (total, extra) => total + (_extraPrices[extra] ?? 0),
+      (sum, key) => sum + (map.extras[key] ?? 0),
     );
-    return (_farePerPassenger * widget.passengerCount + seatFees + extras) *
-            1.12 +
-        12;
+    final subtotal = fare.price * widget.passengerCount +
+        premiumCount * map.extraLegroomFee +
+        extras;
+    return subtotal * (1 + map.taxRate) + map.bookingFee;
   }
 
   @override
   void initState() {
     super.initState();
-    _loadSeats();
+    WidgetsBinding.instance.addObserver(this);
+    _loadSeatMap();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _loadSeatMap(),
+    );
   }
 
-  Future<void> _loadSeats() async {
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadSeatMap();
+  }
+
+  Future<void> _loadSeatMap() async {
+    if (_submitting || _refreshing) return;
     final flightId = _flightId;
     if (flightId == null) {
       setState(() {
-        _loadingSeats = false;
+        _loading = false;
         _seatError = 'This flight is missing its listing ID.';
       });
       return;
     }
-
     setState(() {
-      _loadingSeats = true;
+      _refreshing = true;
+      if (_seatMap == null) _loading = true;
       _seatError = null;
     });
-    final result = await ApiService.instance.getOccupiedFlightSeats(flightId);
+    final result = await (widget.seatMapLoader ??
+        ApiService.instance.getFlightSeatMap)(flightId);
     if (!mounted) return;
     setState(() {
-      _loadingSeats = false;
-      if (result.isFailure) {
-        _seatError = result.errorMessage ?? 'Could not load available seats.';
+      _refreshing = false;
+      _loading = false;
+      if (result.isFailure || result.data == null) {
+        _seatError = result.errorMessage ?? 'Could not load seat availability.';
       } else {
-        _occupiedSeats = result.data!;
-        _selectedSeats.removeWhere(_occupiedSeats.contains);
+        final nextMap = result.data!;
+        final validSeats = <String>{
+          for (final cabin in nextMap.cabins)
+            for (final row in cabin.rows)
+              for (final letter in nextMap.seatLetters) '$row$letter',
+        };
+        final unavailableSelected = _selectedSeats
+            .where((seat) =>
+                !validSeats.contains(seat) || nextMap.occupiedSeats.contains(seat))
+            .toList();
+        if (unavailableSelected.isNotEmpty) {
+          for (final seat in unavailableSelected) {
+            _selectedSeats.remove(seat);
+            _heldSeats.remove(seat);
+          }
+          _lostSeatMessage =
+              'A seat you selected is no longer available. Please choose again.';
+        }
+        _seatMap = nextMap;
+        _selectedExtras.removeWhere((key) => !nextMap.extras.containsKey(key));
+        if (!nextMap.fares.any((fare) => fare.id == _selectedFareId)) {
+          final matchingFare = nextMap.fares.where((fare) =>
+              fare.label.toLowerCase() == widget.seatClass.toLowerCase());
+          _selectedFareId = matchingFare.isNotEmpty
+              ? matchingFare.first.id
+              : nextMap.fares.first.id;
+        }
+        if (!nextMap.cabins.any((cabin) => cabin.id == _selectedCabinId)) {
+          _selectedCabinId = nextMap.cabins.first.id;
+        }
       }
     });
+    if (_lostSeatMessage != null && mounted) {
+      AppSnackbar.info(context, _lostSeatMessage!);
+      _lostSeatMessage = null;
+    }
+  }
+
+  void _selectFare(FlightSeatFare fare) {
+    if (_submitting || _refreshing || fare.availableSeats < widget.passengerCount) {
+      return;
+    }
+    setState(() => _selectedFareId = fare.id);
   }
 
   void _toggleSeat(String seat) {
-    if (_submitting || _loadingSeats || _occupiedSeats.contains(seat)) return;
+    final map = _seatMap;
+    if (_submitting ||
+        _refreshing ||
+        _loading ||
+        _seatError != null ||
+        map == null ||
+        (map.occupiedSeats.contains(seat) && !_heldSeats.contains(seat))) {
+      return;
+    }
     if (_selectedSeats.contains(seat)) {
       HapticFeedback.selectionClick();
-      setState(() => _selectedSeats.remove(seat));
+      setState(() {
+        _selectedSeats.remove(seat);
+        _heldSeats.remove(seat);
+      });
       return;
     }
     if (_selectedSeats.length >= widget.passengerCount) {
@@ -144,7 +227,17 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen> {
 
   Future<void> _proceedToPayment() async {
     final flightId = _flightId;
-    if (_submitting || flightId == null) return;
+    final fare = _fare;
+    final map = _seatMap;
+    if (_submitting ||
+        flightId == null ||
+        fare == null ||
+        map == null ||
+        _seatError != null ||
+        _loading ||
+        _refreshing) {
+      return;
+    }
     if (_selectedSeats.length != widget.passengerCount) {
       AppSnackbar.error(
         context,
@@ -152,7 +245,14 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen> {
       );
       return;
     }
+    if (fare.availableSeats < widget.passengerCount) {
+      AppSnackbar.error(context, 'This fare no longer has enough seats.');
+      return;
+    }
 
+    final selectedSeats = _selectedSeats.toList()..sort();
+    final selectedExtras = _selectedExtras.toList()..sort();
+    final bookingTotal = _totalPrice;
     setState(() => _submitting = true);
     final availability = await ApiService.instance.checkFlightAvailability(
       departureDate: widget.flight.departureTime,
@@ -165,16 +265,14 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen> {
       AppSnackbar.error(
         context,
         availability.isFailure
-            ? availability.errorMessage ??
-                'Could not verify flight availability.'
+            ? availability.errorMessage ?? 'Could not verify flight availability.'
             : 'This flight conflicts with another booking on your account.',
       );
       return;
     }
-
     final reservation = await ApiService.instance.reserveFlightSeats(
       flightId: flightId,
-      seats: _selectedSeats.toList()..sort(),
+      seats: selectedSeats,
     );
     if (!mounted) return;
     if (reservation.isFailure) {
@@ -183,16 +281,20 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen> {
         context,
         reservation.errorMessage ?? 'Those seats are no longer available.',
       );
-      await _loadSeats();
+      await _loadSeatMap();
       return;
     }
-    setState(() => _occupiedSeats = reservation.data!);
+    setState(() {
+      _heldSeats
+        ..clear()
+        ..addAll(selectedSeats);
+    });
 
     final requestReference =
         'flight-$flightId-${DateTime.now().microsecondsSinceEpoch}';
     final paid = await PaymentCheckoutScreen.start(
       context,
-      amountUsd: _totalPrice,
+      amountUsd: bookingTotal,
       description: '${widget.flight.flightNumber} seat booking',
       referenceId: requestReference,
     );
@@ -201,70 +303,101 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen> {
       final release =
           await ApiService.instance.releaseFlightSeatReservation(flightId);
       if (!mounted) return;
-      setState(() => _submitting = false);
+      setState(() {
+        _submitting = false;
+        _heldSeats.clear();
+      });
       AppSnackbar.error(
         context,
         release.isFailure
             ? 'Payment was not completed and the seat hold could not be released. ${release.errorMessage ?? ''}'
             : 'Payment was not completed. Your seat hold was released.',
       );
-      await _loadSeats();
+      await _loadSeatMap();
       return;
     }
 
     final draft = FlightBookingDraft(
       flight: widget.flight,
       passengerCount: widget.passengerCount,
-      seatClass: widget.seatClass,
-      seats: _selectedSeats.toList()..sort(),
+      seatClass: fare.id,
+      seats: selectedSeats,
       returnDate: widget.returnDate,
-      totalPrice: _totalPrice,
-      extras: _selectedExtras.toList()..sort(),
+      totalPrice: bookingTotal,
+      extras: selectedExtras,
     );
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BookingConfirmedScreen(draft: draft),
-      ),
+      MaterialPageRoute(builder: (_) => BookingConfirmedScreen(draft: draft)),
     );
     if (mounted) setState(() => _submitting = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final localizations = MaterialLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Choose seats')),
+      backgroundColor: _page,
+      appBar: AppBar(
+        backgroundColor: _page,
+        foregroundColor: _ink,
+        elevation: 0,
+        title: const Text('Choose seats',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh availability',
+            onPressed: _submitting || _refreshing ? null : _loadSeatMap,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                children: [
-                  _flightSummary(localizations),
-                  const SizedBox(height: 18),
-                  _priceSummary(),
-                  const SizedBox(height: 18),
-                  _extraOptions(),
-                  const SizedBox(height: 18),
-                  _seatMap(),
-                  const SizedBox(height: 12),
-                  _legend(),
-                ],
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 7, 16, 20),
+                    children: [
+                      FlightSelectionHeader(flight: widget.flight),
+                      const SizedBox(height: 19),
+                      if (_seatMap != null) _fareCards(_seatMap!),
+                      const SizedBox(height: 19),
+                      if (_seatMap != null) _cabinSelector(_seatMap!),
+                      const SizedBox(height: 13),
+                      _seatMapPanel(),
+                      if (_seatMap != null) ...[
+                        const SizedBox(height: 14),
+                        _legend(),
+                        const SizedBox(height: 18),
+                        _extrasPanel(_seatMap!),
+                        const SizedBox(height: 14),
+                        _priceBreakdown(_seatMap!),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: FlightPrimaryButton(
-                label:
-                    'Proceed to Payment · \$${_totalPrice.toStringAsFixed(2)}',
-                icon: Icons.lock_rounded,
-                loading: _submitting,
-                onPressed: !_loadingSeats &&
-                        _seatError == null &&
-                        _selectedSeats.length == widget.passengerCount
-                    ? _proceedToPayment
-                    : null,
+              padding: const EdgeInsets.fromLTRB(16, 9, 16, 12),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 728),
+                child: FlightPrimaryButton(
+                  label: 'Proceed to Payment · \$${_totalPrice.toStringAsFixed(2)}',
+                  icon: Icons.lock_rounded,
+                  loading: _submitting,
+                  onPressed: _seatMap != null &&
+                          !_loading &&
+                          !_refreshing &&
+                          _seatError == null &&
+                          (_fare?.availableSeats ?? 0) >= widget.passengerCount &&
+                          _selectedSeats.length == widget.passengerCount
+                      ? _proceedToPayment
+                      : null,
+                ),
               ),
             ),
           ],
@@ -273,384 +406,121 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen> {
     );
   }
 
-  Widget _flightSummary(MaterialLocalizations localizations) {
-    final flight = widget.flight;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.2),
-            blurRadius: 16,
-            offset: const Offset(0, 7),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${flight.originCode}  →  ${flight.destinationCode}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${flight.airline} · ${flight.flightNumber} · ${_aircraft.name}',
-            style: const TextStyle(color: Colors.white70),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${localizations.formatMediumDate(flight.departureTime)} · ${TimeOfDay.fromDateTime(flight.departureTime).format(context)}'
-            ' · ${widget.passengerCount} passenger${widget.passengerCount == 1 ? '' : 's'}',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _priceSummary() {
-    final baseTotal = _farePerPassenger * widget.passengerCount;
-    final seatFees = _selectedSeats.where(_isPremiumSeat).length * 15.0;
-    final extraFees = _selectedExtras.fold<double>(
-      0,
-      (total, extra) => total + (_extraPrices[extra] ?? 0),
-    );
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          _priceRow(
-            '${widget.seatClass} fare × ${widget.passengerCount}',
-            '\$${baseTotal.toStringAsFixed(2)}',
-          ),
-          if (seatFees > 0) ...[
-            const SizedBox(height: 6),
-            _priceRow(
-                'Extra-legroom seats', '\$${seatFees.toStringAsFixed(2)}'),
-          ],
-          if (extraFees > 0) ...[
-            const SizedBox(height: 6),
-            _priceRow('Selected extras', '\$${extraFees.toStringAsFixed(2)}'),
-          ],
-          const Divider(height: 20),
-          _priceRow(
-            'Estimated total including taxes and fees',
-            '\$${_totalPrice.toStringAsFixed(2)}',
-            bold: true,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${_selectedSeats.length} of ${widget.passengerCount} seats selected',
-            style:
-                const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _extraOptions() {
-    final l10n = AppLocalizations.of(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.flightExtraOptions,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          _extraTile(
-            key: 'extra_baggage',
-            title: l10n.flightExtraBaggage,
-            subtitle: l10n.flightExtraBaggageDescription,
-          ),
-          _extraTile(
-            key: 'flexible_ticket',
-            title: l10n.flightFlexibleTicket,
-            subtitle: l10n.flightFlexibleTicketDescription,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _extraTile({
-    required String key,
-    required String title,
-    required String subtitle,
-  }) {
-    final selected = _selectedExtras.contains(key);
-    return CheckboxListTile(
-      contentPadding: EdgeInsets.zero,
-      controlAffinity: ListTileControlAffinity.leading,
-      value: selected,
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(
-        '$subtitle · \$${_extraPrices[key]!.toStringAsFixed(2)}',
-        style: const TextStyle(fontSize: 12),
-      ),
-      onChanged: _submitting
-          ? null
-          : (value) => setState(() {
-                if (value == true) {
-                  _selectedExtras.add(key);
-                } else {
-                  _selectedExtras.remove(key);
-                }
-              }),
-    );
-  }
-
-  Widget _priceRow(String label, String value, {bool bold = false}) => Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: bold ? AppColors.textPrimary : AppColors.textSecondary,
-                fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: bold ? AppColors.primary : AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      );
-
-  Widget _seatMap() {
-    if (_loadingSeats) {
-      return const SizedBox(
-        height: 220,
-        child: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-      );
-    }
-    if (_seatError != null) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
+  Widget _fareCards(FlightSeatMap map) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 12.0;
+        final width = (constraints.maxWidth - gap) / 2;
+        return Wrap(
+          spacing: gap,
+          runSpacing: 10,
           children: [
-            Text(_seatError!, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: _loadSeats,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-            ),
+            for (final fare in map.fares)
+              SizedBox(
+                width: width,
+                child: FlightFareCard(
+                  fare: fare,
+                  selected: fare.id == _fare?.id,
+                  enabled:
+                      !_submitting &&
+                      !_refreshing &&
+                      _seatError == null &&
+                      fare.availableSeats >= widget.passengerCount,
+                  onTap: () => _selectFare(fare),
+                ),
+              ),
           ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          const Text(
-            'Select seats',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const SizedBox(width: 30),
-              Expanded(
-                  child: _letterGroup(_seatLetters.take(widget.seatsPerSide))),
-              const SizedBox(width: 20),
-              Expanded(
-                  child: _letterGroup(_seatLetters.skip(widget.seatsPerSide))),
-            ],
-          ),
-          const SizedBox(height: 6),
-          for (int row = 1; row <= _rowCount; row++) _seatRow(row),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _letterGroup(Iterable<String> letters) => Row(
-        children: [
-          for (final letter in letters)
-            Expanded(
-              child: Center(
-                child: Text(
-                  letter,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      );
+  Widget _cabinSelector(FlightSeatMap map) {
+    final cabin = _cabin;
+    if (cabin == null) return const SizedBox.shrink();
+    return FlightCabinSelector(
+      cabin: cabin,
+      cabins: map.cabins,
+      selectedCabinId: cabin.id,
+      enabled: !_submitting && !_refreshing && _seatError == null,
+      onCabinSelected: (selected) =>
+          setState(() => _selectedCabinId = selected.id),
+    );
+  }
 
-  Widget _seatRow(int row) {
-    final letters = _seatLetters;
+  Widget _seatMapPanel() {
+    final map = _seatMap;
+    final cabin = _cabin;
+    if (_loading && map == null) return const FlightSeatMapSkeleton();
+    if (_seatError != null) {
+      return FlightSeatErrorPanel(
+        message: _seatError!,
+        retrying: _refreshing,
+        onRetry: _loadSeatMap,
+      );
+    }
+    if (map == null || cabin == null) {
+      return const FlightSeatErrorPanel(
+        message: 'Seat availability is not available right now.',
+        retrying: false,
+        onRetry: null,
+      );
+    }
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_aircraft.exitRows.contains(row))
+        if (_refreshing)
+          const LinearProgressIndicator(
+            minHeight: 2,
+            color: _navy,
+            backgroundColor: _line,
+          ),
+        if (_lostSeatMessage != null)
           Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              AppLocalizations.of(context).flightExitRow,
-              style: const TextStyle(
-                color: AppColors.accentOrange,
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(_lostSeatMessage!,
+                style: const TextStyle(
+                    color: Color(0xFF9B4F37), fontWeight: FontWeight.w600)),
           ),
-        SizedBox(
-          height: 42,
-          child: Row(
-            children: [
-              SizedBox(
-                width: 30,
-                child: Text(
-                  '$row',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Row(
-                  children: [
-                    for (final letter in letters.take(widget.seatsPerSide))
-                      Expanded(child: _seatButton('$row$letter')),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Row(
-                  children: [
-                    for (final letter in letters.skip(widget.seatsPerSide))
-                      Expanded(child: _seatButton('$row$letter')),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        FlightSeatMapView(
+          rows: cabin.rows,
+          seatLetters: map.seatLetters,
+          extraLegroomRows: map.extraLegroomRows,
+          occupiedSeats: map.occupiedSeats.difference(_heldSeats),
+          selectedSeats: _selectedSeats,
+          enabled:
+              !_submitting && !_loading && !_refreshing && _seatError == null,
+          onSeatTap: _toggleSeat,
         ),
       ],
     );
   }
 
-  Widget _seatButton(String seat) {
-    final occupied = _occupiedSeats.contains(seat);
-    final selected = _selectedSeats.contains(seat);
-    final premium = _isPremiumSeat(seat);
-    final background = occupied
-        ? AppColors.border
-        : selected
-            ? AppColors.primary
-            : premium
-                ? AppColors.primarySurface
-                : AppColors.surfaceSecondary;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
-      child: Semantics(
-        button: true,
-        enabled: !occupied,
-        label:
-            'Seat $seat${occupied ? ', occupied' : selected ? ', selected' : ''}',
-        child: Material(
-          color: background,
-          borderRadius: BorderRadius.circular(9),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(9),
-            onTap: occupied ? null : () => _toggleSeat(seat),
-            child: Center(
-              child: Icon(
-                occupied ? Icons.close_rounded : Icons.event_seat_rounded,
-                size: 18,
-                color: occupied
-                    ? AppColors.textHint
-                    : selected
-                        ? Colors.white
-                        : AppColors.primary,
-              ),
-            ),
-          ),
-        ),
-      ),
+  Widget _legend() => const FlightSeatLegend();
+
+  Widget _extrasPanel(FlightSeatMap map) => FlightExtrasPanel(
+        extras: map.extras,
+        selectedExtras: _selectedExtras,
+        enabled: !_submitting && !_refreshing && _seatError == null,
+        onChanged: (key, selected) => setState(() {
+          if (selected) {
+            _selectedExtras.add(key);
+          } else {
+            _selectedExtras.remove(key);
+          }
+        }),
+      );
+
+  Widget _priceBreakdown(FlightSeatMap map) {
+    final fare = _fare;
+    if (fare == null) return const SizedBox.shrink();
+    return FlightPriceBreakdown(
+      map: map,
+      fare: fare,
+      passengerCount: widget.passengerCount,
+      selectedSeats: _selectedSeats,
+      selectedExtras: _selectedExtras,
+      totalPrice: _totalPrice,
     );
   }
-
-  Widget _legend() => Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 14,
-        runSpacing: 8,
-        children: [
-          _legendItem(AppColors.surfaceSecondary, 'Available'),
-          _legendItem(AppColors.primarySurface, 'Extra legroom'),
-          _legendItem(AppColors.primary, 'Selected'),
-          _legendItem(AppColors.border, 'Occupied'),
-        ],
-      );
-
-  Widget _legendItem(Color color, String label) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 14,
-            height: 14,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      );
 }
