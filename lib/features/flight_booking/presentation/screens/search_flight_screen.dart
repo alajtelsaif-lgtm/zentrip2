@@ -1088,6 +1088,8 @@ class _NoFlights extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final dateText = MaterialLocalizations.of(context)
+        .formatMediumDate(params.departureDate);
     return Column(
       children: [
         _SearchSummary(params: params, onEdit: onEdit, l10n: l10n),
@@ -1095,6 +1097,27 @@ class _NoFlights extends StatelessWidget {
           departureDate: params.departureDate,
           lastDate: params.isRoundTrip ? params.returnDate : null,
           onSelected: onSelectDepartureDate,
+        ),
+        Expanded(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  l10n.flightNoResultsForSearch(
+                    params.originCode,
+                    params.destinationCode,
+                    dateText,
+                  ),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
