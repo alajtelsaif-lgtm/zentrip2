@@ -100,6 +100,20 @@ class PostgresMigrationIntegrationTest {
     }
 
     @Test
+    void loginTrimsAndMatchesEmailWithoutCaseSensitivity() throws Exception {
+        String password = UUID.randomUUID().toString();
+        String email = jdbc.queryForObject(
+                "SELECT email FROM users WHERE id = ?", String.class, userId).toUpperCase(java.util.Locale.ROOT);
+        jdbc.update("UPDATE users SET email = ?, password = ? WHERE id = ?", email,
+                new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(password),
+                userId);
+        JsonNode response = postJson("/api/auth/login",
+                Map.of("email", "  " + email.toLowerCase(java.util.Locale.ROOT) + "  ",
+                        "password", password), 200);
+        assertFalse(response.path("token").asText().isBlank());
+    }
+
+    @Test
     void carBookingReturnsIdAndCancellationRestoresInventory() throws Exception {
         long listing = listing("car", "{\"available_vehicles\":1}");
         JsonNode response = postJson("/api/bookings", booking("car", listing), 201);

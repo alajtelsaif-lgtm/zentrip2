@@ -99,10 +99,18 @@ public class ApiController {
 
     @PostMapping("/auth/login")
     public ResponseEntity<?> login(@RequestBody Map<String, Object> body, HttpServletRequest request) {
-        String email = text(body.get("email"));
+        String email = text(body.get("email")).trim();
         String password = text(body.get("password"));
-        List<Map<String, Object>> rows = jdbc.queryForList("SELECT id, password FROM users WHERE email = ?", email);
-        if (rows.isEmpty() || !passwords.matches(password, text(rows.getFirst().get("password")))) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT id, password FROM users WHERE email = ?", email);
+        if (rows.isEmpty()) {
+            rows = jdbc.queryForList("""
+                    SELECT id, password FROM users WHERE LOWER(email) = LOWER(?)
+                    ORDER BY id LIMIT 2
+                    """, email);
+        }
+        if (rows.size() != 1 ||
+                !passwords.matches(password, text(rows.getFirst().get("password")))) {
             return ResponseEntity.unprocessableEntity().body(validationError(
                     "email", "The provided credentials are incorrect."));
         }
