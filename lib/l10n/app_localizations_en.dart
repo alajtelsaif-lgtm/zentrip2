@@ -898,6 +898,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get flightResults => 'Available Flights';
 
   @override
+  String get flightSelectTitle => 'Select Flight';
+
+  @override
+  String get flightDateLabel => 'Flight Date';
+
+  @override
   String get cheapest => 'Cheapest';
 
   @override
@@ -2046,6 +2052,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminOverview => 'Overview';
 
   @override
+  String get adminPartners => 'Partners';
+
+  @override
+  String get adminOffers => 'Offers';
+
+  @override
   String get adminReservations => 'Reservations';
 
   @override
@@ -2065,6 +2077,87 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminCustomerCount => 'Customers';
+
+  @override
+  String get adminUserCount => 'Users';
+
+  @override
+  String get adminPartnerCount => 'Active partners';
+
+  @override
+  String get adminPartnerListings => 'Active listings';
+
+  @override
+  String get adminPartnerAccounts => 'Partner accounts';
+
+  @override
+  String get adminAddPartner => 'Add partner';
+
+  @override
+  String get adminPartnerName => 'Partner or company name';
+
+  @override
+  String get adminPartnerEmail => 'Registered user email';
+
+  @override
+  String get adminPartnerService => 'Partner service';
+
+  @override
+  String get adminPartnerExistingAccountHint =>
+      'The partner must already have a Zentrip account. This will not create or reset a password.';
+
+  @override
+  String get adminPartnerStatusActive => 'Active';
+
+  @override
+  String get adminPartnerStatusInactive => 'Inactive';
+
+  @override
+  String get adminDisablePartner => 'Disable partner';
+
+  @override
+  String get adminRestorePartner => 'Restore partner';
+
+  @override
+  String get adminPartnerRestored => 'Partner access restored.';
+
+  @override
+  String get adminDisablePartnerConfirmation =>
+      'This removes partner access but keeps the company, listings, and booking history.';
+
+  @override
+  String get adminPartnerDisabled =>
+      'Partner access disabled. Existing records were kept.';
+
+  @override
+  String get adminPartnerAdded => 'Partner added';
+
+  @override
+  String get adminNoPartners => 'No partners found.';
+
+  @override
+  String get adminServiceAirline => 'Airline';
+
+  @override
+  String get adminServiceHotel => 'Hotel';
+
+  @override
+  String get adminServiceCar => 'Car rental';
+
+  @override
+  String get adminServiceAttraction => 'Attraction';
+
+  @override
+  String get adminServiceTransfer => 'Transfer';
+
+  @override
+  String get adminServiceTravel => 'Travel packages';
+
+  @override
+  String get adminRequiredField => 'This field is required.';
+
+  @override
+  String get adminInvalidEmail => 'Enter a valid email address.';
 
   @override
   String get adminNewCustomers => 'New customers (30 days)';

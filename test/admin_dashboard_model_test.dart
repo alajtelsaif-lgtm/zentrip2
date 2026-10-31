@@ -11,6 +11,9 @@ void main() {
         'summary': {
           'customer_count': 15,
           'new_customers_30d': 4,
+          'total_user_count': 24,
+          'partner_count': 6,
+          'active_partner_listing_count': 19,
           'reservation_count': 21,
           'flight_count': 5,
           'service_booking_count': 11,
@@ -31,6 +34,9 @@ void main() {
       });
 
       expect(data.customerCount, 15);
+      expect(data.totalUserCount, 24);
+      expect(data.partnerCount, 6);
+      expect(data.activePartnerListingCount, 19);
       expect(data.bookedValue, 1240.5);
       expect(data.recentReservations.single.id, 'booking-9');
       expect(data.recentReservations.single.reservationDate,

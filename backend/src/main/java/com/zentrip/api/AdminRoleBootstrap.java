@@ -18,14 +18,18 @@ public class AdminRoleBootstrap implements ApplicationRunner {
     private final JdbcTemplate jdbc;
     private final String adminEmail;
     private final String partnerAccounts;
+    private final boolean partnerReconciliationEnabled;
 
     public AdminRoleBootstrap(
             JdbcTemplate jdbc,
             @Value("${app.admin.email:}") String adminEmail,
-            @Value("${app.partner.accounts:}") String partnerAccounts) {
+            @Value("${app.partner.accounts:}") String partnerAccounts,
+            @Value("${app.bootstrap.partner-reconciliation.enabled:false}")
+            boolean partnerReconciliationEnabled) {
         this.jdbc = jdbc;
         this.adminEmail = adminEmail.trim();
         this.partnerAccounts = partnerAccounts.trim();
+        this.partnerReconciliationEnabled = partnerReconciliationEnabled;
     }
 
     @Override
@@ -68,6 +72,9 @@ public class AdminRoleBootstrap implements ApplicationRunner {
                         + "INTEGER NOT NULL DEFAULT 0");
         backfillHotelListingFields();
 
+        if (!adminEmail.isBlank()) promoteAdmin();
+        if (!partnerReconciliationEnabled) return;
+
         List<PartnerAccount> accounts = parsePartnerAccounts();
         if (accounts.stream().anyMatch(
                 account -> account.email().equalsIgnoreCase(adminEmail))) {
@@ -75,7 +82,6 @@ public class AdminRoleBootstrap implements ApplicationRunner {
                     "An email cannot be configured as both Zentrip admin and partner.");
         }
         validatePartnerAccounts(accounts);
-        if (!adminEmail.isBlank()) promoteAdmin();
         revokeUnconfiguredPartners(accounts);
         configurePartners(accounts);
     }

@@ -113,6 +113,33 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
     );
   }
 
+  void _selectDepartureDate(DateTime date) {
+    final current = _params;
+    if (current == null ||
+        (current.departureDate.year == date.year &&
+            current.departureDate.month == date.month &&
+            current.departureDate.day == date.day)) {
+      return;
+    }
+    final updated = FlightSearchParams(
+      originCode: current.originCode,
+      originCity: current.originCity,
+      destinationCode: current.destinationCode,
+      destinationCity: current.destinationCity,
+      departureDate: DateTime(date.year, date.month, date.day),
+      returnDate: current.returnDate,
+      passengers: current.passengers,
+      seatClass: current.seatClass,
+      isRoundTrip: current.isRoundTrip,
+    );
+    setState(() {
+      _params = updated;
+      _error = null;
+      _priceAlertsChecked = false;
+    });
+    unawaited(_search(updated));
+  }
+
   void _selectFlight(FlightModel flight) {
     final controller = _controller;
     final params = _params ?? controller?.searchParams;
@@ -150,7 +177,7 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.flightResults),
+        title: Text(l10n.flightSelectTitle),
         actions: [
           IconButton(
             tooltip: l10n.searchFlights,
@@ -192,6 +219,7 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
                   params: _params!,
                   onEdit: _editSearch,
                   onSelect: _selectFlight,
+                  onSelectDepartureDate: _selectDepartureDate,
                   l10n: l10n,
                 );
               },
@@ -205,6 +233,7 @@ class _FlightResults extends StatelessWidget {
   final FlightSearchParams params;
   final VoidCallback onEdit;
   final ValueChanged<FlightModel> onSelect;
+  final ValueChanged<DateTime> onSelectDepartureDate;
   final AppLocalizations l10n;
 
   const _FlightResults({
@@ -212,6 +241,7 @@ class _FlightResults extends StatelessWidget {
     required this.params,
     required this.onEdit,
     required this.onSelect,
+    required this.onSelectDepartureDate,
     required this.l10n,
   });
 
@@ -221,6 +251,10 @@ class _FlightResults extends StatelessWidget {
     return Column(
       children: [
         _SearchSummary(params: params, onEdit: onEdit, l10n: l10n),
+        FlightDateSelector(
+          departureDate: params.departureDate,
+          onSelected: onSelectDepartureDate,
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Row(
@@ -338,6 +372,37 @@ class _SearchSummary extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        params.originCity,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 28),
+                    Expanded(
+                      child: Text(
+                        params.destinationCity,
+                        maxLines: 1,
+                        textAlign: TextAlign.end,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 12,
@@ -377,6 +442,129 @@ class _SearchSummary extends StatelessWidget {
             icon: const Icon(Icons.edit_rounded),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class FlightDateSelector extends StatelessWidget {
+  final DateTime departureDate;
+  final ValueChanged<DateTime> onSelected;
+
+  const FlightDateSelector({
+    super.key,
+    required this.departureDate,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final materialL10n = MaterialLocalizations.of(context);
+    final firstDate = DateTime(
+      departureDate.year,
+      departureDate.month,
+      departureDate.day,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.flightDateLabel,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+              Text(
+                materialL10n.formatMonthYear(firstDate),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 76,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: 7,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final date = firstDate.add(Duration(days: index));
+                return _FlightDateCard(
+                  date: date,
+                  selected: index == 0,
+                  onTap: () => onSelected(date),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FlightDateCard extends StatelessWidget {
+  final DateTime date;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FlightDateCard({
+    required this.date,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final materialL10n = MaterialLocalizations.of(context);
+    final weekday = materialL10n.narrowWeekdays[date.weekday % 7];
+    final background = Theme.of(context).colorScheme.surface;
+    return SizedBox(
+      width: 61,
+      child: Material(
+        color: selected ? AppColors.primary : background,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: selected ? AppColors.primary : AppColors.border,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  weekday,
+                  style: TextStyle(
+                    color: selected ? Colors.white70 : AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${date.day}',
+                  style: TextStyle(
+                    color: selected ? Colors.white : null,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

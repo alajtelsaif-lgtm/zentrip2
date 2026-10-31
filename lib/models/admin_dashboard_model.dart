@@ -1,6 +1,9 @@
 class AdminDashboardData {
   final int customerCount;
   final int newCustomers;
+  final int totalUserCount;
+  final int partnerCount;
+  final int activePartnerListingCount;
   final int reservationCount;
   final int flightCount;
   final int serviceBookingCount;
@@ -11,6 +14,9 @@ class AdminDashboardData {
   const AdminDashboardData({
     required this.customerCount,
     required this.newCustomers,
+    this.totalUserCount = 0,
+    this.partnerCount = 0,
+    this.activePartnerListingCount = 0,
     required this.reservationCount,
     required this.flightCount,
     required this.serviceBookingCount,
@@ -25,17 +31,60 @@ class AdminDashboardData {
     return AdminDashboardData(
       customerCount: _asInt(summary['customer_count']),
       newCustomers: _asInt(summary['new_customers_30d']),
+      totalUserCount:
+          _asInt(summary['total_user_count'] ?? summary['customer_count']),
+      partnerCount: _asInt(summary['partner_count']),
+      activePartnerListingCount:
+          _asInt(summary['active_partner_listing_count']),
       reservationCount: _asInt(summary['reservation_count']),
       flightCount: _asInt(summary['flight_count']),
       serviceBookingCount: _asInt(summary['service_booking_count']),
       transferCount: _asInt(summary['transfer_count']),
       bookedValue: _asDouble(summary['booked_value']),
       recentReservations: reservations
-          .map((item) =>
-              AdminReservation.fromJson(item as Map<String, dynamic>))
+          .map(
+              (item) => AdminReservation.fromJson(item as Map<String, dynamic>))
           .toList(),
     );
   }
+}
+
+class AdminPartner {
+  final int id;
+  final String name;
+  final String slug;
+  final String serviceType;
+  final String status;
+  final DateTime? createdAt;
+  final int accountCount;
+  final String contactEmails;
+  final int listingCount;
+
+  const AdminPartner({
+    required this.id,
+    required this.name,
+    required this.slug,
+    required this.serviceType,
+    required this.status,
+    required this.createdAt,
+    required this.accountCount,
+    required this.contactEmails,
+    required this.listingCount,
+  });
+
+  bool get isActive => status.toLowerCase() == 'active';
+
+  factory AdminPartner.fromJson(Map<String, dynamic> json) => AdminPartner(
+        id: _asInt(json['id']),
+        name: '${json['name'] ?? ''}',
+        slug: '${json['slug'] ?? ''}',
+        serviceType: '${json['service_type'] ?? ''}',
+        status: '${json['status'] ?? 'inactive'}',
+        createdAt: DateTime.tryParse('${json['created_at'] ?? ''}'),
+        accountCount: _asInt(json['account_count']),
+        contactEmails: '${json['contact_emails'] ?? ''}',
+        listingCount: _asInt(json['listing_count']),
+      );
 }
 
 class AdminReservation {

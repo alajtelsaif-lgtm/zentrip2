@@ -87,6 +87,70 @@ class PostgresMigrationIntegrationTest {
     }
 
     @Test
+    void adminPartnerChangesCanBeReversedWithoutDeletingTheirHistory() throws Exception {
+        jdbc.update("UPDATE users SET role = 'admin' WHERE id = ?", userId);
+        String email = jdbc.queryForObject(
+                "SELECT email FROM users WHERE id = ?", String.class, userId);
+
+        JsonNode created = postJson("/api/admin/partners", Map.of(
+                "name", "Integration Airline",
+                "email", email,
+                "service_type", "airline"), 201);
+        long partnerId = created.path("partner").path("id").asLong();
+        assertTrue(partnerId > 0);
+        assertEquals("partner", jdbc.queryForObject(
+                "SELECT role FROM users WHERE id = ?", String.class, userId));
+        assertEquals(partnerId, jdbc.queryForObject(
+                "SELECT partner_id FROM users WHERE id = ?", Long.class, userId));
+
+        long listingId = jdbc.queryForObject("""
+                INSERT INTO partner_listings
+                    (partner_id, type, title, city, country, price, attributes)
+                VALUES (?, 'flight', 'Preserved flight', 'Tripoli', 'Libya', 120, '{}'::jsonb)
+                RETURNING id
+                """, Long.class, partnerId);
+        http.perform(get("/api/partner/dashboard")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        http.perform(get("/api/admin/partners")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.partners[?(@.id == " + partnerId + ")]").exists());
+
+        http.perform(get("/api/admin/dashboard")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.summary.total_user_count").isNumber())
+                .andExpect(jsonPath("$.summary.partner_count").isNumber());
+
+        http.perform(delete("/api/admin/partners/" + partnerId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        assertEquals("inactive", jdbc.queryForObject(
+                "SELECT status FROM partners WHERE id = ?", String.class, partnerId));
+        assertEquals("customer", jdbc.queryForObject(
+                "SELECT role FROM users WHERE id = ?", String.class, userId));
+        assertEquals(partnerId, jdbc.queryForObject(
+                "SELECT partner_id FROM users WHERE id = ?", Long.class, userId));
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM partner_listings WHERE id = ?", Integer.class, listingId));
+        http.perform(get("/api/partner/dashboard")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+
+        http.perform(post("/api/admin/partners/" + partnerId + "/activate")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        assertEquals("active", jdbc.queryForObject(
+                "SELECT status FROM partners WHERE id = ?", String.class, partnerId));
+        assertEquals("partner", jdbc.queryForObject(
+                "SELECT role FROM users WHERE id = ?", String.class, userId));
+        http.perform(get("/api/partner/dashboard")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void registrationReturnsOneGeneratedIdAndValidSession() throws Exception {
         String email = UUID.randomUUID() + "@example.invalid";
         MvcResult result = http.perform(multipart("/api/auth/register")

@@ -1809,6 +1809,18 @@ abstract class AppLocalizations {
   /// **'الرحلات المتاحة'**
   String get flightResults;
 
+  /// No description provided for @flightSelectTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر الرحلة'**
+  String get flightSelectTitle;
+
+  /// No description provided for @flightDateLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'تاريخ الرحلة'**
+  String get flightDateLabel;
+
   /// No description provided for @cheapest.
   ///
   /// In ar, this message translates to:
@@ -3904,6 +3916,18 @@ abstract class AppLocalizations {
   /// **'نظرة عامة'**
   String get adminOverview;
 
+  /// No description provided for @adminPartners.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشركاء'**
+  String get adminPartners;
+
+  /// No description provided for @adminOffers.
+  ///
+  /// In ar, this message translates to:
+  /// **'العروض'**
+  String get adminOffers;
+
   /// No description provided for @adminReservations.
   ///
   /// In ar, this message translates to:
@@ -3945,6 +3969,162 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'العملاء'**
   String get adminCustomerCount;
+
+  /// No description provided for @adminUserCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'المستخدمون'**
+  String get adminUserCount;
+
+  /// No description provided for @adminPartnerCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشركاء النشطون'**
+  String get adminPartnerCount;
+
+  /// No description provided for @adminPartnerListings.
+  ///
+  /// In ar, this message translates to:
+  /// **'القوائم النشطة'**
+  String get adminPartnerListings;
+
+  /// No description provided for @adminPartnerAccounts.
+  ///
+  /// In ar, this message translates to:
+  /// **'حسابات الشركاء'**
+  String get adminPartnerAccounts;
+
+  /// No description provided for @adminAddPartner.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافة شريك'**
+  String get adminAddPartner;
+
+  /// No description provided for @adminPartnerName.
+  ///
+  /// In ar, this message translates to:
+  /// **'اسم الشريك أو الشركة'**
+  String get adminPartnerName;
+
+  /// No description provided for @adminPartnerEmail.
+  ///
+  /// In ar, this message translates to:
+  /// **'بريد مستخدم مسجل'**
+  String get adminPartnerEmail;
+
+  /// No description provided for @adminPartnerService.
+  ///
+  /// In ar, this message translates to:
+  /// **'خدمة الشريك'**
+  String get adminPartnerService;
+
+  /// No description provided for @adminPartnerExistingAccountHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'يجب أن يكون لدى الشريك حساب زنتريب مسبقاً. لن يتم إنشاء كلمة مرور أو تغييرها.'**
+  String get adminPartnerExistingAccountHint;
+
+  /// No description provided for @adminPartnerStatusActive.
+  ///
+  /// In ar, this message translates to:
+  /// **'نشط'**
+  String get adminPartnerStatusActive;
+
+  /// No description provided for @adminPartnerStatusInactive.
+  ///
+  /// In ar, this message translates to:
+  /// **'غير نشط'**
+  String get adminPartnerStatusInactive;
+
+  /// No description provided for @adminDisablePartner.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعطيل الشريك'**
+  String get adminDisablePartner;
+
+  /// No description provided for @adminRestorePartner.
+  ///
+  /// In ar, this message translates to:
+  /// **'استعادة الشريك'**
+  String get adminRestorePartner;
+
+  /// No description provided for @adminPartnerRestored.
+  ///
+  /// In ar, this message translates to:
+  /// **'تمت استعادة صلاحية الشريك.'**
+  String get adminPartnerRestored;
+
+  /// No description provided for @adminDisablePartnerConfirmation.
+  ///
+  /// In ar, this message translates to:
+  /// **'سيتم إلغاء صلاحية الشريك مع الاحتفاظ بالشركة والقوائم وسجل الحجوزات.'**
+  String get adminDisablePartnerConfirmation;
+
+  /// No description provided for @adminPartnerDisabled.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تعطيل صلاحية الشريك مع الحفاظ على السجلات.'**
+  String get adminPartnerDisabled;
+
+  /// No description provided for @adminPartnerAdded.
+  ///
+  /// In ar, this message translates to:
+  /// **'تمت إضافة الشريك'**
+  String get adminPartnerAdded;
+
+  /// No description provided for @adminNoPartners.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يتم العثور على شركاء.'**
+  String get adminNoPartners;
+
+  /// No description provided for @adminServiceAirline.
+  ///
+  /// In ar, this message translates to:
+  /// **'شركة طيران'**
+  String get adminServiceAirline;
+
+  /// No description provided for @adminServiceHotel.
+  ///
+  /// In ar, this message translates to:
+  /// **'فندق'**
+  String get adminServiceHotel;
+
+  /// No description provided for @adminServiceCar.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأجير سيارات'**
+  String get adminServiceCar;
+
+  /// No description provided for @adminServiceAttraction.
+  ///
+  /// In ar, this message translates to:
+  /// **'معلم سياحي'**
+  String get adminServiceAttraction;
+
+  /// No description provided for @adminServiceTransfer.
+  ///
+  /// In ar, this message translates to:
+  /// **'توصيل'**
+  String get adminServiceTransfer;
+
+  /// No description provided for @adminServiceTravel.
+  ///
+  /// In ar, this message translates to:
+  /// **'باقات سياحية'**
+  String get adminServiceTravel;
+
+  /// No description provided for @adminRequiredField.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذا الحقل مطلوب.'**
+  String get adminRequiredField;
+
+  /// No description provided for @adminInvalidEmail.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل بريداً إلكترونياً صحيحاً.'**
+  String get adminInvalidEmail;
 
   /// No description provided for @adminNewCustomers.
   ///

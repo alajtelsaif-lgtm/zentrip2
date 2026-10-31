@@ -889,6 +889,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get flightResults => 'الرحلات المتاحة';
 
   @override
+  String get flightSelectTitle => 'اختر الرحلة';
+
+  @override
+  String get flightDateLabel => 'تاريخ الرحلة';
+
+  @override
   String get cheapest => 'الأرخص';
 
   @override
@@ -2032,6 +2038,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get adminOverview => 'نظرة عامة';
 
   @override
+  String get adminPartners => 'الشركاء';
+
+  @override
+  String get adminOffers => 'العروض';
+
+  @override
   String get adminReservations => 'الحجوزات';
 
   @override
@@ -2051,6 +2063,87 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get adminCustomerCount => 'العملاء';
+
+  @override
+  String get adminUserCount => 'المستخدمون';
+
+  @override
+  String get adminPartnerCount => 'الشركاء النشطون';
+
+  @override
+  String get adminPartnerListings => 'القوائم النشطة';
+
+  @override
+  String get adminPartnerAccounts => 'حسابات الشركاء';
+
+  @override
+  String get adminAddPartner => 'إضافة شريك';
+
+  @override
+  String get adminPartnerName => 'اسم الشريك أو الشركة';
+
+  @override
+  String get adminPartnerEmail => 'بريد مستخدم مسجل';
+
+  @override
+  String get adminPartnerService => 'خدمة الشريك';
+
+  @override
+  String get adminPartnerExistingAccountHint =>
+      'يجب أن يكون لدى الشريك حساب زنتريب مسبقاً. لن يتم إنشاء كلمة مرور أو تغييرها.';
+
+  @override
+  String get adminPartnerStatusActive => 'نشط';
+
+  @override
+  String get adminPartnerStatusInactive => 'غير نشط';
+
+  @override
+  String get adminDisablePartner => 'تعطيل الشريك';
+
+  @override
+  String get adminRestorePartner => 'استعادة الشريك';
+
+  @override
+  String get adminPartnerRestored => 'تمت استعادة صلاحية الشريك.';
+
+  @override
+  String get adminDisablePartnerConfirmation =>
+      'سيتم إلغاء صلاحية الشريك مع الاحتفاظ بالشركة والقوائم وسجل الحجوزات.';
+
+  @override
+  String get adminPartnerDisabled =>
+      'تم تعطيل صلاحية الشريك مع الحفاظ على السجلات.';
+
+  @override
+  String get adminPartnerAdded => 'تمت إضافة الشريك';
+
+  @override
+  String get adminNoPartners => 'لم يتم العثور على شركاء.';
+
+  @override
+  String get adminServiceAirline => 'شركة طيران';
+
+  @override
+  String get adminServiceHotel => 'فندق';
+
+  @override
+  String get adminServiceCar => 'تأجير سيارات';
+
+  @override
+  String get adminServiceAttraction => 'معلم سياحي';
+
+  @override
+  String get adminServiceTransfer => 'توصيل';
+
+  @override
+  String get adminServiceTravel => 'باقات سياحية';
+
+  @override
+  String get adminRequiredField => 'هذا الحقل مطلوب.';
+
+  @override
+  String get adminInvalidEmail => 'أدخل بريداً إلكترونياً صحيحاً.';
 
   @override
   String get adminNewCustomers => 'عملاء جدد (آخر 30 يوماً)';

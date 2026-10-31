@@ -799,6 +799,41 @@ class ApiService {
     });
   }
 
+  Future<ApiResult<List<AdminPartner>>> getAdminPartners() {
+    return _request(() async {
+      final response = await _dio.get('/admin/partners');
+      return (response.data['partners'] as List)
+          .map((item) => AdminPartner.fromJson(item as Map<String, dynamic>))
+          .toList();
+    });
+  }
+
+  Future<ApiResult<void>> addAdminPartner({
+    required String name,
+    required String email,
+    required String serviceType,
+  }) {
+    return _request(() async {
+      await _dio.post('/admin/partners', data: {
+        'name': name,
+        'email': email,
+        'service_type': serviceType,
+      });
+    });
+  }
+
+  Future<ApiResult<void>> disableAdminPartner(int id) {
+    return _request(() async {
+      await _dio.delete('/admin/partners/$id');
+    });
+  }
+
+  Future<ApiResult<void>> activateAdminPartner(int id) {
+    return _request(() async {
+      await _dio.post('/admin/partners/$id/activate');
+    });
+  }
+
   Future<ApiResult<List<TravelPackage>>> getAdminOffers() {
     return _request(() async {
       final response = await _dio.get('/admin/offers');

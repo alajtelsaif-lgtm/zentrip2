@@ -22,7 +22,7 @@ class AdminRoleBootstrapTest {
 
     @Test
     void addsAndBackfillsHotelListingColumnsForExistingDatabases() {
-        new AdminRoleBootstrap(jdbc, "", "").run(args);
+        new AdminRoleBootstrap(jdbc, "", "", false).run(args);
 
         verify(jdbc).execute(
                 "ALTER TABLE partner_listings ADD COLUMN IF NOT EXISTS location_name VARCHAR(512) NULL");
@@ -64,13 +64,14 @@ class AdminRoleBootstrapTest {
                 "admin@example.com"))
                 .thenReturn(1);
 
-        new AdminRoleBootstrap(jdbc, "admin@example.com", "").run(args);
+        new AdminRoleBootstrap(jdbc, "admin@example.com", "", false).run(args);
 
         verify(jdbc).update(
                 "UPDATE users SET role = 'admin', partner_id = NULL WHERE email = ?",
                 "admin@example.com");
-        verify(jdbc).update("UPDATE users SET role = 'customer', partner_id = NULL WHERE role = 'partner'");
-        verify(jdbc).update("UPDATE partners SET status = 'inactive'");
+        verify(jdbc, never()).update(
+                "UPDATE users SET role = 'customer', partner_id = NULL WHERE role = 'partner'");
+        verify(jdbc, never()).update("UPDATE partners SET status = 'inactive'");
     }
 
     @Test
@@ -89,11 +90,20 @@ class AdminRoleBootstrapTest {
 
         assertThrows(
                 IllegalStateException.class,
-                () -> new AdminRoleBootstrap(jdbc, "missing@example.com", "").run(args));
+                () -> new AdminRoleBootstrap(jdbc, "missing@example.com", "", false).run(args));
 
         verify(jdbc, never()).update(
                 "UPDATE users SET role = 'admin', partner_id = NULL WHERE email = ?",
                 "missing@example.com");
+    }
+
+    @Test
+    void preservesExistingPartnerAccessWhenPartnerReconciliationIsNotEnabled() {
+        new AdminRoleBootstrap(jdbc, "", "", false).run(args);
+
+        verify(jdbc, never()).update(
+                "UPDATE users SET role = 'customer', partner_id = NULL WHERE role = 'partner'");
+        verify(jdbc, never()).update("UPDATE partners SET status = 'inactive'");
     }
 
     @Test
@@ -118,7 +128,8 @@ class AdminRoleBootstrapTest {
         new AdminRoleBootstrap(
                 jdbc,
                 "",
-                "libyanwings@zentrip.ly|libyan-wings|Libyan Wings|airline")
+                "libyanwings@zentrip.ly|libyan-wings|Libyan Wings|airline",
+                true)
                 .run(args);
 
         verify(jdbc).update(
@@ -165,7 +176,8 @@ class AdminRoleBootstrapTest {
                 jdbc,
                 "",
                 "almasahotel@zentrip.ly|al-masa-hotel|Al-Masa Hotel|hotel;"
-                        + "zentripcarrental@zentrip.com|zentrip-car-rental|Zentrip Car Rental|car")
+                        + "zentripcarrental@zentrip.com|zentrip-car-rental|Zentrip Car Rental|car",
+                true)
                 .run(args);
 
         verify(jdbc).update(
@@ -207,7 +219,8 @@ class AdminRoleBootstrapTest {
                 () -> new AdminRoleBootstrap(
                         jdbc,
                         "",
-                        "missing@zentrip.ly|missing|Missing|hotel").run(args));
+                        "missing@zentrip.ly|missing|Missing|hotel",
+                        true).run(args));
 
         verify(jdbc, never()).update(contains("UPDATE users SET role = 'customer'"));
     }

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -22,11 +23,15 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.UUID;
 import java.util.Map;
+import java.util.Locale;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Set<String> PARTNER_SERVICE_TYPES =
+            Set.of("airline", "hotel", "car", "attraction", "transfer", "travel");
     private final JdbcTemplate jdbc;
 
     public AdminController(JdbcTemplate jdbc) {
@@ -42,6 +47,11 @@ public class AdminController {
                     (SELECT COUNT(*) FROM users
                         WHERE role = 'customer' AND created_at >= NOW() - INTERVAL '30 day')
                         AS new_customers_30d,
+                    (SELECT COUNT(*) FROM users) AS total_user_count,
+                    (SELECT COUNT(*) FROM partners
+                        WHERE LOWER(status) = 'active') AS partner_count,
+                    (SELECT COUNT(*) FROM partner_listings
+                        WHERE active = TRUE) AS active_partner_listing_count,
                     (SELECT COUNT(*) FROM bookings WHERE LOWER(status) <> 'cancelled')
                       + (SELECT COUNT(*) FROM trips WHERE LOWER(status) <> 'cancelled')
                       + (SELECT COUNT(*) FROM transfers WHERE LOWER(status) <> 'cancelled')
@@ -63,6 +73,141 @@ public class AdminController {
         return Map.of(
                 "summary", summary,
                 "recent_reservations", recentReservations(8));
+    }
+
+    @GetMapping("/partners")
+    public Map<String, Object> partners(HttpServletRequest request) {
+        requireAdminId(request);
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT p.id, p.name, p.slug, p.service_type, p.status, p.created_at,
+                       COALESCE(accounts.account_count, 0) AS account_count,
+                       COALESCE(accounts.contact_emails, '') AS contact_emails,
+                       COALESCE(listings.listing_count, 0) AS listing_count
+                FROM partners p
+                LEFT JOIN (
+                    SELECT partner_id, COUNT(*) AS account_count,
+                           STRING_AGG(email, ', ' ORDER BY email) AS contact_emails
+                    FROM users
+                    WHERE partner_id IS NOT NULL
+                    GROUP BY partner_id
+                ) accounts ON accounts.partner_id = p.id
+                LEFT JOIN (
+                    SELECT partner_id, COUNT(*) AS listing_count
+                    FROM partner_listings
+                    GROUP BY partner_id
+                ) listings ON listings.partner_id = p.id
+                ORDER BY (LOWER(p.status) = 'active') DESC, LOWER(p.name), p.id
+                """);
+        return Map.of("partners", rows);
+    }
+
+    @PostMapping("/partners")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public Map<String, Object> addPartner(
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        requireAdminId(request);
+        String name = requiredText(body, "name", 255);
+        String email = requiredText(body, "email", 255).toLowerCase(Locale.ROOT);
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a valid email address");
+        }
+        String serviceType = requiredText(body, "service_type", 30)
+                .toLowerCase(Locale.ROOT);
+        if (!PARTNER_SERVICE_TYPES.contains(serviceType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select a valid partner service");
+        }
+
+        List<Long> userIds = jdbc.query("""
+                SELECT id
+                FROM users
+                WHERE LOWER(email) = ? AND role = 'customer' AND partner_id IS NULL
+                FOR UPDATE
+                """, (resultSet, rowNum) -> resultSet.getLong(1), email);
+        if (userIds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Register this email in Zentrip before adding it as a partner.");
+        }
+
+        String slugBase = name.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-+|-+$)", "");
+        if (slugBase.isEmpty()) slugBase = "partner";
+        if (slugBase.length() > 72) slugBase = slugBase.substring(0, 72);
+        String slug = slugBase + "-" + UUID.randomUUID().toString().substring(0, 8);
+        Long partnerId = jdbc.queryForObject("""
+                INSERT INTO partners (slug, name, service_type, status)
+                VALUES (?, ?, ?, 'active')
+                RETURNING id
+                """, Long.class, slug, name, serviceType);
+        if (partnerId == null) {
+            throw new IllegalStateException("The partner record could not be created");
+        }
+
+        int updated = jdbc.update("""
+                UPDATE users
+                SET role = 'partner', partner_id = ?, updated_at = NOW()
+                WHERE id = ? AND role = 'customer' AND partner_id IS NULL
+                """, partnerId, userIds.getFirst());
+        if (updated != 1) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "The user account changed. Refresh and try again.");
+        }
+        return Map.of("partner", Map.of(
+                "id", partnerId,
+                "name", name,
+                "slug", slug,
+                "service_type", serviceType,
+                "status", "active",
+                "account_count", 1,
+                "contact_emails", email,
+                "listing_count", 0));
+    }
+
+    @DeleteMapping("/partners/{id}")
+    @Transactional
+    public Map<String, String> disablePartner(
+            @PathVariable long id,
+            HttpServletRequest request) {
+        requireAdminId(request);
+        int updated = jdbc.update("""
+                UPDATE partners
+                SET status = 'inactive', updated_at = NOW()
+                WHERE id = ? AND LOWER(status) = 'active'
+                """, id);
+        if (updated == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Active partner not found");
+        }
+        jdbc.update("""
+                UPDATE users
+                SET role = 'customer', updated_at = NOW()
+                WHERE partner_id = ? AND role = 'partner'
+                """, id);
+        return Map.of("message", "Partner access disabled; partner records were preserved.");
+    }
+
+    @PostMapping("/partners/{id}/activate")
+    @Transactional
+    public Map<String, String> activatePartner(
+            @PathVariable long id,
+            HttpServletRequest request) {
+        requireAdminId(request);
+        int updated = jdbc.update("""
+                UPDATE partners
+                SET status = 'active', updated_at = NOW()
+                WHERE id = ? AND LOWER(status) <> 'active'
+                """, id);
+        if (updated == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Inactive partner not found");
+        }
+        jdbc.update("""
+                UPDATE users
+                SET role = 'partner', updated_at = NOW()
+                WHERE partner_id = ? AND role = 'customer'
+                """, id);
+        return Map.of("message", "Partner access restored.");
     }
 
     @GetMapping("/reservations")

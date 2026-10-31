@@ -16,6 +16,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataAccessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,6 +31,7 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestController
 @RequestMapping("/api/ai")
 public class AiChatController {
+    private static final Logger LOG = LoggerFactory.getLogger(AiChatController.class);
     private static final int MAX_MESSAGE_LENGTH = 4000;
     private static final int HISTORY_LIMIT = 10;
     private static final int STORED_MESSAGE_LIMIT = 40;
@@ -71,11 +75,18 @@ public class AiChatController {
             return ResponseEntity.noContent().build();
         }
 
-        List<Map<String, Object>> rows = new ArrayList<>(jdbc.queryForList("""
-                SELECT role, content FROM ai_chat_messages
-                WHERE user_id = ? AND session_id = ?
-                ORDER BY id DESC LIMIT ?
-            """, userId, sessionId, HISTORY_LIMIT));
+        List<Map<String, Object>> rows;
+        try {
+            rows = new ArrayList<>(jdbc.queryForList("""
+                    SELECT role, content FROM ai_chat_messages
+                    WHERE user_id = ? AND session_id = ?
+                    ORDER BY id DESC LIMIT ?
+                """, userId, sessionId, HISTORY_LIMIT));
+        } catch (DataAccessException exception) {
+            LOG.warn("Zen chat history is unavailable for user {}. Continuing without history.",
+                    userId, exception);
+            rows = new ArrayList<>();
+        }
         Collections.reverse(rows);
 
         List<RequestyChatService.ChatTurn> turns = new ArrayList<>();
@@ -85,7 +96,13 @@ public class AiChatController {
         }
         turns.add(new RequestyChatService.ChatTurn("user", message));
 
-        String context = travelPreferenceContext(userId);
+        String context;
+        try {
+            context = travelPreferenceContext(userId);
+        } catch (DataAccessException exception) {
+            LOG.warn("Zen travel preferences are unavailable for user {}.", userId, exception);
+            context = "";
+        }
         String locationContext = currentLocationContext(body);
         if (!locationContext.isBlank()) {
             context = context.isBlank()
@@ -167,11 +184,16 @@ public class AiChatController {
                 }
             });
             if (consumeCancellation(cancellationKey)) return;
-            jdbc.update("""
-                    INSERT INTO ai_chat_messages (user_id, session_id, role, content)
-                    VALUES (?, ?, 'user', ?), (?, ?, 'model', ?)
-                    """, userId, sessionId, message, userId, sessionId, reply.toString());
-            trimHistory(userId, sessionId);
+            try {
+                jdbc.update("""
+                        INSERT INTO ai_chat_messages (user_id, session_id, role, content)
+                        VALUES (?, ?, 'user', ?), (?, ?, 'model', ?)
+                        """, userId, sessionId, message, userId, sessionId, reply.toString());
+                trimHistory(userId, sessionId);
+            } catch (DataAccessException exception) {
+                LOG.warn("Zen chat response could not be persisted for user {}.", userId,
+                        exception);
+            }
             writeEvent(output, "done", Map.of());
         } catch (ResponseStatusException exception) {
             writeEvent(output, "error", Map.of(

@@ -87,6 +87,34 @@ class AdminControllerTest {
     }
 
     @Test
+    void partnerManagementRequiresAdministratorRole() {
+        when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
+                .thenReturn("customer");
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.partners(authenticatedRequest()));
+
+        assertEquals(403, exception.getStatusCode().value());
+    }
+
+    @Test
+    void addPartnerRejectsUnsupportedServices() {
+        when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
+                .thenReturn("admin");
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.addPartner(Map.of(
+                        "name", "Example partner",
+                        "email", "traveler@example.com",
+                        "service_type", "administrator"),
+                        authenticatedRequest()));
+
+        assertEquals(400, exception.getStatusCode().value());
+    }
+
+    @Test
     void monumentManagementRequiresAdministratorRole() {
         when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
                 .thenReturn("customer");

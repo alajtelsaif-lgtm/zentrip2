@@ -20,6 +20,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.web.server.ResponseStatusException;
@@ -122,4 +123,33 @@ class AiChatControllerTest {
                 assertEquals(204, response.getStatusCode().value());
                 verifyNoInteractions(jdbc, requesty);
         }
+
+    @Test
+    void missingChatHistoryOrPreferenceTablesDoNotTurnZenIntoAnInternalServerError()
+            throws Exception {
+        when(jdbc.queryForList(anyString(), eq(42L), eq("chat-resilient"), eq(10)))
+                .thenThrow(new DataAccessResourceFailureException("history table unavailable"));
+        when(jdbc.queryForList(anyString(), eq(42L)))
+                .thenThrow(new DataAccessResourceFailureException("preferences unavailable"));
+        doAnswer(invocation -> {
+            java.util.function.Consumer<String> onDelta = invocation.getArgument(3);
+            onDelta.accept("The trip plan is ready.");
+            return null;
+        }).when(requesty).streamReply(anyList(), eq("en"), anyString(), any());
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute("authUserId", 42L);
+        ResponseEntity<?> response = controller.chat(Map.of(
+                "message", "Plan a trip",
+                "session_id", "chat-resilient",
+                "request_id", "request-resilient",
+                "language", "en"), request);
+
+        assertEquals(200, response.getStatusCode().value());
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ((StreamingResponseBody) response.getBody()).writeTo(output);
+        String stream = output.toString(StandardCharsets.UTF_8);
+        assertTrue(stream.contains("The trip plan is ready."));
+        assertTrue(stream.contains("event: done"));
+    }
 }
