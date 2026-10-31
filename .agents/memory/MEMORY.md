@@ -1,3 +1,4 @@
 - [Imported database safety](imported-database-safety.md) — preserve existing account roles and database schema during environment setup.
 - [PostgreSQL verification](postgresql-verification.md) — SQL mocks can pass while PostgreSQL rejects queries; validate migrations on a disposable real database.
 - [Seat inventory fidelity](seat-inventory-fidelity.md) — reference-image cabin and class counts are not real allocations; never invent them.
+- [Flutter cache restoration](flutter-cache-restoration.md) — retained SDK/build files do not guarantee the global Pub cache survived; restore locked packages rather than changing dependencies.

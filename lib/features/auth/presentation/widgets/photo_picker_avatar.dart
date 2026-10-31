@@ -38,7 +38,10 @@ class _PhotoPickerAvatarState extends State<PhotoPickerAvatar> {
   @override
   void didUpdateWidget(covariant PhotoPickerAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_file == widget.initialFile) return;
+    if (oldWidget.initialFile == widget.initialFile ||
+        _file == widget.initialFile) {
+      return;
+    }
     _file = widget.initialFile;
     _previewBytes = null;
     if (_file != null) unawaited(_loadPreview(_file!));
@@ -94,7 +97,10 @@ class _PhotoPickerAvatarState extends State<PhotoPickerAvatar> {
                 title: Text(l10n.commonRemovePhoto,
                     style: const TextStyle(color: AppColors.accentRed)),
                 onTap: () {
-                  setState(() => _file = null);
+                  setState(() {
+                    _file = null;
+                    _previewBytes = null;
+                  });
                   widget.onChanged(null);
                   Navigator.pop(context);
                 },

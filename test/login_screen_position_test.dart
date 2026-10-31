@@ -30,7 +30,7 @@ void main() {
       expect(signRect.bottom, lessThan(sheetRect.top));
       expect(poleRect.height, 34);
       expect(poleRect.top, greaterThan(signRect.bottom));
-      expect(poleRect.bottom, lessThan(sheetRect.top));
+      expect(poleRect.bottom, closeTo(sheetRect.top, 0.01));
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(const SizedBox.shrink());

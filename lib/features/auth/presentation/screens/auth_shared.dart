@@ -80,11 +80,12 @@ class _AuthScaffoldState extends State<AuthScaffold>
               child: Stack(
                 children: [
                   const Positioned.fill(child: _SkyBackground()),
-                  Positioned(
-                    top: topPad + 44,
-                    right: 28,
-                    child: _SignPost(icon: widget.signIcon),
-                  ),
+                  if (heroHeight >= topPad + 92)
+                    Positioned(
+                      bottom: 40,
+                      right: 28,
+                      child: _SignPost(icon: widget.signIcon),
+                    ),
                   Positioned.fill(
                     child: _AnimatedPlane(
                       controller: _planeCtrl,

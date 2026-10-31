@@ -105,16 +105,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildForm() {
     return Column(
       children: [
-        // handle
-        Container(
-          width: 36,
-          height: 4,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE3E6EE),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        const SizedBox(height: 18),
         Text(
           'Login to Access Your',
           textAlign: TextAlign.center,
