@@ -35,7 +35,13 @@ class _HotelResultsScreenState extends State<HotelResultsScreen> {
     if (ctrl == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    _showSearchWarnings(ctrl.searchWarnings);
+    _showSearchWarnings(
+      ctrl.searchWarnings.isNotEmpty
+          ? ctrl.searchWarnings
+          : ctrl.hasSearchError
+              ? [l10n.genericError]
+              : const [],
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -157,7 +163,11 @@ class _HotelResultsScreenState extends State<HotelResultsScreen> {
 
   void _showSearchWarnings(List<String> warnings) {
     final message = warnings.join(' ').trim();
-    if (message.isEmpty || message == _lastWarningMessage) return;
+    if (message.isEmpty) {
+      _lastWarningMessage = null;
+      return;
+    }
+    if (message == _lastWarningMessage) return;
     _lastWarningMessage = message;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) AppSnackbar.warning(context, message);

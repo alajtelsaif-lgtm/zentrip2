@@ -134,7 +134,7 @@ public class UnifiedInventoryService {
     public FilterOutcome filterHotels(
             List<Map<String, Object>> hotels,
             HotelFilters requestedFilters) {
-        HotelFilters filters = validate(requestedFilters);
+        HotelFilters filters = validateFilters(requestedFilters);
         List<String> warnings = new ArrayList<>();
         Map<String, BigDecimal> usdRates = Map.of("USD", BigDecimal.ONE);
 
@@ -195,6 +195,10 @@ public class UnifiedInventoryService {
         return normalized;
     }
 
+    public HotelFilters validateFilters(HotelFilters filters) {
+        return validate(filters);
+    }
+
     private static HotelFilters validate(HotelFilters filters) {
         String currency = validateCurrency(filters.currency());
         BigDecimal min = validateAmount(filters.priceMin(), "price_min");
@@ -252,11 +256,13 @@ public class UnifiedInventoryService {
         Object values = hotel.get("amenities");
         if (values instanceof List<?> list) {
             list.stream().filter(value -> value != null)
-                    .map(value -> value.toString().toLowerCase(Locale.ROOT))
+                    .map(value -> value.toString().toLowerCase(Locale.ROOT)
+                            .replaceAll("[^\\p{L}\\p{N}]", ""))
                     .forEach(amenities::add);
         }
-        return requested.stream().allMatch(token ->
-                amenities.stream().anyMatch(value -> value.contains(token)));
+        return requested.stream().map(token ->
+                token.replaceAll("[^\\p{L}\\p{N}]", ""))
+                .allMatch(token -> amenities.stream().anyMatch(value -> value.contains(token)));
     }
 
     private static boolean matchesRoomType(Map<String, Object> hotel, String requested) {

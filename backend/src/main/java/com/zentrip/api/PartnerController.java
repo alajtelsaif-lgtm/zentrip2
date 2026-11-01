@@ -924,6 +924,16 @@ public class PartnerController {
                     HttpStatus.BAD_REQUEST, "Invalid room or guest count");
         }
         String normalizedCurrency = UnifiedInventoryService.validateCurrency(currency);
+        UnifiedInventoryService.HotelFilters hotelFilters =
+                unifiedInventoryService.validateFilters(
+                        new UnifiedInventoryService.HotelFilters(
+                                normalizedCurrency,
+                                priceMin,
+                                priceMax,
+                                ratingMin,
+                                amenities,
+                                roomType,
+                                preferences));
         String normalizedCity = city.trim();
         LocalDate parsedCheckIn = checkIn == null || checkIn.isBlank()
                 ? null
@@ -981,15 +991,7 @@ public class PartnerController {
                 "Duffel hotel results are temporarily unavailable.");
         UnifiedInventoryService.FilterOutcome filtered =
                 unifiedInventoryService.filterHotels(
-                        merged.items(),
-                        new UnifiedInventoryService.HotelFilters(
-                                normalizedCurrency,
-                                priceMin,
-                                priceMax,
-                                ratingMin,
-                                amenities,
-                                roomType,
-                                preferences));
+                        merged.items(), hotelFilters);
         List<String> warnings = new ArrayList<>(merged.warnings());
         warnings.addAll(filtered.warnings());
         long partnerCount = filtered.hotels().stream()

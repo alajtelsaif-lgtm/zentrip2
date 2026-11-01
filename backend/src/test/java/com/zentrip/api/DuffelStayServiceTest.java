@@ -182,7 +182,8 @@ class DuffelStayServiceTest {
                 1,
                 2);
         assertTrue(outcome.hotels().isEmpty());
-        assertTrue(outcome.warnings().getFirst().contains("temporarily unavailable"));
+        assertTrue(outcome.warnings().getFirst().contains("access was denied"));
+        assertFalse(outcome.warnings().getFirst().contains("private provider detail"));
         server.verify();
     }
 
@@ -232,6 +233,64 @@ class DuffelStayServiceTest {
         assertEquals(0, new BigDecimal("100.00").compareTo(
                 (BigDecimal) offers.getFirst().get("price_per_night")));
         assertTrue(offers.getFirst().containsKey("cancellation_timeline"));
+        server.verify();
+    }
+
+    @Test
+    void searchUsesFetchedRatesAsFinalPriceAndKeepsEveryRoomOffer() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(SEARCH_URL))
+                .andRespond(withSuccess(STAY_RESPONSE, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(RATES_URL))
+                .andRespond(withSuccess(RATES_RESPONSE, MediaType.APPLICATION_JSON));
+        DuffelStayService service =
+                new DuffelStayService("unit-test-token", true, builder);
+
+        DuffelStayService.SearchOutcome outcome =
+                service.searchHotelsWithAllRatesWithWarnings(
+                        "London",
+                        51.5071,
+                        -0.1416,
+                        LocalDate.parse("2026-12-01"),
+                        LocalDate.parse("2026-12-03"),
+                        1,
+                        2);
+
+        Map<String, Object> hotel = outcome.hotels().getFirst();
+        assertEquals(new BigDecimal("90.000000"), hotel.get("price_per_night"));
+        assertEquals("GBP", hotel.get("price_currency"));
+        assertEquals(2, ((List<?>) hotel.get("offers")).size());
+        assertEquals(1, ((List<?>) hotel.get("room_types")).size());
+        assertTrue(outcome.warnings().isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void rateFailureKeepsDuffelResultButDoesNotShowEstimatedSearchPrice() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(SEARCH_URL))
+                .andRespond(withSuccess(STAY_RESPONSE, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(RATES_URL))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE));
+        DuffelStayService service =
+                new DuffelStayService("unit-test-token", true, builder);
+
+        DuffelStayService.SearchOutcome outcome =
+                service.searchHotelsWithAllRatesWithWarnings(
+                        "London",
+                        51.5071,
+                        -0.1416,
+                        LocalDate.parse("2026-12-01"),
+                        LocalDate.parse("2026-12-03"),
+                        1,
+                        2);
+
+        Map<String, Object> hotel = outcome.hotels().getFirst();
+        assertEquals(null, hotel.get("price_per_night"));
+        assertTrue(((List<?>) hotel.get("offers")).isEmpty());
+        assertFalse(outcome.warnings().isEmpty());
         server.verify();
     }
 }

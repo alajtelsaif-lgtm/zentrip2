@@ -11,3 +11,4 @@
 - [Nonblocking startup](startup-initialization.md) — optional preferences and plugin initialization must not prevent the first screen from rendering.
 - [Currency comparison scope](currency-comparison-scope.md) — comparison estimates do not authorize booking-table or settlement changes.
 - [UI styling preservation](ui-styling-preservation.md) — keep existing screen design intact during backend and data integrations.
+- [Duffel stay inventory boundary](duffel-stay-inventory.md) — treat Duffel stay search as read-only and fetched rates as authoritative display prices.

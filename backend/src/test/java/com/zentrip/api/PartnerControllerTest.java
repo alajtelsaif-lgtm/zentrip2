@@ -676,6 +676,50 @@ class PartnerControllerTest {
     }
 
     @Test
+    void hotelSearchRejectsCurrencyOutsideTheSupportedDisplaySet() {
+        ResponseStatusException error = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.searchHotels(
+                        "London",
+                        null,
+                        null,
+                        1,
+                        2,
+                        "LYD",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null));
+
+        assertEquals(400, error.getStatusCode().value());
+        verify(jdbc, never()).queryForList(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void hotelSearchValidatesFiltersBeforeCallingInventorySources() {
+        ResponseStatusException error = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.searchHotels(
+                        "London",
+                        null,
+                        null,
+                        1,
+                        2,
+                        "USD",
+                        new BigDecimal("200"),
+                        new BigDecimal("100"),
+                        null,
+                        null,
+                        null,
+                        null));
+
+        assertEquals(400, error.getStatusCode().value());
+        verify(jdbc, never()).queryForList(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
     void flightSearchRejectsInvalidPassengerCountBeforeDatabaseQuery() {
         ResponseStatusException error = assertThrows(
                 ResponseStatusException.class,

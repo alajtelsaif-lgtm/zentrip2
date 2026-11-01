@@ -24,6 +24,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -46,6 +47,7 @@ public class DuffelStayService {
                 return thread;
             },
             new ThreadPoolExecutor.CallerRunsPolicy());
+    private static final Semaphore RATE_REQUEST_LIMIT = new Semaphore(2);
 
     private final boolean enabled;
     private final String accessToken;
@@ -135,9 +137,12 @@ public class DuffelStayService {
         } catch (RestClientResponseException exception) {
             int statusCode = exception.getStatusCode().value();
             LOG.warn("Duffel stays search failed with HTTP status {}", statusCode);
-            String warning = statusCode == HttpStatus.TOO_MANY_REQUESTS.value()
-                    ? "Duffel Stays is temporarily rate-limiting searches."
-                    : "Duffel hotel results are temporarily unavailable.";
+            String warning = switch (statusCode) {
+                case 401, 403 ->
+                        "Duffel Stays access was denied. Verify that the configured token has Stays API access.";
+                case 429 -> "Duffel Stays is temporarily rate-limiting searches.";
+                default -> "Duffel hotel results are temporarily unavailable.";
+            };
             return new SearchOutcome(List.of(), List.of(warning));
         } catch (RestClientException exception) {
             LOG.warn("Duffel stays search could not reach the provider");
@@ -165,7 +170,7 @@ public class DuffelStayService {
 
         List<CompletableFuture<HotelRatesOutcome>> pending = search.hotels().stream()
                 .map(hotel -> CompletableFuture.supplyAsync(
-                        () -> hotelWithRates(hotel), RATE_EXECUTOR))
+                        () -> hotelWithRatePermit(hotel), RATE_EXECUTOR))
                 .toList();
         List<Map<String, Object>> hotels = new ArrayList<>();
         List<String> warnings = new ArrayList<>(search.warnings());
@@ -181,6 +186,25 @@ public class DuffelStayService {
             }
         }
         return new SearchOutcome(hotels, warnings.stream().distinct().toList());
+    }
+
+    private HotelRatesOutcome hotelWithRatePermit(Map<String, Object> hotel) {
+        try {
+            RATE_REQUEST_LIMIT.acquire();
+            try {
+                return hotelWithRates(hotel);
+            } finally {
+                RATE_REQUEST_LIMIT.release();
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            Map<String, Object> unavailable = new LinkedHashMap<>(hotel);
+            unavailable.put("price_per_night", null);
+            unavailable.put("offers", List.of());
+            unavailable.put("room_types", List.of());
+            return new HotelRatesOutcome(
+                    unavailable, "Some Duffel room rates are temporarily unavailable.");
+        }
     }
 
     private HotelRatesOutcome hotelWithRates(Map<String, Object> source) {
@@ -237,8 +261,11 @@ public class DuffelStayService {
     private static Map<String, Object> cheapestRateForCard(
             List<Map<String, Object>> offers,
             String preferredCurrency) {
-        String selectedCurrency = preferredCurrency.trim().toUpperCase(java.util.Locale.ROOT);
-        if (selectedCurrency.isBlank()) {
+        String preferred = preferredCurrency.trim().toUpperCase(java.util.Locale.ROOT);
+        boolean hasPreferredCurrency = offers.stream().anyMatch(offer ->
+                preferred.equalsIgnoreCase(text(offer.get("price_currency"))));
+        String selectedCurrency = preferred;
+        if (selectedCurrency.isBlank() || !hasPreferredCurrency) {
             selectedCurrency = offers.stream()
                     .map(offer -> text(offer.get("price_currency")))
                     .filter(value -> !value.isBlank())
@@ -540,6 +567,10 @@ public class DuffelStayService {
     private static String text(JsonNode node, String field) {
         JsonNode value = node == null ? null : node.get(field);
         return value == null || value.isNull() ? "" : value.asText("").trim();
+    }
+
+    private static String text(Object value) {
+        return value == null ? "" : value.toString();
     }
 
     private static String firstNonBlank(String first, String second) {

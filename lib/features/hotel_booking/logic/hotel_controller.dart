@@ -42,12 +42,16 @@ class HotelController extends ChangeNotifier {
   HotelController({PriceComparison? comparison, this.searchHotels})
       : comparison = comparison ??
             PriceComparison(loadRates: ApiService.instance.exchangeRates) {
+    _lastServerFilterCurrency = this.comparison.currency;
     this.comparison.addListener(_comparisonChanged);
   }
 
   void _comparisonChanged() {
-    _applyFilter();
     final currencyChanged = _lastServerFilterCurrency != comparison.currency;
+    if (currencyChanged && filter != HotelFilter.all) {
+      _serverFiltered = false;
+    }
+    _applyFilter();
     _lastServerFilterCurrency = comparison.currency;
     if (currencyChanged && filter != HotelFilter.all) {
       _scheduleFilteredSearch();
@@ -87,6 +91,7 @@ class HotelController extends ChangeNotifier {
   String _lastServerFilterCurrency = 'USD';
   Timer? _filterSearchDebounce;
   bool _isNearbySearch = false;
+  bool _serverFiltered = false;
   List<String> searchWarnings = const [];
 
   Future<void> search(HotelSearchParams params) async {
@@ -122,12 +127,13 @@ class HotelController extends ChangeNotifier {
             );
       if (revision != _searchRevision) return;
       _all = hotels;
+      _serverFiltered = searchHotels == null;
       _applyFilter();
     } catch (_) {
       if (revision != _searchRevision) return;
       if (_all.isEmpty) results = [];
       hasSearchError = true;
-      searchWarnings = const ['Some hotel results could not be refreshed.'];
+      searchWarnings = const [];
     } finally {
       if (revision == _searchRevision) {
         isLoading = false;
@@ -144,6 +150,7 @@ class HotelController extends ChangeNotifier {
   }) async {
     final revision = ++_searchRevision;
     _isNearbySearch = true;
+    _serverFiltered = false;
     searchParams = HotelSearchParams(
       city: params.city,
       checkIn: params.checkIn,
@@ -157,6 +164,7 @@ class HotelController extends ChangeNotifier {
     );
     isLoading = true;
     hasSearchError = false;
+    searchWarnings = const [];
     sort = HotelSort.distance;
     notifyListeners();
     comparison.refresh();
@@ -189,7 +197,9 @@ class HotelController extends ChangeNotifier {
   }
 
   void setFilter(HotelFilter f) {
+    if (filter == f) return;
     filter = f;
+    _serverFiltered = false;
     _applyFilter();
     notifyListeners();
     _scheduleFilteredSearch();
@@ -218,7 +228,8 @@ class HotelController extends ChangeNotifier {
 
   void _applyFilter() {
     List<HotelModel> r = List.of(_all);
-    switch (filter) {
+    if (!_serverFiltered) {
+      switch (filter) {
       case HotelFilter.budget:
         r = r.where((h) {
           final price = comparisonPrice(h);
@@ -239,6 +250,7 @@ class HotelController extends ChangeNotifier {
         break;
       default:
         break;
+      }
     }
     switch (sort) {
       case HotelSort.priceLow:
