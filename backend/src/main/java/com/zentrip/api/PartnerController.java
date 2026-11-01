@@ -660,33 +660,48 @@ public class PartnerController {
         if (departureDates.isEmpty()) {
             return Map.of(
                     "flights", List.of(),
-                    "months", selectedMonths.stream().map(YearMonth::toString).toList());
+                    "months", selectedMonths.stream().map(YearMonth::toString).toList(),
+                    "warnings", List.of(),
+                    "sources", Map.of("partner", 0L, "duffel", 0L));
         }
 
-        List<Map<String, Object>> flights = partnerFlightListings(
-                originCode,
-                destinationCode,
-                Set.copyOf(departureDates),
-                adults,
-                normalizedClass);
+        List<String> warnings = new ArrayList<>();
+        List<Map<String, Object>> flights = new ArrayList<>();
+        try {
+            flights.addAll(partnerFlightListings(
+                    originCode,
+                    destinationCode,
+                    Set.copyOf(departureDates),
+                    adults,
+                    normalizedClass));
+        } catch (org.springframework.dao.DataAccessException exception) {
+            LOG.warn("Partner flight inventory is unavailable for flexible search.");
+            warnings.add("Partner flight inventory is temporarily unavailable.");
+        }
         if (duffelFlightService.isConfigured()) {
             try {
-                flights.addAll(duffelFlightService.searchFlightsForDates(
+                DuffelFlightService.SearchOutcome outcome =
+                        duffelFlightService.searchFlightsForDatesWithWarnings(
                         originCode,
                         destinationCode,
                         departureDates,
                         roundTrip ? tripDurationDays : null,
                         adults,
-                        normalizedClass));
+                        normalizedClass);
+                flights.addAll(outcome.flights());
+                warnings.addAll(outcome.warnings());
             } catch (RuntimeException exception) {
                 LOG.warn("Duffel flexible flight search failed; returning {} matching partner flights",
                         flights.size());
+                warnings.add("Duffel flight results are temporarily unavailable.");
             }
         }
         flights.sort(Comparator.comparing(flight -> text(flight.get("departure_time"))));
         return Map.of(
                 "flights", flights,
-                "months", selectedMonths.stream().map(YearMonth::toString).toList());
+                "months", selectedMonths.stream().map(YearMonth::toString).toList(),
+                "warnings", List.copyOf(warnings),
+                "sources", flightSourceCounts(flights));
     }
 
     @GetMapping("/flights/search")
@@ -718,12 +733,19 @@ public class PartnerController {
         if (!Set.of("economy", "business", "first").contains(normalizedClass)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported seat_class");
         }
-        List<Map<String, Object>> flights = partnerFlightListings(
-                originCode,
-                destinationCode,
-                Set.of(requestedDeparture),
-                adults,
-                normalizedClass);
+        List<String> warnings = new ArrayList<>();
+        List<Map<String, Object>> flights = new ArrayList<>();
+        try {
+            flights.addAll(partnerFlightListings(
+                    originCode,
+                    destinationCode,
+                    Set.of(requestedDeparture),
+                    adults,
+                    normalizedClass));
+        } catch (org.springframework.dao.DataAccessException exception) {
+            LOG.warn("Partner flight inventory is unavailable for search.");
+            warnings.add("Partner flight inventory is temporarily unavailable.");
+        }
         if (duffelFlightService.isConfigured()) {
             try {
                 flights.addAll(duffelFlightService.searchFlights(
@@ -736,12 +758,28 @@ public class PartnerController {
             } catch (ResponseStatusException exception) {
                 LOG.warn("Duffel unavailable; returning {} matching partner flights",
                         flights.size());
+                warnings.add("Duffel flight results are temporarily unavailable.");
             } catch (RuntimeException exception) {
                 LOG.warn("Duffel flight search failed; returning {} matching partner flights",
                         flights.size());
+                warnings.add("Duffel flight results are temporarily unavailable.");
             }
         }
-        return Map.of("flights", flights);
+        return Map.of(
+                "flights", flights,
+                "warnings", List.copyOf(warnings),
+                "sources", flightSourceCounts(flights));
+    }
+
+    private static Map<String, Long> flightSourceCounts(
+            List<Map<String, Object>> flights) {
+        long partner = flights.stream()
+                .filter(flight -> "partner".equals(flight.get("source")))
+                .count();
+        long duffel = flights.stream()
+                .filter(flight -> "duffel".equals(flight.get("source")))
+                .count();
+        return Map.of("partner", partner, "duffel", duffel);
     }
 
     private List<Map<String, Object>> partnerFlightListings(
@@ -887,7 +925,14 @@ public class PartnerController {
                     HttpStatus.BAD_REQUEST, "Invalid room or guest count");
         }
         String normalizedCity = city.trim();
-        List<Map<String, Object>> rows = hotelSearchRows(normalizedCity);
+        List<String> warnings = new ArrayList<>();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        try {
+            rows.addAll(hotelSearchRows(normalizedCity));
+        } catch (org.springframework.dao.DataAccessException exception) {
+            LOG.warn("Partner hotel inventory is unavailable for search.");
+            warnings.add("Partner hotel inventory is temporarily unavailable.");
+        }
         List<Map<String, Object>> hotels = rows.stream()
                 .map(row -> publicListing(row, "hotel"))
                 .collect(java.util.stream.Collectors.toCollection(
@@ -912,14 +957,19 @@ public class PartnerController {
             }
             HotelCoordinates center = hotelSearchCoordinates(normalizedCity, rows);
             if (center != null && duffelStayService.isConfigured()) {
-                hotels.addAll(duffelStayService.searchHotels(
+                DuffelStayService.SearchOutcome outcome =
+                        duffelStayService.searchHotelsWithWarnings(
                         normalizedCity,
                         center.latitude(),
                         center.longitude(),
                         parsedCheckIn,
                         parsedCheckOut,
                         rooms,
-                        guests));
+                        guests);
+                hotels.addAll(outcome.hotels());
+                warnings.addAll(outcome.warnings());
+            } else if (duffelStayService.isConfigured()) {
+                warnings.add("Duffel hotel search needs a resolved city location.");
             }
         }
         long partnerCount = hotels.stream()
@@ -928,7 +978,8 @@ public class PartnerController {
         long duffelCount = hotels.size() - partnerCount;
         return Map.of(
                 "hotels", List.copyOf(hotels),
-                "sources", Map.of("partner", partnerCount, "duffel", duffelCount));
+                "sources", Map.of("partner", partnerCount, "duffel", duffelCount),
+                "warnings", List.copyOf(warnings));
     }
 
     @PostMapping("/hotels/search-results/{searchResultId}/rates")

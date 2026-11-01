@@ -2823,6 +2823,12 @@ abstract class AppLocalizations {
   /// **'لا توجد رحلات متاحة'**
   String get flightNoResults;
 
+  /// No description provided for @flightProviderWarning.
+  ///
+  /// In ar, this message translates to:
+  /// **'بعض مزودي الرحلات غير متاحين مؤقتًا. نعرض الرحلات المتوفرة.'**
+  String get flightProviderWarning;
+
   /// No description provided for @flightFlexibleButton.
   ///
   /// In ar, this message translates to:

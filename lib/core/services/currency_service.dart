@@ -16,12 +16,8 @@ class CurrencyService extends ChangeNotifier {
   CurrencyService._();
 
   static const List<Currency> supported = [
-    Currency('LYD', 'د.ل', 'دينار ليبي'),
     Currency('USD', '\$', 'دولار أمريكي'),
     Currency('EUR', '€', 'يورو'),
-    Currency('EGP', 'ج.م', 'جنيه مصري'),
-    Currency('AED', 'د.إ', 'درهم إماراتي'),
-    Currency('SAR', 'ر.س', 'ريال سعودي'),
     Currency('GBP', '£', 'جنيه إسترليني'),
   ];
 
@@ -30,16 +26,12 @@ class CurrencyService extends ChangeNotifier {
   static const bool useMockMode = true;
   static const _mockRates = {
     'USD': 1.0,
-    'LYD': 4.85,
     'EUR': 0.92,
-    'EGP': 49.5,
-    'AED': 3.67,
-    'SAR': 3.75,
     'GBP': 0.79,
   };
   static const _prefsKey = 'selected_currency';
 
-  Currency _selected = supported.first; // LYD افتراضيًا
+  Currency _selected = supported.first;
   Currency get selected => _selected;
 
   Map<String, double> _rates = Map.of(_mockRates);
@@ -48,7 +40,8 @@ class CurrencyService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final savedCode = prefs.getString(_prefsKey);
     if (savedCode != null) {
-      _selected = supported.firstWhere((c) => c.code == savedCode, orElse: () => supported.first);
+      _selected = supported.firstWhere((c) => c.code == savedCode,
+          orElse: () => supported.first);
     }
     await _loadRates();
   }
@@ -65,18 +58,24 @@ class CurrencyService extends ChangeNotifier {
   }
 
   Future<void> setCurrency(Currency c) async {
+    if (!supported.any((currency) => currency.code == c.code)) {
+      throw ArgumentError.value(c.code, 'currency', 'Unsupported currency');
+    }
     _selected = c;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, c.code);
   }
 
-  double convert(double usdAmount) => usdAmount * (_rates[_selected.code] ?? 1.0);
+  double convert(double usdAmount) =>
+      usdAmount * (_rates[_selected.code] ?? 1.0);
 
   /// بيرجّع السعر جاهز للعرض بالعملة المختارة (مثال: "235 د.ل").
   String format(double usdAmount) {
     final converted = convert(usdAmount);
-    final formatted = converted >= 100 ? converted.toStringAsFixed(0) : converted.toStringAsFixed(2);
+    final formatted = converted >= 100
+        ? converted.toStringAsFixed(0)
+        : converted.toStringAsFixed(2);
     return '$formatted ${_selected.symbol}';
   }
 }

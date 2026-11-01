@@ -1451,6 +1451,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get flightNoResults => 'No flights available';
 
   @override
+  String get flightProviderWarning =>
+      'Some flight providers are temporarily unavailable. Available results are shown.';
+
+  @override
   String get flightFlexibleButton => 'I\'m flexible';
 
   @override

@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -150,6 +151,43 @@ class DuffelFlightServiceTest {
 
         assertEquals(2, flights.size());
         assertEquals("duffel", flights.getFirst().get("source"));
+        server.verify();
+    }
+
+    @Test
+    void flexibleSearchStopsItsFanoutAfterProviderRateLimit() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        AtomicInteger requests = new AtomicInteger();
+        for (int index = 0; index < 2; index++) {
+            server.expect(requestTo(OFFER_REQUEST_URL))
+                    .andRespond(request -> {
+                        requests.incrementAndGet();
+                        return withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS)
+                                .createResponse(request);
+                    });
+        }
+        DuffelFlightService service =
+                new DuffelFlightService("unit-test-token", true, builder);
+
+        DuffelFlightService.SearchOutcome outcome =
+                service.searchFlightsForDatesWithWarnings(
+                        "MJI",
+                        "TUN",
+                        List.of(
+                                LocalDate.parse("2026-11-08"),
+                                LocalDate.parse("2026-11-09"),
+                                LocalDate.parse("2026-11-10"),
+                                LocalDate.parse("2026-11-11"),
+                                LocalDate.parse("2026-11-12")),
+                        null,
+                        1,
+                        "economy");
+
+        assertTrue(outcome.flights().isEmpty());
+        assertTrue(outcome.warnings().stream().anyMatch(
+                warning -> warning.contains("rate-limiting")));
+        assertEquals(2, requests.get());
         server.verify();
     }
 

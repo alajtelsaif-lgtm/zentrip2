@@ -621,7 +621,7 @@ class PartnerControllerTest {
                 "source", "duffel",
                 "name", "Duffel Test Hotel",
                 "price_currency", "GBP");
-        when(duffelStayService.searchHotels(
+        when(duffelStayService.searchHotelsWithWarnings(
                 eq("London"),
                 eq(51.5072),
                 eq(-0.1276),
@@ -629,7 +629,8 @@ class PartnerControllerTest {
                 eq(java.time.LocalDate.parse("2026-12-03")),
                 eq(1),
                 eq(2)))
-                .thenReturn(List.of(duffelHotel));
+                .thenReturn(new DuffelStayService.SearchOutcome(
+                        List.of(duffelHotel), List.of()));
 
         Map<String, Object> response = controller.searchHotels(
                 "London", "2026-12-01", "2026-12-03", 1, 2);
@@ -638,6 +639,7 @@ class PartnerControllerTest {
         assertEquals(1, hotels.size());
         assertEquals("duffel", ((Map<?, ?>) hotels.getFirst()).get("source"));
         assertEquals(Map.of("partner", 0L, "duffel", 1L), response.get("sources"));
+        assertEquals(List.of(), response.get("warnings"));
     }
 
     @Test

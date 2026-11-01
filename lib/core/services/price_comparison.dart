@@ -3,6 +3,8 @@ import '../../models/exchange_rates.dart';
 
 /// Shared by result controllers; no booking or settlement code depends on this.
 class PriceComparison extends ChangeNotifier {
+  static const List<String> supportedCurrencies = ['USD', 'EUR', 'GBP'];
+
   final Future<ExchangeRates> Function() loadRates;
   final DateTime Function() clock;
   ExchangeRates? rates;
@@ -35,20 +37,16 @@ class PriceComparison extends ChangeNotifier {
   }
 
   void setCurrency(String value) {
-    currency = value;
+    final normalized = value.trim().toUpperCase();
+    if (!supportedCurrencies.contains(normalized)) {
+      throw ArgumentError.value(value, 'currency', 'Unsupported currency');
+    }
+    if (currency == normalized) return;
+    currency = normalized;
     notifyListeners();
   }
 
-  List<String> get currencies => ({
-        'USD',
-        'EUR',
-        'GBP',
-        'LYD',
-        'TND',
-        currency,
-        ...?rates?.rates.keys
-      }.toList()
-        ..sort());
+  List<String> get currencies => supportedCurrencies;
 
   double? convert(double amount, String from) {
     if (!amount.isFinite || amount < 0) return null;

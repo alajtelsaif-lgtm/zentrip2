@@ -173,14 +173,16 @@ class DuffelStayServiceTest {
 
         DuffelStayService service =
                 new DuffelStayService("unit-test-token", true, builder);
-        assertTrue(service.searchHotels(
+        DuffelStayService.SearchOutcome outcome = service.searchHotelsWithWarnings(
                 "London",
                 51.5071,
                 -0.1416,
                 LocalDate.parse("2026-12-01"),
                 LocalDate.parse("2026-12-03"),
                 1,
-                2).isEmpty());
+                2);
+        assertTrue(outcome.hotels().isEmpty());
+        assertTrue(outcome.warnings().getFirst().contains("temporarily unavailable"));
         server.verify();
     }
 

@@ -54,6 +54,18 @@ public class DuffelStayService {
             LocalDate checkOut,
             int rooms,
             int guests) {
+        return searchHotelsWithWarnings(
+                city, latitude, longitude, checkIn, checkOut, rooms, guests).hotels();
+    }
+
+    public SearchOutcome searchHotelsWithWarnings(
+            String city,
+            double latitude,
+            double longitude,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            int rooms,
+            int guests) {
         long nights = checkIn == null || checkOut == null
                 ? 0
                 : java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut);
@@ -62,7 +74,7 @@ public class DuffelStayService {
                 || !validCoordinate(longitude, -180, 180)
                 || checkIn == null || checkOut == null || nights < 1 || nights > 99
                 || rooms < 1 || rooms > 10 || guests < 1 || guests > 20) {
-            return List.of();
+            return new SearchOutcome(List.of(), List.of());
         }
 
         Map<String, Object> location = Map.of(
@@ -99,14 +111,27 @@ public class DuffelStayService {
                 Map<String, Object> hotel = normalizeResult(result, city, nights, rooms);
                 if (hotel != null) hotels.add(hotel);
             }
-            return List.copyOf(hotels);
+            return new SearchOutcome(List.copyOf(hotels), List.of());
         } catch (RestClientResponseException exception) {
-            LOG.warn("Duffel stays search failed with HTTP status {}",
-                    exception.getStatusCode().value());
-            return List.of();
+            int statusCode = exception.getStatusCode().value();
+            LOG.warn("Duffel stays search failed with HTTP status {}", statusCode);
+            String warning = statusCode == HttpStatus.TOO_MANY_REQUESTS.value()
+                    ? "Duffel Stays is temporarily rate-limiting searches."
+                    : "Duffel hotel results are temporarily unavailable.";
+            return new SearchOutcome(List.of(), List.of(warning));
         } catch (RestClientException exception) {
             LOG.warn("Duffel stays search could not reach the provider");
-            return List.of();
+            return new SearchOutcome(
+                    List.of(), List.of("Duffel hotel results are temporarily unavailable."));
+        }
+    }
+
+    public record SearchOutcome(
+            List<Map<String, Object>> hotels,
+            List<String> warnings) {
+        public SearchOutcome {
+            hotels = List.copyOf(hotels);
+            warnings = List.copyOf(warnings);
         }
     }
 

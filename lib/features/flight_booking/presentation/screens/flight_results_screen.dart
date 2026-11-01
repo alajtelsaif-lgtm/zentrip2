@@ -130,6 +130,7 @@ class _FlightResultsScreenState extends State<FlightResultsScreen> {
                   : ctrl.results.isEmpty
                       ? _FlightEmptyState(
                           hasError: ctrl.hasSearchError,
+                          hasProviderWarning: ctrl.hasProviderWarning,
                           onRetry: ctrl.searchParams == null
                               ? null
                               : () => ctrl.search(ctrl.searchParams!),
@@ -176,11 +177,13 @@ class _FlightResultsScreenState extends State<FlightResultsScreen> {
 
 class _FlightEmptyState extends StatelessWidget {
   final bool hasError;
+  final bool hasProviderWarning;
   final VoidCallback? onRetry;
   final AppLocalizations l10n;
 
   const _FlightEmptyState({
     required this.hasError,
+    required this.hasProviderWarning,
     required this.onRetry,
     required this.l10n,
   });
@@ -199,6 +202,14 @@ class _FlightEmptyState extends StatelessWidget {
               style: const TextStyle(
                   color: AppColors.textSecondary, fontWeight: FontWeight.w600),
             ),
+            if (hasProviderWarning) ...[
+              const SizedBox(height: 8),
+              Text(
+                l10n.flightProviderWarning,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+            ],
             if (hasError && onRetry != null) ...[
               const SizedBox(height: 12),
               OutlinedButton.icon(

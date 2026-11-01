@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zentrip/core/services/currency_service.dart';
 import 'package:zentrip/core/services/price_comparison.dart';
 import 'package:zentrip/core/utils/money_format.dart';
 import 'package:zentrip/features/flight_booking/logic/flight_controller.dart';
@@ -58,10 +59,22 @@ FlightSearchParams flightParams(
 
 void main() {
   test('currency display retains appropriate minor units', () {
-    expect(formatProviderMoney(75.25, 'EUR'), 'EUR 75.25');
+    expect(formatProviderMoney(75.25, 'USD'), '\$75.25');
+    expect(formatProviderMoney(75.25, 'EUR'), '€75.25');
+    expect(formatProviderMoney(75.25, 'GBP'), '£75.25');
     expect(formatProviderMoney(75.251, 'TND'), 'TND 75.251');
     expect(formatProviderMoney(75.251, 'LYD'), 'LYD 75.251');
     expect(formatProviderMoney(100, 'JPY'), 'JPY 100');
+  });
+
+  test('currency selectors expose only USD, EUR and GBP', () {
+    final c = comparison();
+    expect(
+      CurrencyService.supported.map((currency) => currency.code).toList(),
+      ['USD', 'EUR', 'GBP'],
+    );
+    expect(c.currencies, ['USD', 'EUR', 'GBP']);
+    expect(() => c.setCurrency('LYD'), throwsArgumentError);
   });
   test('USD pivot conversion, identity and full-precision comparison',
       () async {

@@ -187,8 +187,9 @@ public class GeoapifyAttractionService {
         Map<?, ?> response = geoapify.get()
                 .uri(uri -> uri.path("/v2/places")
                         .queryParam("categories",
-                                "tourism.sights,tourism.attraction,leisure.park,"
-                                        + "commercial.shopping_mall,entertainment.zoo")
+                                "tourism.sights,tourism.attraction,tourism.museum,"
+                                        + "entertainment.museum,leisure.park,heritage,"
+                                        + "building.historic,building.architecture")
                         .queryParam("filter", "circle:" + center.longitude()
                                 + "," + center.latitude() + ",25000")
                         .queryParam("bias", "proximity:" + center.longitude()
@@ -303,6 +304,7 @@ public class GeoapifyAttractionService {
             if (name == null) continue;
 
             List<String> categories = strings(properties.get("categories"));
+            if (!isAllowedLandmarkCategory(categories)) continue;
             String category = normalizeCategory(categories);
             Map<?, ?> raw = map(map(properties.get("datasource")).get("raw"));
             String city = firstNonBlank(
@@ -404,19 +406,31 @@ public class GeoapifyAttractionService {
         String joined = String.join(" ", categories).toLowerCase(Locale.ROOT);
         if (joined.contains("museum")) return "museum";
         if (joined.contains("park")) return "park";
-        if (joined.contains("beach")) return "beach";
-        if (joined.contains("historic")) return "historical";
-        if (joined.contains("natural")) return "natural";
+        if (joined.contains("historic") || joined.contains("heritage")
+                || joined.contains("monument") || joined.contains("archaeological")) {
+            return "historical";
+        }
         if (joined.contains("architecture")) return "architecture";
         return "landmark";
     }
 
+    static boolean isAllowedLandmarkCategory(List<String> categories) {
+        String joined = String.join(" ", categories).toLowerCase(Locale.ROOT);
+        return joined.contains("tourism.sights")
+                || joined.contains("tourism.attraction")
+                || joined.contains("tourism.museum")
+                || joined.contains("entertainment.museum")
+                || joined.contains("leisure.park")
+                || joined.contains("heritage")
+                || joined.contains("historic")
+                || joined.contains("monument")
+                || joined.contains("archaeological")
+                || joined.contains("building.architecture");
+    }
+
     private static String highlightCategory(List<String> categories) {
         String joined = String.join(" ", categories).toLowerCase(Locale.ROOT);
-        if (joined.contains("shopping") || joined.contains("shop")) return "Shopping";
-        if (joined.contains("park") || joined.contains("beach")
-                || joined.contains("natural") || joined.contains("nature")
-                || joined.contains("waterfall") || joined.contains("viewpoint")) {
+        if (joined.contains("park")) {
             return "Nature";
         }
         if (joined.contains("architecture") || joined.contains("building")
@@ -425,7 +439,8 @@ public class GeoapifyAttractionService {
         }
         if (joined.contains("historic") || joined.contains("historical")
                 || joined.contains("ruin") || joined.contains("memorial")
-                || joined.contains("archaeological") || joined.contains("heritage")) {
+                || joined.contains("monument") || joined.contains("archaeological")
+                || joined.contains("heritage")) {
             return "Historical";
         }
         return "Family & Culture";

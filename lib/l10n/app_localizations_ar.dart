@@ -1438,6 +1438,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get flightNoResults => 'لا توجد رحلات متاحة';
 
   @override
+  String get flightProviderWarning =>
+      'بعض مزودي الرحلات غير متاحين مؤقتًا. نعرض الرحلات المتوفرة.';
+
+  @override
   String get flightFlexibleButton => 'تواريخ مرنة';
 
   @override

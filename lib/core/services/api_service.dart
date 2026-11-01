@@ -1065,8 +1065,10 @@ class ApiService {
     List<DateTime> flexibleDepartureMonths = const [],
     int flexibleTripDurationDays = 7,
     bool flexibleWeekendsOnly = false,
+    void Function(List<String> warnings)? onWarnings,
   }) async {
     if (useMockMode) {
+      onWarnings?.call(const []);
       await Future.delayed(_mockDelay);
       if (flexibleDepartureMonths.isNotEmpty) {
         final now = DateTime.now();
@@ -1129,6 +1131,13 @@ class ApiService {
     if (payload is! Map || payload['flights'] is! List) {
       throw const FormatException('Invalid flight search response');
     }
+    final rawWarnings = payload['warnings'];
+    onWarnings?.call(rawWarnings is List
+        ? rawWarnings
+            .map((warning) => warning.toString().trim())
+            .where((warning) => warning.isNotEmpty)
+            .toList(growable: false)
+        : const []);
     final flights = <FlightModel>[];
     for (final value in payload['flights'] as List) {
       if (value is! Map) continue;

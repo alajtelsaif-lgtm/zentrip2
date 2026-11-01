@@ -490,6 +490,7 @@
   "flightClassLabel": "Class",
   "flightSelectThis": "Select this flight",
   "flightNoResults": "No flights available",
+  "flightProviderWarning": "Some flight providers are temporarily unavailable. Available results are shown.",
   "flightFlexibleButton": "I'm flexible",
   "flightSelectDates": "Select dates",
   "flightTripLength": "How long is your trip?",

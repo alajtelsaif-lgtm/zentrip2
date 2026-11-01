@@ -57,6 +57,22 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
+    void customerDataEndpointsRejectRequestsWithoutTokens() throws Exception {
+        mockMvc.perform(get("/api/preferences/travel"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/ai/chat")
+                        .contentType("application/json")
+                        .content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void unknownApiRoutesAreNotPublicByDefault() throws Exception {
+        mockMvc.perform(get("/api/not-a-real-route"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void customerTokenCannotReadAdminOrPartnerDashboards() throws Exception {
         String token = "customer-role-test-token";
         when(jdbcTemplate.queryForList(

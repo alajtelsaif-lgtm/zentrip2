@@ -87,6 +87,7 @@ class FlightController extends ChangeNotifier {
   List<FlightModel> results = [];
   bool isLoading = false;
   bool hasSearchError = false;
+  bool hasProviderWarning = false;
   FlightSort sort = FlightSort.cheapest;
   FlightModel? selectedFlight;
   int _searchRevision = 0;
@@ -96,11 +97,13 @@ class FlightController extends ChangeNotifier {
     searchParams = params;
     isLoading = true;
     hasSearchError = false;
+    hasProviderWarning = false;
     results = [];
     _all = [];
     notifyListeners();
     comparison.refresh();
     try {
+      var providerWarnings = <String>[];
       final flights = searchFlights != null
           ? await searchFlights!(params)
           : await ApiService.instance.searchFlights(
@@ -116,13 +119,16 @@ class FlightController extends ChangeNotifier {
               flexibleDepartureMonths: params.flexibleDepartureMonths,
               flexibleTripDurationDays: params.flexibleTripDurationDays,
               flexibleWeekendsOnly: params.flexibleWeekendsOnly,
+              onWarnings: (warnings) => providerWarnings = warnings,
             );
       if (revision != _searchRevision) return;
+      hasProviderWarning = providerWarnings.isNotEmpty;
       _all = flights;
       _applySort();
     } catch (_) {
       if (revision != _searchRevision) return;
       results = [];
+      hasProviderWarning = false;
       hasSearchError = true;
     } finally {
       if (revision == _searchRevision) {

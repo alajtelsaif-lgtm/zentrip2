@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import jakarta.servlet.http.HttpServletResponse;
@@ -38,18 +39,38 @@ public class SecurityConfig {
                 ).permitAll()
                 .requestMatchers("/api/admin", "/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/partner", "/api/partner/**").hasRole("PARTNER")
-                .requestMatchers("/api/auth/me", "/api/auth/logout", "/api/profile",
-                    "/api/profile/**").authenticated()
+                .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
                 .requestMatchers(
-                    "/api/reviews", "/api/reviews/**",
                     "/api/trips", "/api/trips/**",
                     "/api/bookings", "/api/bookings/**",
                     "/api/transfers", "/api/transfers/**",
                     "/api/payments", "/api/payments/**",
                     "/api/flights/*/seats", "/api/flights/*/seats/**",
                     "/api/attractions/*/visits",
-                    "/api/maps/**"
+                    "/api/maps/**",
+                    "/api/ai", "/api/ai/**",
+                    "/api/preferences/travel", "/api/preferences/travel/**",
+                    "/api/profile", "/api/profile/**"
                 ).hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.GET, "/api/reviews").permitAll()
+                .requestMatchers(
+                    "/api/airports/search",
+                    "/api/flights/search",
+                    "/api/flights/search/flexible",
+                    "/api/hotels/locations",
+                    "/api/hotels/search",
+                    "/api/hotels/nearby",
+                    "/api/hotels/search-results/*/rates",
+                    "/api/cars/locations",
+                    "/api/cars/nearby",
+                    "/api/inventory/**",
+                    "/api/offers",
+                    "/api/attractions/search",
+                    "/api/exchange-rates"
+                ).permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/reviews", "/api/reviews/**")
+                    .hasRole("CUSTOMER")
+                .requestMatchers("/api/**").denyAll()
                 .anyRequest().permitAll()
             )
             .addFilterBefore(tokenAuthFilter, UsernamePasswordAuthenticationFilter.class);

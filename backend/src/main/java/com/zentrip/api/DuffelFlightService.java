@@ -35,15 +35,17 @@ public class DuffelFlightService {
     private static final String OFFER_REQUEST_PATH =
             "/air/offer_requests?return_offers=true&supplier_timeout=10000";
     private static final ExecutorService FLEXIBLE_SEARCH_EXECUTOR =
-            Executors.newFixedThreadPool(8, runnable -> {
+            Executors.newFixedThreadPool(2, runnable -> {
                 Thread thread = new Thread(runnable, "duffel-flexible-search");
                 thread.setDaemon(true);
                 return thread;
             });
+    private static final long RATE_LIMIT_COOLDOWN_MILLIS = Duration.ofSeconds(30).toMillis();
 
     private final boolean enabled;
     private final String accessToken;
     private final RestClient restClient;
+    private volatile long providerCooldownUntilMillis;
 
     public DuffelFlightService(
             @Value("${duffel.access-token:}") String accessToken,
@@ -68,6 +70,11 @@ public class DuffelFlightService {
             int adults,
             String cabinClass) {
         if (!isConfigured()) return List.of();
+        if (System.currentTimeMillis() < providerCooldownUntilMillis) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "The flight provider is temporarily rate-limiting searches");
+        }
 
         List<Map<String, Object>> slices = new ArrayList<>();
         slices.add(slice(origin, destination, departureDate));
@@ -102,8 +109,15 @@ public class DuffelFlightService {
             }
             return List.copyOf(flights);
         } catch (RestClientResponseException exception) {
-            LOG.warn("Duffel flight offer search failed with HTTP status {}",
-                    exception.getStatusCode().value());
+            int statusCode = exception.getStatusCode().value();
+            LOG.warn("Duffel flight offer search failed with HTTP status {}", statusCode);
+            if (statusCode == HttpStatus.TOO_MANY_REQUESTS.value()) {
+                providerCooldownUntilMillis = System.currentTimeMillis()
+                        + RATE_LIMIT_COOLDOWN_MILLIS;
+                throw new ResponseStatusException(
+                        HttpStatus.TOO_MANY_REQUESTS,
+                        "The flight provider is temporarily rate-limiting searches");
+            }
             String message = exception.getStatusCode().value() == 401
                     || exception.getStatusCode().value() == 403
                     ? "Duffel rejected the configured access token. Replace "
@@ -132,13 +146,29 @@ public class DuffelFlightService {
             Integer tripDurationDays,
             int adults,
             String cabinClass) {
-        if (!isConfigured() || departureDates.isEmpty()) return List.of();
+        return searchFlightsForDatesWithWarnings(
+                origin, destination, departureDates, tripDurationDays, adults, cabinClass)
+                .flights();
+    }
+
+    public SearchOutcome searchFlightsForDatesWithWarnings(
+            String origin,
+            String destination,
+            List<LocalDate> departureDates,
+            Integer tripDurationDays,
+            int adults,
+            String cabinClass) {
+        if (!isConfigured() || departureDates.isEmpty()) {
+            return new SearchOutcome(List.of(), List.of());
+        }
 
         AtomicBoolean credentialsRejected = new AtomicBoolean(false);
+        AtomicBoolean providerRateLimited = new AtomicBoolean(false);
+        AtomicBoolean providerFailed = new AtomicBoolean(false);
         List<CompletableFuture<List<Map<String, Object>>>> searches =
                 departureDates.stream()
                         .map(departureDate -> CompletableFuture.supplyAsync(() -> {
-                            if (credentialsRejected.get()) {
+                            if (credentialsRejected.get() || providerRateLimited.get()) {
                                 return List.<Map<String, Object>>of();
                             }
                             LocalDate returnDate = tripDurationDays == null
@@ -153,16 +183,22 @@ public class DuffelFlightService {
                                         adults,
                                         cabinClass);
                             } catch (ResponseStatusException exception) {
-                                String reason = exception.getReason();
-                                if (reason != null
-                                        && reason.contains("rejected the configured access token")) {
+                                if (exception.getStatusCode()
+                                        .equals(HttpStatus.TOO_MANY_REQUESTS)) {
+                                    providerRateLimited.set(true);
+                                } else if (exception.getReason() != null
+                                        && exception.getReason().contains(
+                                                "rejected the configured access token")) {
                                     credentialsRejected.set(true);
                                 } else {
-                                    LOG.warn("Duffel flexible search failed for departure date {}",
+                                    providerFailed.set(true);
+                                    LOG.warn(
+                                            "Duffel flexible search failed for departure date {}",
                                             departureDate);
                                 }
                                 return List.<Map<String, Object>>of();
                             } catch (RuntimeException exception) {
+                                providerFailed.set(true);
                                 LOG.warn("Duffel flexible search failed for departure date {}",
                                         departureDate);
                                 return List.<Map<String, Object>>of();
@@ -171,11 +207,31 @@ public class DuffelFlightService {
                         .toList();
 
         CompletableFuture.allOf(searches.toArray(CompletableFuture[]::new)).join();
-        return searches.stream()
+        List<Map<String, Object>> flights = searches.stream()
                 .flatMap(search -> search.join().stream())
                 .sorted(Comparator.comparing((Map<String, Object> flight) ->
                         String.valueOf(flight.get("departure_time"))))
                 .toList();
+        List<String> warnings = new ArrayList<>();
+        if (providerRateLimited.get()) {
+            warnings.add("Duffel is temporarily rate-limiting searches.");
+        }
+        if (credentialsRejected.get()) {
+            warnings.add("Duffel rejected its configured access token.");
+        }
+        if (providerFailed.get()) {
+            warnings.add("Some Duffel flight dates could not be searched.");
+        }
+        return new SearchOutcome(flights, List.copyOf(warnings));
+    }
+
+    public record SearchOutcome(
+            List<Map<String, Object>> flights,
+            List<String> warnings) {
+        public SearchOutcome {
+            flights = List.copyOf(flights);
+            warnings = List.copyOf(warnings);
+        }
     }
 
     private static Map<String, Object> slice(

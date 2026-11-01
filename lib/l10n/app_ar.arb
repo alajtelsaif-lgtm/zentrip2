@@ -476,6 +476,7 @@
   "flightClassLabel": "الدرجة",
   "flightSelectThis": "اختر هذه الرحلة",
   "flightNoResults": "لا توجد رحلات متاحة",
+  "flightProviderWarning": "بعض مزودي الرحلات غير متاحين مؤقتًا. نعرض الرحلات المتوفرة.",
   "flightFlexibleButton": "تواريخ مرنة",
   "flightSelectDates": "اختر التواريخ",
   "flightTripLength": "كم مدة رحلتك؟",
