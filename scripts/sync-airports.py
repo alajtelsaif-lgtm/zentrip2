@@ -225,7 +225,17 @@ def apply_import(airports: list[dict[str, str]]) -> None:
             csv_path=str(csv_path).replace("\\", "\\\\").replace("'", "''"),
         )
         result = subprocess.run(
-            [psql, "-X", "-v", "ON_ERROR_STOP=1", "-q", "-f", "-"],
+            [
+                psql,
+                "-X",
+                "-v",
+                "ON_ERROR_STOP=1",
+                "-v",
+                "VERBOSITY=sqlstate",
+                "-q",
+                "-f",
+                "-",
+            ],
             input=sql,
             text=True,
             capture_output=True,
@@ -248,6 +258,16 @@ def apply_import(airports: list[dict[str, str]]) -> None:
                 reason = "database name was not found"
             elif "permission denied" in error:
                 reason = "database role lacks permission for the additive import"
+            elif "42p01:" in error or "42703:" in error:
+                reason = "the target airport table does not match the expected legacy schema"
+            elif "42501:" in error:
+                reason = "database role lacks permission for the additive import"
+            elif "42601:" in error:
+                reason = "the airport import SQL was rejected by PostgreSQL"
+            elif "22p04:" in error or "22021:" in error:
+                reason = "an airport source row could not be imported"
+            elif "08001:" in error or "08006:" in error:
+                reason = "the database connection could not be established"
             else:
                 reason = "PostgreSQL rejected the import; sensitive diagnostics were suppressed"
             raise RuntimeError(
