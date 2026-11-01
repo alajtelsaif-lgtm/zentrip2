@@ -1,6 +1,7 @@
 package com.zentrip.api;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.BadSqlGrammarException;
 
 class ApiControllerTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
@@ -209,6 +211,26 @@ class ApiControllerTest {
         assertEquals(1, ((List<?>) response.get("attractions")).size());
         verify(geoapifyAttractionService)
                 .searchAttractions("Tripoli", "Libya", "ar");
+    }
+
+    @Test
+    void missingVisitCountMigrationStillAllowsProviderPlacesToLoad() {
+        when(jdbc.queryForList(
+                contains("FROM tourist_monuments"),
+                eq("tripoli"), eq("%tripoli%"), eq(""), eq("")))
+                .thenThrow(new BadSqlGrammarException(
+                        "attraction lookup",
+                        "SELECT ...",
+                        new SQLException(
+                                "relation \"attraction_visit_counts\" does not exist", "42P01")));
+        when(geoapifyAttractionService.searchAttractions("Tripoli", "Libya", "en"))
+                .thenReturn(List.of(Map.of("id", "geoapify:test-place", "name", "Museum")));
+
+        Map<String, Object> response =
+                controller.searchMonuments("Tripoli", null, "Libya", "en");
+
+        assertEquals("geoapify", response.get("source"));
+        assertEquals(1, ((List<?>) response.get("attractions")).size());
     }
 
     @Test

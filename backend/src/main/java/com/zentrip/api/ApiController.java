@@ -31,9 +31,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.BadSqlGrammarException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -424,7 +424,7 @@ public class ApiController {
         return Map.of("attractions", discovered, "source", "geoapify");
     }
 
-    private static boolean isMissingVisitCountSchema(SQLException exception) {
+    private static boolean isMissingVisitCountSchema(Throwable exception) {
         for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
             if (cause instanceof SQLException sql
                     && "42P01".equals(sql.getSQLState())
