@@ -3,12 +3,12 @@ import 'package:zentrip/features/attractions/logic/attractions_controller.dart';
 import 'package:zentrip/models/attraction_model.dart';
 
 void main() {
-  test('featured monuments rank by visits, then rating', () {
+  test('featured places rank by visits, then rating', () {
     final places = [
       _place(id: 'rating-leader', visits: 3, rating: 4.9),
       _place(id: 'visit-leader', visits: 9, rating: 4.1),
       _place(id: 'visit-tie-high-rating', visits: 9, rating: 4.8),
-      _place(id: 'non-monument', category: 'museum', visits: 100, rating: 5),
+      _place(id: 'non-monument', category: 'cafe', visits: 100, rating: 5),
     ];
 
     final ranked = AttractionsController.rankFeaturedMonuments(places);
@@ -17,6 +17,17 @@ void main() {
       ranked.map((place) => place.id),
       ['visit-tie-high-rating', 'visit-leader', 'rating-leader'],
     );
+  });
+
+  test('unrated provider places use distance as the final ranking signal', () {
+    final places = [
+      _place(id: 'far', visits: 0, rating: 0, distanceKm: 8.0),
+      _place(id: 'near', visits: 0, rating: 0, distanceKm: 1.2),
+    ];
+
+    final ranked = AttractionsController.rankFeaturedMonuments(places);
+
+    expect(ranked.map((place) => place.id), ['near', 'far']);
   });
 
   test('attraction JSON reads place and country visit totals', () {
@@ -30,6 +41,9 @@ void main() {
       'review_count': 20,
       'visit_count': 41,
       'country_visit_count': 72,
+      'source_provider': 'geoapify',
+      'source_attribution': 'Geoapify · OpenStreetMap contributors',
+      'wikidata_id': 'Q123',
       'description': '',
       'latitude': 0,
       'longitude': 0,
@@ -38,6 +52,8 @@ void main() {
 
     expect(place.visitCount, 41);
     expect(place.countryVisitCount, 72);
+    expect(place.isExternal, isTrue);
+    expect(place.wikidataId, 'Q123');
   });
 }
 
@@ -46,6 +62,7 @@ AttractionModel _place({
   required int visits,
   required double rating,
   String category = 'landmark',
+  double? distanceKm,
 }) =>
     AttractionModel(
       id: id,
@@ -57,6 +74,7 @@ AttractionModel _place({
       rating: rating,
       reviewCount: 0,
       visitCount: visits,
+      distanceKm: distanceKm,
       latitude: 0,
       longitude: 0,
       tags: const [],

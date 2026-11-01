@@ -30,7 +30,8 @@ class PartnerBookingPriceTest {
             jdbc,
             "",
             mock(ProfilePhotoStorage.class),
-            mock(PasswordResetService.class));
+                mock(PasswordResetService.class),
+                mock(GeoapifyAttractionService.class));
 
     @Test
     void hotelBookingUsesCurrentPartnerRateAndStayLength() throws Exception {

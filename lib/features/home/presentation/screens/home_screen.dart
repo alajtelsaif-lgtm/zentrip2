@@ -63,10 +63,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadHomeSections();
     _loadAirports();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _loadCurrentAirport();
+      if (!mounted) return;
+      _loadHomeSections();
+      _loadCurrentAirport();
     });
   }
 
@@ -159,7 +160,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadMonuments() async {
     try {
-      final monuments = await AttractionsController.loadFeaturedMonuments();
+      final destination = AirportOption.byCity(_toName);
+      final monuments = await AttractionsController.loadFeaturedMonuments(
+        city: _toName,
+        country: destination?.country ?? 'Libya',
+        language: Localizations.localeOf(context).languageCode,
+      );
       if (!mounted) return;
       setState(() {
         _monuments = monuments;

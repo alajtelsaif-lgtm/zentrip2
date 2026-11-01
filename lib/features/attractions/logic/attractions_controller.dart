@@ -31,15 +31,26 @@ class AttractionsController extends ChangeNotifier {
     'cultural',
     'architecture',
     'landmark',
+    'museum',
+    'park',
+    'beach',
   };
 
   static bool isMonument(AttractionModel a) =>
       monumentCategories.contains(a.category);
 
   /// Featured places come from the catalog and are ranked by recorded visits.
-  static Future<List<AttractionModel>> loadFeaturedMonuments(
-      {int limit = 8}) async {
-    final all = await ApiService.instance.searchAttractions(city: '');
+  static Future<List<AttractionModel>> loadFeaturedMonuments({
+    int limit = 8,
+    String city = 'Tripoli',
+    String country = 'Libya',
+    String language = 'en',
+  }) async {
+    final all = await ApiService.instance.searchAttractions(
+      city: city,
+      country: country,
+      language: language,
+    );
     return rankFeaturedMonuments(all, limit: limit);
   }
 
@@ -51,7 +62,11 @@ class AttractionsController extends ChangeNotifier {
     final monuments = attractions.where(isMonument).toList()
       ..sort((a, b) {
         final visits = b.visitCount.compareTo(a.visitCount);
-        return visits != 0 ? visits : b.rating.compareTo(a.rating);
+        if (visits != 0) return visits;
+        final ratings = b.rating.compareTo(a.rating);
+        if (ratings != 0) return ratings;
+        return (a.distanceKm ?? double.infinity)
+            .compareTo(b.distanceKm ?? double.infinity);
       });
     return monuments.take(limit).toList();
   }
@@ -62,7 +77,10 @@ class AttractionsController extends ChangeNotifier {
       selectedCategory = initialCategory;
     }
     notifyListeners();
-    _all = await ApiService.instance.searchAttractions(city: city ?? '');
+    _all = await ApiService.instance.searchAttractions(
+      city: city ?? 'Tripoli',
+      country: 'Libya',
+    );
     _apply();
     isLoading = false;
     notifyListeners();

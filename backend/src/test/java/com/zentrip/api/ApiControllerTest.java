@@ -31,10 +31,12 @@ import org.springframework.http.HttpStatus;
 
 class ApiControllerTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        private final ProfilePhotoStorage photoStorage = mock(ProfilePhotoStorage.class);
-        private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
-        private final ApiController controller =
-                new ApiController(jdbc, "", photoStorage, passwordResetService);
+    private final ProfilePhotoStorage photoStorage = mock(ProfilePhotoStorage.class);
+    private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
+    private final GeoapifyAttractionService geoapifyAttractionService =
+            mock(GeoapifyAttractionService.class);
+    private final ApiController controller = new ApiController(
+            jdbc, "", photoStorage, passwordResetService, geoapifyAttractionService);
 
     @BeforeEach
     void stubExistingBookingForeignKeyTargets() {
@@ -175,7 +177,7 @@ class ApiControllerTest {
                         Map.entry("visit_count", 41L),
                         Map.entry("country_visit_count", 72L))));
 
-        Map<String, Object> response = controller.searchMonuments("Khoms", null);
+        Map<String, Object> response = controller.searchMonuments("Khoms", null, "Libya", "en");
         Map<?, ?> monument = (Map<?, ?>) ((List<?>) response.get("attractions")).getFirst();
 
         assertEquals("Leptis Magna", monument.get("name"));
@@ -186,6 +188,27 @@ class ApiControllerTest {
         assertEquals(List.of("Theatre", "Market"), monument.get("tags"));
         assertEquals(41L, monument.get("visit_count"));
         assertEquals(72L, monument.get("country_visit_count"));
+    }
+
+    @Test
+    void emptyAttractionCatalogUsesGeoapifyResultsForHomeDiscovery() {
+        when(jdbc.queryForList(
+                contains("FROM tourist_monuments"),
+                eq("tripoli"), eq("%tripoli%"), eq(""), eq("")))
+                .thenReturn(List.of());
+        when(geoapifyAttractionService.searchAttractions("Tripoli", "Libya", "ar"))
+                .thenReturn(List.of(Map.of(
+                        "id", "geoapify:test-place",
+                        "name", "متحف طرابلس",
+                        "country", "Libya")));
+
+        Map<String, Object> response =
+                controller.searchMonuments("Tripoli", null, "Libya", "ar");
+
+        assertEquals("geoapify", response.get("source"));
+        assertEquals(1, ((List<?>) response.get("attractions")).size());
+        verify(geoapifyAttractionService)
+                .searchAttractions("Tripoli", "Libya", "ar");
     }
 
     @Test
@@ -233,7 +256,8 @@ class ApiControllerTest {
     @Test
     void attractionVisitBlocksBurstsOfDistinctAnonymousVisitors() {
         ApiController rateLimitedController =
-                new ApiController(jdbc, "", photoStorage, passwordResetService);
+                new ApiController(
+                        jdbc, "", photoStorage, passwordResetService, geoapifyAttractionService);
         when(jdbc.queryForObject(
                 contains("FROM tourist_monuments"), eq(Boolean.class), eq("place-1")))
                 .thenReturn(true);

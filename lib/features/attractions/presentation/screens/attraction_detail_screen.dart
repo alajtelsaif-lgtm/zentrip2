@@ -37,7 +37,9 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
     final attraction = _attraction;
     if (attraction != null && !_visitRecorded) {
       _visitRecorded = true;
-      unawaited(_recordVisit(attraction.id));
+      if (!attraction.isExternal) {
+        unawaited(_recordVisit(attraction.id));
+      }
     }
   }
 
@@ -215,13 +217,14 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
                             style: const TextStyle(
                                 color: AppColors.textSecondary, fontSize: 13))
                       ]),
-                      Row(children: [
-                        const Icon(Icons.star_rounded,
-                            color: Colors.amber, size: 16),
-                        Text(' ${a.rating} (${a.reviewCount})',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 13))
-                      ]),
+                      if (a.rating > 0 && a.reviewCount > 0)
+                        Row(children: [
+                          const Icon(Icons.star_rounded,
+                              color: Colors.amber, size: 16),
+                          Text(' ${a.rating} (${a.reviewCount})',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 13))
+                        ]),
                     ]).animate().fade(duration: 300.ms),
                 const SizedBox(height: 16),
 
@@ -241,20 +244,32 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
                 const SizedBox(height: 20),
 
                 // Description
-                Text(l10n.attractionAbout,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Text(a.description,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(height: 1.7))
-                    .animate()
-                    .fade(delay: 150.ms),
-                const SizedBox(height: 20),
+                if (a.description.trim().isNotEmpty) ...[
+                  Text(l10n.attractionAbout,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Text(a.description,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(height: 1.7))
+                      .animate()
+                      .fade(delay: 150.ms),
+                  const SizedBox(height: 20),
+                ],
+                if (a.sourceAttribution != null) ...[
+                  Text(
+                    a.sourceAttribution!,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 // Visiting hours
                 if (a.openingHours != null) ...[

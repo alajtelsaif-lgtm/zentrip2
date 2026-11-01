@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.SQLException;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -30,6 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.BadSqlGrammarException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -64,6 +66,7 @@ public class ApiController {
     private final JdbcTemplate jdbc;
     private final ProfilePhotoStorage profilePhotoStorage;
     private final PasswordResetService passwordResetService;
+    private final GeoapifyAttractionService geoapifyAttractionService;
     private final PasswordEncoder passwords = new BCryptPasswordEncoder();
     private final RestClient http = RestClient.create();
     private final String serpApiKey;
@@ -73,11 +76,13 @@ public class ApiController {
     public ApiController(JdbcTemplate jdbc,
                          @Value("${serpapi.key:}") String serpApiKey,
                          ProfilePhotoStorage profilePhotoStorage,
-                         PasswordResetService passwordResetService) {
+                         PasswordResetService passwordResetService,
+                         GeoapifyAttractionService geoapifyAttractionService) {
         this.jdbc = jdbc;
         this.serpApiKey = serpApiKey;
         this.profilePhotoStorage = profilePhotoStorage;
         this.passwordResetService = passwordResetService;
+        this.geoapifyAttractionService = geoapifyAttractionService;
     }
 
     @PostMapping("/auth/register")
@@ -346,39 +351,51 @@ public class ApiController {
     @GetMapping("/attractions/search")
     public Map<String, Object> searchMonuments(
             @RequestParam(defaultValue = "") String city,
-            @RequestParam(required = false) String category) {
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "") String country,
+            @RequestParam(defaultValue = "en") String lang) {
         String cityFilter = city.trim().toLowerCase(Locale.ROOT);
         String categoryFilter = category == null ? "" : category.trim();
-        List<Map<String, Object>> monuments = jdbc.queryForList("""
-                SELECT id, title, location, category_tag, category, rating,
-                       review_count, description, working_hours,
-                       best_time_to_visit, entry_fee, image_url, tags,
-                       COALESCE(visit_counts.visit_count, 0) AS visit_count,
-                       COALESCE(country_counts.country_visit_count, 0) AS country_visit_count
-                FROM tourist_monuments
-                LEFT JOIN attraction_visit_counts visit_counts
-                    ON visit_counts.attraction_id = tourist_monuments.id
-                LEFT JOIN (
-                    SELECT LOWER(TRIM(SPLIT_PART(monuments.location, ',', 2))) AS country_key,
-                           SUM(COALESCE(counts.visit_count, 0)) AS country_visit_count
-                    FROM tourist_monuments monuments
-                    LEFT JOIN attraction_visit_counts counts
-                        ON counts.attraction_id = monuments.id
-                    WHERE monuments.is_active = TRUE
-                    GROUP BY LOWER(TRIM(SPLIT_PART(monuments.location, ',', 2)))
-                ) country_counts
-                    ON country_counts.country_key =
-                       LOWER(TRIM(SPLIT_PART(tourist_monuments.location, ',', 2)))
-                WHERE is_active = TRUE
-                  AND (? = '' OR LOWER(location) LIKE ?)
-                  AND (? = '' OR category = ?)
-                ORDER BY sort_order ASC, title ASC
-                LIMIT 100
-                """,
-                cityFilter,
-                "%" + cityFilter + "%",
-                categoryFilter,
-                categoryFilter);
+        List<Map<String, Object>> monuments;
+        try {
+            monuments = jdbc.queryForList("""
+                    SELECT id, title, location, category_tag, category, rating,
+                           review_count, description, working_hours,
+                           best_time_to_visit, entry_fee, image_url, tags,
+                           COALESCE(visit_counts.visit_count, 0) AS visit_count,
+                           COALESCE(country_counts.country_visit_count, 0) AS country_visit_count
+                    FROM tourist_monuments
+                    LEFT JOIN attraction_visit_counts visit_counts
+                        ON visit_counts.attraction_id = tourist_monuments.id
+                    LEFT JOIN (
+                        SELECT LOWER(TRIM(SPLIT_PART(monuments.location, ',', 2))) AS country_key,
+                               SUM(COALESCE(counts.visit_count, 0)) AS country_visit_count
+                        FROM tourist_monuments monuments
+                        LEFT JOIN attraction_visit_counts counts
+                            ON counts.attraction_id = monuments.id
+                        WHERE monuments.is_active = TRUE
+                        GROUP BY LOWER(TRIM(SPLIT_PART(monuments.location, ',', 2)))
+                    ) country_counts
+                        ON country_counts.country_key =
+                           LOWER(TRIM(SPLIT_PART(tourist_monuments.location, ',', 2)))
+                    WHERE is_active = TRUE
+                      AND (? = '' OR LOWER(location) LIKE ?)
+                      AND (? = '' OR category = ?)
+                    ORDER BY sort_order ASC, title ASC
+                    LIMIT 100
+                    """,
+                    cityFilter,
+                    "%" + cityFilter + "%",
+                    categoryFilter,
+                    categoryFilter);
+        } catch (BadSqlGrammarException exception) {
+            if (!isMissingVisitCountSchema(exception)) throw exception;
+            LOG.warn("Attraction visit-count tables are missing; using provider places until migration is applied.");
+            return discoveredAttractions(city, country, lang, categoryFilter);
+        }
+        if (monuments.isEmpty()) {
+            return discoveredAttractions(city, country, lang, categoryFilter);
+        }
         List<Map<String, Object>> payload = monuments.stream().map(row -> {
             Map<String, Object> attraction = new LinkedHashMap<>(row);
             String[] location = String.valueOf(row.get("location")).split(",", 2);
@@ -392,6 +409,31 @@ public class ApiController {
             return attraction;
         }).toList();
         return Map.of("attractions", payload);
+    }
+
+    private Map<String, Object> discoveredAttractions(
+            String city, String country, String language, String category) {
+        List<Map<String, Object>> discovered =
+                geoapifyAttractionService.searchAttractions(city, country, language);
+        if (!category.isBlank()) {
+            discovered = discovered.stream()
+                    .filter(place -> category.equalsIgnoreCase(
+                            String.valueOf(place.get("category"))))
+                    .toList();
+        }
+        return Map.of("attractions", discovered, "source", "geoapify");
+    }
+
+    private static boolean isMissingVisitCountSchema(SQLException exception) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sql
+                    && "42P01".equals(sql.getSQLState())
+                    && sql.getMessage() != null
+                    && sql.getMessage().contains("attraction_visit_counts")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @PostMapping("/attractions/{id}/visits")

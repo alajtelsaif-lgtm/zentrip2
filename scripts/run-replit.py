@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 PROVIDER_SETTINGS = frozenset({
     "REQUESTY_API_KEY", "REQUESTY_MODEL", "SERPAPI_KEY", "GOOGLE_PLACES_API_KEY",
+    "GEOAPIFY_API_KEY",
 })
 
 

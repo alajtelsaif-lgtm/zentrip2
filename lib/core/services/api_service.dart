@@ -1490,6 +1490,8 @@ class ApiService {
   Future<List<AttractionModel>> searchAttractions({
     required String city,
     String? category,
+    String? country,
+    String? language,
   }) async {
     if (useMockMode) {
       await Future.delayed(_mockDelay);
@@ -1504,6 +1506,8 @@ class ApiService {
         queryParameters: {
           'city': city,
           if (category != null) 'category': category,
+          if (country != null && country.isNotEmpty) 'country': country,
+          if (language != null && language.isNotEmpty) 'lang': language,
         },
       );
       final attractions = (res.data['attractions'] as List)

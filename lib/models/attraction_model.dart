@@ -21,6 +21,12 @@ class AttractionModel {
   final String? bestTimeToVisit;
   final int? partnerListingId;
   final String? partnerName;
+  final String? sourceProvider;
+  final String? sourceAttribution;
+  final String? wikidataId;
+  final String? wikipediaUrl;
+  final String? nameEn;
+  final String? nameAr;
 
   const AttractionModel({
     required this.id,
@@ -44,6 +50,12 @@ class AttractionModel {
     this.bestTimeToVisit,
     this.partnerListingId,
     this.partnerName,
+    this.sourceProvider,
+    this.sourceAttribution,
+    this.wikidataId,
+    this.wikipediaUrl,
+    this.nameEn,
+    this.nameAr,
   });
 
   static String _stringFromDynamic(dynamic value, [String fallback = '']) {
@@ -77,6 +89,7 @@ class AttractionModel {
       [city, country].where((part) => part.trim().isNotEmpty).join(', ');
   String get categoryLabel => categoryTag.isNotEmpty ? categoryTag : category;
   String get workingHours => openingHours ?? '';
+  bool get isExternal => sourceProvider != null && sourceProvider!.isNotEmpty;
 
   factory AttractionModel.fromJson(Map<String, dynamic> json) {
     final location = _stringFromDynamic(json['location']);
@@ -119,6 +132,12 @@ class AttractionModel {
           ? null
           : _intFromDynamic(json['partner_listing_id']),
       partnerName: json['partner_name']?.toString(),
+      sourceProvider: json['source_provider']?.toString(),
+      sourceAttribution: json['source_attribution']?.toString(),
+      wikidataId: json['wikidata_id']?.toString(),
+      wikipediaUrl: json['wikipedia_url']?.toString(),
+      nameEn: json['name_en']?.toString(),
+      nameAr: json['name_ar']?.toString(),
     );
   }
 
@@ -136,5 +155,11 @@ class AttractionModel {
         'entry_fee': entryFee,
         'image_url': imageUrl ?? '',
         'tags': tags,
+        if (sourceProvider != null) 'source_provider': sourceProvider,
+        if (sourceAttribution != null) 'source_attribution': sourceAttribution,
+        if (wikidataId != null) 'wikidata_id': wikidataId,
+        if (wikipediaUrl != null) 'wikipedia_url': wikipediaUrl,
+        if (nameEn != null) 'name_en': nameEn,
+        if (nameAr != null) 'name_ar': nameAr,
       };
 }
