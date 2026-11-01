@@ -416,6 +416,10 @@ public class ApiController {
             String city, String country, String language, String category) {
         List<Map<String, Object>> discovered =
                 geoapifyAttractionService.searchAttractions(city, country, language);
+        if ((city == null || city.isBlank()) && country != null && !country.isBlank()
+                && discovered.isEmpty()) {
+            discovered = discoverCountryAttractionsFromAirportCities(country, language);
+        }
         if (!category.isBlank()) {
             discovered = discovered.stream()
                     .filter(place -> category.equalsIgnoreCase(
@@ -423,6 +427,42 @@ public class ApiController {
                     .toList();
         }
         return Map.of("attractions", discovered, "source", "geoapify");
+    }
+
+    private List<Map<String, Object>> discoverCountryAttractionsFromAirportCities(
+            String country, String language) {
+        List<String> cities;
+        try {
+            cities = jdbc.queryForList("""
+                    SELECT MIN(city) AS city
+                    FROM airports
+                    WHERE scheduled_service = TRUE
+                      AND city IS NOT NULL
+                      AND TRIM(city) <> ''
+                      AND (LOWER(country) = LOWER(?)
+                           OR UPPER(TRIM(iso_country)) = UPPER(?))
+                    GROUP BY LOWER(TRIM(city))
+                    ORDER BY MAX(CASE WHEN COALESCE(is_major, FALSE)
+                                      THEN 1 ELSE 0 END) DESC,
+                             COUNT(*) DESC,
+                             MIN(LOWER(TRIM(city)))
+                    LIMIT 3
+                    """, String.class, country, country);
+        } catch (BadSqlGrammarException exception) {
+            LOG.warn("Airport directory unavailable for country attraction discovery.");
+            return List.of();
+        }
+
+        Map<String, Map<String, Object>> uniquePlaces = new LinkedHashMap<>();
+        for (String city : cities) {
+            for (Map<String, Object> place :
+                    geoapifyAttractionService.searchAttractions(city, country, language)) {
+                String id = String.valueOf(place.getOrDefault(
+                        "id", place.getOrDefault("name", place)));
+                uniquePlaces.putIfAbsent(id, place);
+            }
+        }
+        return uniquePlaces.values().stream().limit(50).toList();
     }
 
     private static boolean isMissingVisitCountSchema(Throwable exception) {

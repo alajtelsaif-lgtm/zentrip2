@@ -250,6 +250,33 @@ class ApiControllerTest {
     }
 
     @Test
+    void countrySearchDiscoversCitiesFromTheGlobalAirportDirectory() {
+        when(jdbc.queryForList(
+                contains("FROM tourist_monuments"),
+                eq("japan"), eq("%japan%"), eq(""), eq("")))
+                .thenReturn(List.of());
+        when(geoapifyAttractionService.searchAttractions("", "Japan", "en"))
+                .thenReturn(List.of());
+        when(jdbc.queryForList(
+                contains("FROM airports"), eq(String.class), eq("Japan"), eq("Japan")))
+                .thenReturn(List.of("Tokyo", "Osaka"));
+        when(geoapifyAttractionService.searchAttractions("Tokyo", "Japan", "en"))
+                .thenReturn(List.of(Map.of(
+                        "id", "geoapify:tokyo-place", "name", "Tokyo landmark")));
+        when(geoapifyAttractionService.searchAttractions("Osaka", "Japan", "en"))
+                .thenReturn(List.of(Map.of(
+                        "id", "geoapify:osaka-place", "name", "Osaka landmark")));
+
+        Map<String, Object> response =
+                controller.searchMonuments("", null, "Japan", "en");
+
+        List<?> attractions = (List<?>) response.get("attractions");
+        assertEquals(2, attractions.size());
+        verify(geoapifyAttractionService).searchAttractions("Tokyo", "Japan", "en");
+        verify(geoapifyAttractionService).searchAttractions("Osaka", "Japan", "en");
+    }
+
+    @Test
     void attractionVisitStoresOnlyAHashAndIncrementsTheCountOnce() {
         String visitorId = "0123456789abcdef0123456789abcdef";
         when(jdbc.queryForObject(
