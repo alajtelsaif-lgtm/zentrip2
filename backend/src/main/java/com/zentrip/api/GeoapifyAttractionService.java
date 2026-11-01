@@ -165,7 +165,9 @@ public class GeoapifyAttractionService {
     private List<Map<?, ?>> fetchPlaces(GeoPoint center, String language) {
         Map<?, ?> response = geoapify.get()
                 .uri(uri -> uri.path("/v2/places")
-                        .queryParam("categories", "tourism.sights,tourism.attraction")
+                        .queryParam("categories",
+                                "tourism.sights,tourism.attraction,leisure.park,"
+                                        + "commercial.shopping_mall,entertainment.zoo")
                         .queryParam("filter", "circle:" + center.longitude()
                                 + "," + center.latitude() + ",25000")
                         .queryParam("bias", "proximity:" + center.longitude()
@@ -200,7 +202,8 @@ public class GeoapifyAttractionService {
                 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
                 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
                 PREFIX schema: <http://schema.org/>
-                SELECT ?item ?labelEn ?labelAr ?descriptionEn ?descriptionAr ?enwiki ?arwiki
+                SELECT ?item ?labelEn ?labelAr ?descriptionEn ?descriptionAr
+                       ?enwiki ?arwiki ?image ?wikiImage
                 WHERE {
                   VALUES ?item { %s }
                   OPTIONAL { ?item rdfs:label ?labelEn . FILTER(LANG(?labelEn) = "en") }
@@ -213,6 +216,8 @@ public class GeoapifyAttractionService {
                              schema:isPartOf <https://en.wikipedia.org/> . }
                   OPTIONAL { ?arwiki schema:about ?item ;
                              schema:isPartOf <https://ar.wikipedia.org/> . }
+                  OPTIONAL { ?item wdt:P18 ?image . }
+                  OPTIONAL { ?enwiki schema:image ?wikiImage . }
                 }
                 """.formatted(values);
 
@@ -236,7 +241,9 @@ public class GeoapifyAttractionService {
                         value(binding, "descriptionEn"),
                         value(binding, "descriptionAr"),
                         value(binding, "enwiki"),
-                        value(binding, "arwiki")));
+                        value(binding, "arwiki"),
+                        value(binding, "image"),
+                        value(binding, "wikiImage")));
             }
             return enrichments;
         } catch (RestClientException exception) {
@@ -309,8 +316,11 @@ public class GeoapifyAttractionService {
             place.put("country", country);
             place.put("location", city + ", " + country);
             place.put("category", category);
+            place.put("highlight_category", highlightCategory(categories));
             place.put("category_tag", categories.isEmpty()
                     ? category : String.join(", ", categories));
+            place.put("source_attribution",
+                    "Geoapify · © OpenStreetMap contributors");
             place.put("description", enrichment == null ? "" :
                     firstNonBlank(
                             "ar".equals(language) ? enrichment.descriptionAr()
@@ -323,7 +333,10 @@ public class GeoapifyAttractionService {
             place.put("visit_count", 0);
             place.put("country_visit_count", 0);
             place.put("entry_fee", null);
-            place.put("image_url", null);
+            String imageUrl = enrichment == null ? null : commonsImageUrl(firstNonBlank(
+                    enrichment.imageUrl(), enrichment.wikiImage()));
+            place.put("image_url", imageUrl);
+            place.put("image_source", imageUrl == null ? null : "Wikimedia Commons");
             place.put("opening_hours", firstNonBlank(
                     text(properties.get("opening_hours")),
                     text(raw.get("opening_hours"))));
@@ -375,6 +388,42 @@ public class GeoapifyAttractionService {
         if (joined.contains("natural")) return "natural";
         if (joined.contains("architecture")) return "architecture";
         return "landmark";
+    }
+
+    private static String highlightCategory(List<String> categories) {
+        String joined = String.join(" ", categories).toLowerCase(Locale.ROOT);
+        if (joined.contains("shopping") || joined.contains("shop")) return "Shopping";
+        if (joined.contains("park") || joined.contains("beach")
+                || joined.contains("natural") || joined.contains("nature")
+                || joined.contains("waterfall") || joined.contains("viewpoint")) {
+            return "Nature";
+        }
+        if (joined.contains("architecture") || joined.contains("building")
+                || joined.contains("church") || joined.contains("cathedral")) {
+            return "Architecture";
+        }
+        if (joined.contains("historic") || joined.contains("historical")
+                || joined.contains("ruin") || joined.contains("memorial")
+                || joined.contains("archaeological") || joined.contains("heritage")) {
+            return "Historical";
+        }
+        return "Family & Culture";
+    }
+
+    private static String commonsImageUrl(String imageUrl) {
+        if (imageUrl == null) return null;
+        String normalized = imageUrl.trim();
+        if (!normalized.startsWith("http://commons.wikimedia.org/wiki/Special:FilePath/")
+                && !normalized.startsWith(
+                        "https://commons.wikimedia.org/wiki/Special:FilePath/")
+                && !normalized.startsWith("https://upload.wikimedia.org/")) {
+            return null;
+        }
+        normalized = normalized.replaceFirst("^http://", "https://");
+        if (normalized.contains("Special:FilePath/")) {
+            normalized += normalized.contains("?") ? "&width=1200" : "?width=1200";
+        }
+        return normalized;
     }
 
     private static boolean sameCountry(String first, String second) {
@@ -476,7 +525,9 @@ public class GeoapifyAttractionService {
             String descriptionEn,
             String descriptionAr,
             String enwiki,
-            String arwiki) {}
+            String arwiki,
+            String imageUrl,
+            String wikiImage) {}
 
     private record CacheEntry(List<Map<String, Object>> places, Instant expiresAt) {}
 }

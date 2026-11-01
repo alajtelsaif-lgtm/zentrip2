@@ -61,17 +61,17 @@ public class PartnerController {
     private final JdbcTemplate jdbc;
     private final ProfilePhotoStorage imageStorage;
     private final GooglePlacesRatingSync googlePlacesRatingSync;
-    private final GeoapifyAirportService geoapifyAirportService;
+    private final AirportDirectoryService airportDirectoryService;
 
     public PartnerController(
             JdbcTemplate jdbc,
             ProfilePhotoStorage imageStorage,
             GooglePlacesRatingSync googlePlacesRatingSync,
-            GeoapifyAirportService geoapifyAirportService) {
+            AirportDirectoryService airportDirectoryService) {
         this.jdbc = jdbc;
         this.imageStorage = imageStorage;
         this.googlePlacesRatingSync = googlePlacesRatingSync;
-        this.geoapifyAirportService = geoapifyAirportService;
+        this.airportDirectoryService = airportDirectoryService;
     }
 
     @PostMapping("/partner/hotel-images")
@@ -596,31 +596,7 @@ public class PartnerController {
     @GetMapping("/airports/search")
     public Map<String, Object> searchAirports(
             @RequestParam(defaultValue = "") String query) {
-        String normalizedQuery = query.trim().toLowerCase(Locale.ROOT);
-        String pattern = "%" + normalizedQuery + "%";
-        List<Map<String, Object>> airports = jdbc.queryForList("""
-                SELECT code, city, airport_name, country, region
-                FROM airports
-                WHERE ? = '' OR LOWER(code) LIKE ? OR LOWER(city) LIKE ?
-                      OR LOWER(airport_name) LIKE ? OR LOWER(country) LIKE ?
-                      OR LOWER(region) LIKE ?
-                ORDER BY city, code
-                LIMIT 50
-                """, normalizedQuery, pattern, pattern, pattern, pattern, pattern);
-        if (normalizedQuery.length() < 2) {
-            return Map.of("airports", airports);
-        }
-
-        Map<String, Map<String, Object>> uniqueAirports = new LinkedHashMap<>();
-        for (Map<String, Object> airport : airports) {
-            uniqueAirports.put(
-                    String.valueOf(airport.get("code")).toUpperCase(Locale.ROOT), airport);
-        }
-        for (Map<String, Object> airport : geoapifyAirportService.search(normalizedQuery)) {
-            uniqueAirports.putIfAbsent(
-                    String.valueOf(airport.get("code")).toUpperCase(Locale.ROOT), airport);
-        }
-        return Map.of("airports", uniqueAirports.values().stream().limit(50).toList());
+        return airportDirectoryService.search(query);
     }
 
     @GetMapping("/flights/search")

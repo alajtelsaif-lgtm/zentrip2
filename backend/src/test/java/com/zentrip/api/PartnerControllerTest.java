@@ -26,48 +26,20 @@ import static org.mockito.Mockito.when;
 class PartnerControllerTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final ProfilePhotoStorage imageStorage = mock(ProfilePhotoStorage.class);
-    private final GeoapifyAirportService geoapifyAirportService =
-            mock(GeoapifyAirportService.class);
+    private final AirportDirectoryService airportDirectoryService =
+            mock(AirportDirectoryService.class);
     private final PartnerController controller = new PartnerController(
-            jdbc, imageStorage, mock(GooglePlacesRatingSync.class), geoapifyAirportService);
+            jdbc, imageStorage, mock(GooglePlacesRatingSync.class), airportDirectoryService);
 
     @Test
-    void airportSearchCombinesLocalAirportsWithGlobalProviderMatches() {
-        when(jdbc.queryForList(
-                contains("FROM airports"),
-                eq("london"),
-                eq("%london%"),
-                eq("%london%"),
-                eq("%london%"),
-                eq("%london%"),
-                eq("%london%")))
-                .thenReturn(List.of(Map.of(
-                        "code", "LHR",
-                        "city", "London",
-                        "airport_name", "Heathrow Airport",
-                        "country", "United Kingdom",
-                        "region", "England")));
-        when(geoapifyAirportService.search("london"))
-                .thenReturn(List.of(
-                        Map.of(
-                                "code", "LHR",
-                                "city", "London",
-                                "airport_name", "Heathrow Airport",
-                                "country", "United Kingdom",
-                                "region", "England"),
-                        Map.of(
-                                "code", "LGW",
-                                "city", "London",
-                                "airport_name", "Gatwick Airport",
-                                "country", "United Kingdom",
-                                "region", "England")));
+    void airportSearchDelegatesTheUniversalSearchQuery() {
+        Map<String, Object> expected = Map.of(
+                "query_type", "city",
+                "airports", List.of(Map.of("code", "LHR"), Map.of("code", "LGW")));
+        when(airportDirectoryService.search(" London ")).thenReturn(expected);
 
-        Map<String, Object> response = controller.searchAirports(" London ");
-
-        List<?> airports = (List<?>) response.get("airports");
-        assertEquals(2, airports.size());
-        assertEquals("LHR", ((Map<?, ?>) airports.get(0)).get("code"));
-        assertEquals("LGW", ((Map<?, ?>) airports.get(1)).get("code"));
+        assertEquals(expected, controller.searchAirports(" London "));
+        verify(airportDirectoryService).search(" London ");
     }
 
     @Test
@@ -497,26 +469,14 @@ class PartnerControllerTest {
     }
 
     @Test
-    void airportSearchReturnsTheDatabaseDirectoryMatches() {
-        when(jdbc.queryForList(
-                contains("FROM airports"),
-                eq("mra"),
-                eq("%mra%"),
-                eq("%mra%"),
-                eq("%mra%"),
-                eq("%mra%"),
-                eq("%mra%")))
-                .thenReturn(List.of(Map.of(
-                        "code", "MRA",
-                        "city", "Misrata",
-                        "airport_name", "Misrata International Airport",
-                        "country", "Libya",
-                        "region", "Central Libya")));
+    void airportSearchPreservesExactIataQuery() {
+        Map<String, Object> expected = Map.of(
+                "query_type", "airport_code",
+                "airports", List.of(Map.of("code", "MRA")));
+        when(airportDirectoryService.search("MRA")).thenReturn(expected);
 
-        Map<String, Object> response = controller.searchAirports("MRA");
-
-        assertEquals("MRA", ((List<Map<?, ?>>) response.get("airports"))
-                .getFirst().get("code"));
+        assertEquals(expected, controller.searchAirports("MRA"));
+        verify(airportDirectoryService).search("MRA");
     }
 
     @Test

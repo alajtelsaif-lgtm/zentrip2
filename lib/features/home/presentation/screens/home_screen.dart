@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -230,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
       showDragHandle: true,
       builder: (sheetContext) => _AirportPickerSheet(
         airports: _airports,
-        onSearch: ApiService.instance.searchAirports,
+        onSearch: ApiService.instance.searchAirportDirectory,
       ),
     );
     if (selected == null || !mounted) return;
@@ -1289,7 +1290,7 @@ class _AirportPickerSheet extends StatefulWidget {
   });
 
   final List<AirportOption> airports;
-  final Future<List<AirportOption>> Function(String query) onSearch;
+  final Future<AirportSearchResult> Function(String query) onSearch;
 
   @override
   State<_AirportPickerSheet> createState() => _AirportPickerSheetState();
@@ -1298,6 +1299,8 @@ class _AirportPickerSheet extends StatefulWidget {
 class _AirportPickerSheetState extends State<_AirportPickerSheet> {
   final _queryController = TextEditingController();
   late List<AirportOption> _results = widget.airports;
+  List<AirportSearchLandmark> _landmarks = const [];
+  String _queryType = '';
   bool _isLoading = false;
   int _requestId = 0;
   Timer? _debounce;
@@ -1316,6 +1319,8 @@ class _AirportPickerSheetState extends State<_AirportPickerSheet> {
         widget.airports.where((airport) => airport.matches(query)).toList();
     setState(() {
       _results = localMatches;
+      _landmarks = const [];
+      _queryType = '';
       _isLoading = query.trim().length >= 2;
     });
     if (query.trim().length < 2) return;
@@ -1327,15 +1332,49 @@ class _AirportPickerSheetState extends State<_AirportPickerSheet> {
 
   Future<void> _fetchSearchResults(String query, int requestId) async {
     try {
-      final matches = await widget.onSearch(query);
+      final result = await widget.onSearch(query);
       if (!mounted || requestId != _requestId) return;
-      setState(() => _results = matches);
+      setState(() {
+        _results = result.airports;
+        _landmarks = result.landmarks;
+        _queryType = result.queryType;
+      });
     } catch (error) {
       debugPrint(
           'Airport directory search failed; filtering local list: $error');
       if (!mounted || requestId != _requestId) return;
-      setState(() => _results =
-          widget.airports.where((airport) => airport.matches(query)).toList());
+      setState(() {
+        _results =
+            widget.airports.where((airport) => airport.matches(query)).toList();
+        _landmarks = const [];
+        _queryType = '';
+      });
+    } finally {
+      if (mounted && requestId == _requestId) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _submitQuery(String query) async {
+    if (query.trim().length < 2) return;
+    _debounce?.cancel();
+    final requestId = ++_requestId;
+    setState(() => _isLoading = true);
+    try {
+      final result = await widget.onSearch(query);
+      if (!mounted || requestId != _requestId) return;
+      setState(() {
+        _results = result.airports;
+        _landmarks = result.landmarks;
+        _queryType = result.queryType;
+      });
+      if (result.airports.length == 1 &&
+          const {'airport_code', 'airport_name'}.contains(result.queryType)) {
+        Navigator.pop(context, result.airports.single);
+      }
+    } catch (error) {
+      debugPrint('Airport exact selection failed: $error');
     } finally {
       if (mounted && requestId == _requestId) {
         setState(() => _isLoading = false);
@@ -1372,22 +1411,50 @@ class _AirportPickerSheetState extends State<_AirportPickerSheet> {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
+              textInputAction: TextInputAction.search,
               onChanged: _search,
+              onSubmitted: _submitQuery,
             ),
             const SizedBox(height: 8),
             if (_isLoading) const LinearProgressIndicator(),
             Expanded(
-              child: _results.isEmpty
-                  ? Center(child: Text(l10n.noResults))
+              child: _results.isEmpty && _landmarks.isEmpty
+                  ? Center(
+                      child: Text(
+                        _queryType == 'category'
+                            ? l10n.airportCategoryAddLocation
+                            : l10n.noResults,
+                        textAlign: TextAlign.center,
+                      ),
+                    )
                   : ListView.builder(
-                      itemCount: _results.length,
+                      itemCount: _landmarks.length + _results.length,
                       itemBuilder: (context, index) {
-                        final airport = _results[index];
+                        if (index < _landmarks.length) {
+                          return _buildLandmarkTile(_landmarks[index], l10n);
+                        }
+                        final airportIndex = index - _landmarks.length;
+                        final airport = _results[airportIndex];
+                        final airportDetails = <String>[
+                          airport.airportName,
+                          if (airport.icaoCode.isNotEmpty) airport.icaoCode,
+                          airport.country,
+                          airport.isMajor
+                              ? l10n.airportMajorLabel
+                              : l10n.airportMinorLabel,
+                        ].where((part) => part.isNotEmpty).join(' · ');
                         return ListTile(
-                          title: Text('${airport.city} [${airport.code}]'),
-                          subtitle: Text(
-                            '${airport.airportName} · ${airport.country}',
+                          leading: CircleAvatar(
+                            child: Icon(
+                              airport.isMajor
+                                  ? Icons.flight_takeoff_rounded
+                                  : Icons.flight_rounded,
+                            ),
                           ),
+                          title: Text(
+                            '${airport.city} · ${airport.country} [${airport.code}]',
+                          ),
+                          subtitle: Text(airportDetails),
                           onTap: () => Navigator.pop(context, airport),
                         );
                       },
@@ -1396,6 +1463,48 @@ class _AirportPickerSheetState extends State<_AirportPickerSheet> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLandmarkTile(
+    AirportSearchLandmark landmark,
+    AppLocalizations l10n,
+  ) {
+    final nearest = landmark.nearestAirport;
+    final distance = nearest?.distanceKm;
+    final nearestLabel = nearest == null
+        ? l10n.noResults
+        : '${l10n.airportNearestLabel}: ${nearest.code}'
+            '${distance == null ? '' : ' · ${distance.toStringAsFixed(0)} km'}';
+    final subtitle = <String>[
+      landmark.category,
+      '${landmark.city}, ${landmark.country}',
+      nearestLabel,
+      if (landmark.sourceAttribution.isNotEmpty) landmark.sourceAttribution,
+      if (landmark.imageSource?.isNotEmpty == true) landmark.imageSource!,
+    ].join(' · ');
+
+    return ListTile(
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: landmark.imageUrl == null
+              ? const Icon(Icons.place_rounded)
+              : CachedNetworkImage(
+                  imageUrl: landmark.imageUrl!,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) =>
+                      const Icon(Icons.image_outlined),
+                  errorWidget: (context, url, error) =>
+                      const Icon(Icons.place_rounded),
+                ),
+        ),
+      ),
+      title: Text(landmark.name),
+      subtitle: Text(subtitle),
+      onTap: nearest == null ? null : () => Navigator.pop(context, nearest),
     );
   }
 }

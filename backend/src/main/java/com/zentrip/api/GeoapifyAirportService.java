@@ -27,6 +27,7 @@ public class GeoapifyAirportService {
     private final String apiKey;
     private final RestClient geoapify;
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
+    private final Map<String, LocationCacheEntry> locationCache = new ConcurrentHashMap<>();
 
     public GeoapifyAirportService(@Value("${geoapify.api-key:}") String apiKey) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
@@ -51,25 +52,13 @@ public class GeoapifyAirportService {
         }
 
         try {
-            Map<?, ?> geocodeResponse = geoapify.get()
-                    .uri(uri -> uri.path("/v1/geocode/search")
-                            .queryParam("text", query)
-                            .queryParam("format", "json")
-                            .queryParam("limit", 1)
-                            .queryParam("apiKey", apiKey)
-                            .build())
-                    .retrieve()
-                    .body(Map.class);
-            List<?> geocodes = list(map(geocodeResponse).get("results"));
-            if (geocodes.isEmpty()) {
+            GeocodedPlace geocoded = resolveLocation(query);
+            if (geocoded == null) {
                 cache.put(cacheKey, new CacheEntry(List.of(), now.plus(CACHE_TTL)));
                 return List.of();
             }
-
-            Map<?, ?> geocode = map(geocodes.getFirst());
-            Double latitude = number(geocode.get("lat"));
-            Double longitude = number(geocode.get("lon"));
-            if (latitude == null || longitude == null) return List.of();
+            double latitude = geocoded.latitude();
+            double longitude = geocoded.longitude();
 
             Map<?, ?> placesResponse = geoapify.get()
                     .uri(uri -> uri.path("/v2/places")
@@ -127,7 +116,7 @@ public class GeoapifyAirportService {
                     continue;
                 }
                 String city = firstNonBlank(
-                        text(geocode.get("city")),
+                        geocoded.city(),
                         text(properties.get("city")),
                         text(properties.get("town")),
                         text(properties.get("village")),
@@ -135,11 +124,12 @@ public class GeoapifyAirportService {
                         query);
                 String country = firstNonBlank(
                         text(properties.get("country")),
-                        text(geocode.get("country")),
+                        geocoded.country(),
                         "");
                 String region = firstNonBlank(
                         text(properties.get("state")),
                         text(properties.get("state_code")),
+                        geocoded.region(),
                         "");
 
                 Map<String, Object> airport = new LinkedHashMap<>();
@@ -148,6 +138,15 @@ public class GeoapifyAirportService {
                 airport.put("airport_name", airportName);
                 airport.put("country", country);
                 airport.put("region", region);
+                airport.put("latitude", number(properties.get("lat")));
+                airport.put("longitude", number(properties.get("lon")));
+                airport.put("icao_code", firstNonBlank(
+                        text(raw.get("icao")),
+                        text(raw.get("icao_code"))));
+                airport.put("is_major", categories.contains("large_airport"));
+                airport.put("airport_type", "provider");
+                airport.put("scheduled_service", null);
+                airport.put("source_provider", "geoapify");
                 unique.putIfAbsent(code, airport);
             }
 
@@ -160,6 +159,69 @@ public class GeoapifyAirportService {
                     : "network or timeout error";
             LOG.warn("Geoapify airport search failed ({})", reason);
             return previous == null ? List.of() : previous.airports();
+        }
+    }
+
+    public GeocodedPlace resolveLocation(String requestedQuery) {
+        String query = requestedQuery == null ? "" : requestedQuery.trim();
+        if (apiKey.isBlank() || query.length() < 2) return null;
+
+        String cacheKey = query.toLowerCase(Locale.ROOT);
+        LocationCacheEntry previous = locationCache.get(cacheKey);
+        Instant now = Instant.now();
+        if (previous != null && now.isBefore(previous.expiresAt())) {
+            return previous.place();
+        }
+
+        try {
+            Map<?, ?> response = geoapify.get()
+                    .uri(uri -> uri.path("/v1/geocode/search")
+                            .queryParam("text", query)
+                            .queryParam("format", "json")
+                            .queryParam("limit", 1)
+                            .queryParam("apiKey", apiKey)
+                            .build())
+                    .retrieve()
+                    .body(Map.class);
+            List<?> results = list(map(response).get("results"));
+            if (results.isEmpty()) {
+                locationCache.put(cacheKey, new LocationCacheEntry(null, now.plus(CACHE_TTL)));
+                return null;
+            }
+
+            Map<?, ?> result = map(results.getFirst());
+            Double latitude = number(result.get("lat"));
+            Double longitude = number(result.get("lon"));
+            if (latitude == null || longitude == null
+                    || latitude < -90 || latitude > 90
+                    || longitude < -180 || longitude > 180) {
+                return null;
+            }
+            Map<?, ?> raw = map(map(result.get("datasource")).get("raw"));
+            GeocodedPlace place = new GeocodedPlace(
+                    firstNonBlank(text(result.get("name")),
+                            text(result.get("address_line1")), query),
+                    firstNonBlank(text(result.get("city")), text(result.get("town")),
+                            text(result.get("village")), text(result.get("municipality"))),
+                    text(result.get("country")),
+                    firstNonBlank(text(result.get("country_code")),
+                            text(result.get("country_code_iso3166_1"))),
+                    firstNonBlank(text(result.get("state")),
+                            text(result.get("state_code"))),
+                    text(result.get("formatted")),
+                    text(result.get("result_type")),
+                    firstNonBlank(text(result.get("place_id")), text(raw.get("osm_id"))),
+                    firstNonBlank(text(result.get("wikidata")), text(raw.get("wikidata"))),
+                    latitude,
+                    longitude);
+            locationCache.put(cacheKey, new LocationCacheEntry(place, now.plus(CACHE_TTL)));
+            return place;
+        } catch (RestClientException exception) {
+            String reason = exception instanceof RestClientResponseException response
+                    ? "HTTP " + response.getStatusCode().value()
+                    : "network or timeout error";
+            LOG.warn("Geoapify location resolution failed ({})", reason);
+            return previous == null ? null : previous.place();
         }
     }
 
@@ -198,4 +260,19 @@ public class GeoapifyAirportService {
     }
 
     private record CacheEntry(List<Map<String, Object>> airports, Instant expiresAt) {}
+
+    private record LocationCacheEntry(GeocodedPlace place, Instant expiresAt) {}
+
+    public record GeocodedPlace(
+            String name,
+            String city,
+            String country,
+            String countryCode,
+            String region,
+            String formattedAddress,
+            String resultType,
+            String placeId,
+            String wikidataId,
+            double latitude,
+            double longitude) {}
 }

@@ -904,5 +904,9 @@
   "partnerDurationNights": "المدة بالليالي",
   "partnerHighlights": "أبرز المميزات",
   "partnerCommaSeparatedHint": "افصل بين القيم المتعددة بفواصل.",
-  "partnerInvalidServiceField": "أدخل قيمة صحيحة لهذا الحقل."
+  "partnerInvalidServiceField": "أدخل قيمة صحيحة لهذا الحقل.",
+  "airportMajorLabel": "مطار رئيسي",
+  "airportMinorLabel": "مطار إقليمي",
+  "airportNearestLabel": "أقرب مطار",
+  "airportCategoryAddLocation": "أضف مدينة أو مكاناً، مثل الطبيعة في بالي، إندونيسيا."
 }

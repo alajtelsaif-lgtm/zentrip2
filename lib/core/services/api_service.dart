@@ -1034,16 +1034,19 @@ class ApiService {
   // .env عنده)، ويرجّعلنا بيانات بنفس شكل الموديلات هنا بالظبط. يعني
   // مفتاح API حقيقي **مايتحطش في التطبيق خالص** — ده مبدأ أمان أساسي.
 
-  Future<List<AirportOption>> searchAirports(String query) async {
+  Future<AirportSearchResult> searchAirportDirectory(String query) async {
     final response = await _dio.get(
       '/airports/search',
       queryParameters: {'query': query.trim()},
     );
-    final airports = response.data['airports'] as List;
-    return airports
-        .map((airport) =>
-            AirportOption.fromJson(Map<String, dynamic>.from(airport as Map)))
-        .toList();
+    return AirportSearchResult.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
+    );
+  }
+
+  Future<List<AirportOption>> searchAirports(String query) async {
+    final result = await searchAirportDirectory(query);
+    return result.airports;
   }
 
   Future<List<FlightModel>> searchFlights({

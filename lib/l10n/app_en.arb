@@ -933,5 +933,9 @@
   "partnerDurationNights": "Duration in nights",
   "partnerHighlights": "Highlights",
   "partnerCommaSeparatedHint": "Separate multiple values with commas.",
-  "partnerInvalidServiceField": "Enter a valid value for this field."
+  "partnerInvalidServiceField": "Enter a valid value for this field.",
+  "airportMajorLabel": "Major hub",
+  "airportMinorLabel": "Regional airport",
+  "airportNearestLabel": "Nearest airport",
+  "airportCategoryAddLocation": "Add a city or place, for example Nature in Bali, Indonesia."
 }

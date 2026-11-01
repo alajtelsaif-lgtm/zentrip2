@@ -74,9 +74,40 @@ CREATE TABLE IF NOT EXISTS airports (
     city VARCHAR(100) NOT NULL,
     airport_name VARCHAR(255) NOT NULL,
     country VARCHAR(100) NOT NULL,
-    region VARCHAR(100) NOT NULL
+    region VARCHAR(100) NOT NULL,
+    icao_code CHAR(4),
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    airport_type VARCHAR(32) NOT NULL DEFAULT 'medium_airport',
+    is_major BOOLEAN NOT NULL DEFAULT FALSE,
+    scheduled_service BOOLEAN NOT NULL DEFAULT TRUE,
+    iso_country CHAR(2),
+    keywords TEXT NOT NULL DEFAULT '',
+    wikipedia_link VARCHAR(2048),
+    source_id BIGINT,
+    source_provider VARCHAR(32) NOT NULL DEFAULT 'legacy',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS icao_code CHAR(4);
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS airport_type VARCHAR(32) NOT NULL DEFAULT 'medium_airport';
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS is_major BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS scheduled_service BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS iso_country CHAR(2);
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS keywords TEXT NOT NULL DEFAULT '';
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS wikipedia_link VARCHAR(2048);
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS source_id BIGINT;
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS source_provider VARCHAR(32) NOT NULL DEFAULT 'legacy';
+ALTER TABLE airports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS airports_city_index ON airports (city);
+CREATE INDEX IF NOT EXISTS airports_icao_code_index ON airports (icao_code);
+CREATE INDEX IF NOT EXISTS airports_country_city_index ON airports (iso_country, city);
+CREATE INDEX IF NOT EXISTS airports_city_search_index ON airports (LOWER(city));
+CREATE INDEX IF NOT EXISTS airports_country_search_index ON airports (LOWER(country));
+CREATE INDEX IF NOT EXISTS airports_name_search_index ON airports (LOWER(airport_name));
+CREATE INDEX IF NOT EXISTS airports_coordinates_index ON airports (latitude, longitude)
+    WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
 
 INSERT INTO airports (code, city, airport_name, country, region) VALUES
     ('MJI', 'Tripoli', 'Mitiga International Airport', 'Libya', 'Western Libya'),
@@ -91,10 +122,7 @@ INSERT INTO airports (code, city, airport_name, country, region) VALUES
     ('DPS', 'Bali', 'Ngurah Rai International Airport', 'Indonesia', 'Southeast Asia'),
     ('CGK', 'Jakarta', 'Soekarno-Hatta International Airport', 'Indonesia', 'Southeast Asia')
 ON CONFLICT (code) DO UPDATE SET
-    city = EXCLUDED.city,
-    airport_name = EXCLUDED.airport_name,
-    country = EXCLUDED.country,
-    region = EXCLUDED.region;
+    code = EXCLUDED.code;
 
 CREATE TABLE IF NOT EXISTS user_reviews (
     id BIGSERIAL PRIMARY KEY,
