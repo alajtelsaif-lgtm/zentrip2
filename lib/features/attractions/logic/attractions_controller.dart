@@ -1,13 +1,22 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/services/api_service.dart';
 import '../../../models/attraction_model.dart';
+import '../../../models/flight_model.dart';
 
 class AttractionsController extends ChangeNotifier {
   List<AttractionModel> _all = [];
   List<AttractionModel> results = [];
   bool isLoading = false;
+  bool hasError = false;
   String searchQuery = '';
   String selectedCategory = 'all';
+  String selectedCountry = 'Libya';
+
+  static List<String> get countryOptions => AirportOption.supported
+      .map((airport) => airport.country)
+      .toSet()
+      .toList()
+    ..sort();
 
   static const categories = [
     'all',
@@ -71,16 +80,31 @@ class AttractionsController extends ChangeNotifier {
     return monuments.take(limit).toList();
   }
 
-  Future<void> load({String? city, String? initialCategory}) async {
+  Future<void> load({
+    String? city,
+    String? country,
+    String language = 'en',
+    String? initialCategory,
+  }) async {
     isLoading = true;
+    hasError = false;
+    if (country != null && country.trim().isNotEmpty) {
+      selectedCountry = country;
+    }
     if (initialCategory != null && categories.contains(initialCategory)) {
       selectedCategory = initialCategory;
     }
     notifyListeners();
-    _all = await ApiService.instance.searchAttractions(
-      city: city ?? 'Tripoli',
-      country: 'Libya',
-    );
+    try {
+      _all = await ApiService.instance.searchAttractions(
+        city: city ?? '',
+        country: selectedCountry,
+        language: language,
+      );
+    } catch (_) {
+      _all = [];
+      hasError = true;
+    }
     _apply();
     isLoading = false;
     notifyListeners();

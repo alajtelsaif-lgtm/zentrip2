@@ -354,7 +354,8 @@ public class ApiController {
             @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "") String country,
             @RequestParam(defaultValue = "en") String lang) {
-        String cityFilter = city.trim().toLowerCase(Locale.ROOT);
+        String locationFilter = (city.isBlank() ? country : city)
+                .trim().toLowerCase(Locale.ROOT);
         String categoryFilter = category == null ? "" : category.trim();
         List<Map<String, Object>> monuments;
         try {
@@ -384,8 +385,8 @@ public class ApiController {
                     ORDER BY sort_order ASC, title ASC
                     LIMIT 100
                     """,
-                    cityFilter,
-                    "%" + cityFilter + "%",
+                    locationFilter,
+                    "%" + locationFilter + "%",
                     categoryFilter,
                     categoryFilter);
         } catch (BadSqlGrammarException exception) {

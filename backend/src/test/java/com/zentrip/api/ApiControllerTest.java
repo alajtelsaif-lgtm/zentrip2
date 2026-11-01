@@ -234,6 +234,22 @@ class ApiControllerTest {
     }
 
     @Test
+    void countryOnlySearchFiltersTheLocalCatalogAndQueriesTheProvider() {
+        when(jdbc.queryForList(
+                contains("FROM tourist_monuments"),
+                eq("indonesia"), eq("%indonesia%"), eq(""), eq("")))
+                .thenReturn(List.of());
+        when(geoapifyAttractionService.searchAttractions("", "Indonesia", "en"))
+                .thenReturn(List.of(Map.of("id", "geoapify:bali", "name", "Bali place")));
+
+        Map<String, Object> response =
+                controller.searchMonuments("", null, "Indonesia", "en");
+
+        assertEquals("geoapify", response.get("source"));
+        verify(geoapifyAttractionService).searchAttractions("", "Indonesia", "en");
+    }
+
+    @Test
     void attractionVisitStoresOnlyAHashAndIncrementsTheCountOnce() {
         String visitorId = "0123456789abcdef0123456789abcdef";
         when(jdbc.queryForObject(

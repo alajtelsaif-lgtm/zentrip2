@@ -449,6 +449,8 @@
   "taxiLocationUnavailable": "Couldn't get your current location. Check your signal and try again.",
   "taxiUseCurrentLocation": "Center map on my current location",
   "attractionSearchHint": "Search for a destination or attraction...",
+  "attractionCountryFilter": "Search places by country",
+  "attractionCountryLoadError": "Places could not be loaded. Check your connection and try again.",
   "attractionCategoryAll": "All",
   "attractionTicketBookedSuccess": "🎫 Ticket booked successfully!",
   "attractionAbout": "About This Place",

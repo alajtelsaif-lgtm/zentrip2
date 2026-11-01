@@ -2,6 +2,9 @@ package com.zentrip.api;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -30,6 +33,14 @@ public class GeoapifyAttractionService {
     private static final Pattern WIKIDATA_QID = Pattern.compile("\\bQ[1-9][0-9]*\\b");
     private static final String DEFAULT_CITY = "Tripoli";
     private static final String DEFAULT_COUNTRY = "Libya";
+    private static final Map<String, List<String>> COUNTRY_SEARCH_CITIES = Map.of(
+            "libya", List.of("Tripoli", "Misrata", "Benghazi", "Sebha"),
+            "egypt", List.of("Cairo"),
+            "tunisia", List.of("Tunis"),
+            "turkiye", List.of("Istanbul"),
+            "saudi arabia", List.of("Jeddah"),
+            "united arab emirates", List.of("Dubai"),
+            "indonesia", List.of("Bali", "Jakarta"));
 
     private final String apiKey;
     private final RestClient geoapify;
@@ -62,7 +73,10 @@ public class GeoapifyAttractionService {
         String city = nonBlank(requestedCity, DEFAULT_CITY).trim();
         String country = nonBlank(requestedCountry, DEFAULT_COUNTRY).trim();
         String language = "ar".equalsIgnoreCase(requestedLanguage) ? "ar" : "en";
-        String cacheKey = (city + "|" + country + "|" + language).toLowerCase(Locale.ROOT);
+        boolean countrySearch = requestedCity == null || requestedCity.isBlank();
+        String cacheCity = countrySearch ? "country" : city;
+        String cacheKey = (cacheCity + "|" + country + "|" + language)
+                .toLowerCase(Locale.ROOT);
 
         CacheEntry previous = cache.get(cacheKey);
         Instant now = Instant.now();
@@ -71,16 +85,41 @@ public class GeoapifyAttractionService {
         }
 
         try {
-            GeoPoint center = geocode(city, country);
-            if (center == null) {
+            List<String> searchCities = countrySearch
+                    ? COUNTRY_SEARCH_CITIES.get(country.toLowerCase(Locale.ROOT))
+                    : List.of(city);
+            if (searchCities == null || searchCities.isEmpty()) {
                 cache.put(cacheKey, new CacheEntry(List.of(), now.plus(CACHE_TTL)));
                 return List.of();
             }
 
-            List<Map<?, ?>> features = fetchPlaces(center, language);
-            Map<String, PlaceEnrichment> enrichments = fetchWikidataEnrichment(features);
-            List<Map<String, Object>> places = normalize(
-                    features, enrichments, city, country, language, center);
+            List<PlaceBatch> batches = new ArrayList<>();
+            List<Map<?, ?>> allFeatures = new ArrayList<>();
+            for (String searchCity : searchCities) {
+                try {
+                    GeoPoint center = geocode(searchCity, country);
+                    if (center == null) continue;
+                    List<Map<?, ?>> features = fetchPlaces(center, language);
+                    batches.add(new PlaceBatch(searchCity, center, features));
+                    allFeatures.addAll(features);
+                } catch (RestClientException exception) {
+                    LOG.warn("Geoapify places unavailable for a destination city.");
+                }
+            }
+
+            Map<String, PlaceEnrichment> enrichments =
+                    fetchWikidataEnrichment(allFeatures);
+            Map<String, Map<String, Object>> uniquePlaces = new LinkedHashMap<>();
+            for (PlaceBatch batch : batches) {
+                for (Map<String, Object> place : normalize(
+                        batch.features(), enrichments, batch.city(), country,
+                        language, batch.center())) {
+                    uniquePlaces.putIfAbsent(String.valueOf(place.get("id")), place);
+                }
+            }
+            List<Map<String, Object>> places = uniquePlaces.values().stream()
+                    .limit(countrySearch ? 50 : 20)
+                    .toList();
             List<Map<String, Object>> immutablePlaces = List.copyOf(places);
             cache.put(cacheKey, new CacheEntry(immutablePlaces, now.plus(CACHE_TTL)));
             return immutablePlaces;
@@ -174,11 +213,11 @@ public class GeoapifyAttractionService {
                 """.formatted(values);
 
         try {
+            URI requestUri = URI.create("https://query.wikidata.org/sparql?query="
+                    + URLEncoder.encode(query, StandardCharsets.UTF_8)
+                    + "&format=json");
             Map<?, ?> response = wikidata.get()
-                    .uri(uri -> uri.path("/sparql")
-                            .queryParam("query", query)
-                            .queryParam("format", "json")
-                            .build())
+                    .uri(requestUri)
                     .retrieve()
                     .body(Map.class);
             Map<?, ?> results = map(map(response).get("results"));
@@ -407,6 +446,9 @@ public class GeoapifyAttractionService {
     }
 
     private record GeoPoint(double latitude, double longitude) {}
+
+    private record PlaceBatch(
+            String city, GeoPoint center, List<Map<?, ?>> features) {}
 
     private record PlaceEnrichment(
             String labelEn,

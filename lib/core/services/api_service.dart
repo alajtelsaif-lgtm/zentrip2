@@ -1523,10 +1523,7 @@ class ApiService {
           .toList();
       return attractions;
     } catch (_) {
-      final all = MockDataService.attractions();
-      return category == null
-          ? all
-          : all.where((a) => a.category == category).toList();
+      rethrow;
     }
   }
 

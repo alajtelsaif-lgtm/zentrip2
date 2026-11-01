@@ -435,6 +435,8 @@
   "taxiLocationUnavailable": "تعذر تحديد موقعك الحالي. تحقق من الإشارة وحاول مرة أخرى.",
   "taxiUseCurrentLocation": "عرض موقعي الحالي على الخريطة",
   "attractionSearchHint": "ابحث عن وجهة أو معلم...",
+  "attractionCountryFilter": "ابحث عن الأماكن حسب الدولة",
+  "attractionCountryLoadError": "تعذر تحميل الأماكن. تحقق من الاتصال وحاول مرة أخرى.",
   "attractionCategoryAll": "الكل",
   "attractionTicketBookedSuccess": "🎫 تم حجز التذكرة بنجاح!",
   "attractionAbout": "عن المكان",

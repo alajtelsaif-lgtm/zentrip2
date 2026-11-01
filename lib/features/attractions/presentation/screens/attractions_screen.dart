@@ -27,7 +27,11 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
     _loaded = true;
     // ممكن تفتح الشاشة من الرئيسية مع فئة معيّنة (String) كـ route argument.
     final arg = ModalRoute.of(context)?.settings.arguments;
-    _ctrl.load(initialCategory: arg is String ? arg : null);
+    _ctrl.load(
+      country: _ctrl.selectedCountry,
+      language: Localizations.localeOf(context).languageCode,
+      initialCategory: arg is String ? arg : null,
+    );
   }
 
   @override
@@ -46,6 +50,38 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Column(children: [
+              DropdownButtonFormField<String>(
+                value: _ctrl.selectedCountry,
+                decoration: InputDecoration(
+                  labelText: l10n.attractionCountryFilter,
+                  prefixIcon: const Icon(Icons.public_rounded),
+                  filled: true,
+                  fillColor: isDark
+                      ? AppColors.darkSurfaceSecondary
+                      : AppColors.surfaceSecondary,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: isDark ? AppColors.darkBorder : AppColors.border,
+                    ),
+                  ),
+                ),
+                items: AttractionsController.countryOptions
+                    .map((country) => DropdownMenuItem(
+                          value: country,
+                          child: Text(country),
+                        ))
+                    .toList(),
+                onChanged: (country) {
+                  if (country == null) return;
+                  _ctrl.load(
+                    country: country,
+                    language: Localizations.localeOf(context).languageCode,
+                    initialCategory: _ctrl.selectedCategory,
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
               Container(
                 height: 46,
                 decoration: BoxDecoration(color: isDark ? AppColors.darkSurfaceSecondary : AppColors.surfaceSecondary, borderRadius: BorderRadius.circular(14), border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.border)),
@@ -92,6 +128,18 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
               listenable: _ctrl,
               builder: (_, __) {
                 if (_ctrl.isLoading) return const Center(child: CircularProgressIndicator(color: AppColors.accentPurple));
+                if (_ctrl.hasError) {
+                  return Center(
+                    child: Text(
+                      l10n.attractionCountryLoadError,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
                 if (_ctrl.results.isEmpty) return Center(child: Text(l10n.noResults, style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)));
                 return GridView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
@@ -160,14 +208,37 @@ class _AttrCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text('${attraction.city}, ${attraction.country}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
                       const SizedBox(height: 4),
-                      Row(children: [
-                        const Icon(Icons.star_rounded, color: Colors.amber, size: 12),
-                        Text(' ${attraction.rating}', style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12, fontWeight: FontWeight.w600)),
-                        const Spacer(),
-                        attraction.isFree
-                            ? Text(l10n.free, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13))
-                            : Text('\$${attraction.entryFee?.toStringAsFixed(0) ?? '?'}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
-                      ]),
+                      if (attraction.rating > 0 && attraction.reviewCount > 0 ||
+                          !attraction.isExternal)
+                        Row(children: [
+                          if (attraction.rating > 0 &&
+                              attraction.reviewCount > 0) ...[
+                            const Icon(Icons.star_rounded,
+                                color: Colors.amber, size: 12),
+                            Text(
+                              ' ${attraction.rating}',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                          const Spacer(),
+                          if (!attraction.isExternal)
+                            attraction.isFree
+                                ? Text(l10n.free,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 13))
+                                : Text(
+                                    '\$${attraction.entryFee?.toStringAsFixed(0) ?? '?'}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15)),
+                        ]),
                     ]),
                   ],
                 ),
