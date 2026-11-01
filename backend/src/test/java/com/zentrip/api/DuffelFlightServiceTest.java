@@ -71,7 +71,8 @@ class DuffelFlightServiceTest {
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        DuffelFlightService service = new DuffelFlightService("unit-test-token", builder);
+        DuffelFlightService service =
+                new DuffelFlightService("unit-test-token", true, builder);
         List<Map<String, Object>> flights = service.searchFlights(
                 "MJI",
                 "TUN",
@@ -99,7 +100,17 @@ class DuffelFlightServiceTest {
     @Test
     void doesNotCallProviderWhenAccessTokenIsMissing() {
         DuffelFlightService service = new DuffelFlightService(
-                " ", RestClient.builder());
+                " ", true, RestClient.builder());
+
+        assertFalse(service.isConfigured());
+        assertTrue(service.searchFlights(
+                "MJI", "TUN", LocalDate.now(), null, 1, "economy").isEmpty());
+    }
+
+    @Test
+    void disabledProviderDoesNotUseConfiguredToken() {
+        DuffelFlightService service = new DuffelFlightService(
+                "unit-test-token", false, RestClient.builder());
 
         assertFalse(service.isConfigured());
         assertTrue(service.searchFlights(
@@ -115,7 +126,8 @@ class DuffelFlightServiceTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .body("{\"errors\":[{\"message\":\"private provider detail\"}]}"));
 
-        DuffelFlightService service = new DuffelFlightService("unit-test-token", builder);
+        DuffelFlightService service =
+                new DuffelFlightService("unit-test-token", true, builder);
         ResponseStatusException error = assertThrows(
                 ResponseStatusException.class,
                 () -> service.searchFlights(

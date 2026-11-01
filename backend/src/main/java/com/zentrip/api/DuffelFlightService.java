@@ -30,18 +30,23 @@ public class DuffelFlightService {
     private static final String OFFER_REQUEST_PATH =
             "/air/offer_requests?return_offers=true&supplier_timeout=10000";
 
+    private final boolean enabled;
     private final String accessToken;
     private final RestClient restClient;
 
     public DuffelFlightService(
             @Value("${duffel.access-token:}") String accessToken,
+            @Value("${duffel.enabled:false}") boolean enabled,
             RestClient.Builder restClientBuilder) {
-        this.accessToken = accessToken == null ? "" : accessToken.trim();
+        this.enabled = enabled;
+        this.accessToken = enabled && accessToken != null
+                ? accessToken.trim()
+                : "";
         this.restClient = restClientBuilder.baseUrl(API_BASE_URL).build();
     }
 
     public boolean isConfigured() {
-        return !accessToken.isBlank();
+        return enabled && !accessToken.isBlank();
     }
 
     public List<Map<String, Object>> searchFlights(

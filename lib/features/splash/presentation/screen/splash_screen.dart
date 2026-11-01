@@ -37,7 +37,10 @@ class _SplashScreenState extends State<SplashScreen> {
         AppRoutes.forgotPassword,
         AppRoutes.verifyCode,
       }.contains(requestedRoute)) {
-        Navigator.pushReplacementNamed(context, requestedRoute);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.pushReplacementNamed(context, requestedRoute);
+        });
         return;
       }
     }
