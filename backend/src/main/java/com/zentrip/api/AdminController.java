@@ -78,6 +78,48 @@ public class AdminController {
                 "recent_reservations", recentReservations(8));
     }
 
+    @GetMapping("/attractions/popularity")
+    public Map<String, Object> attractionPopularity(HttpServletRequest request) {
+        requireAdminId(request);
+        List<Map<String, Object>> places = jdbc.queryForList("""
+                SELECT title,
+                       TRIM(SPLIT_PART(location, ',', 1)) AS city,
+                       COALESCE(NULLIF(TRIM(SPLIT_PART(location, ',', 2)), ''), '')
+                           AS country,
+                       COALESCE(visit_counts.visit_count, 0) AS visit_count
+                FROM tourist_monuments monuments
+                LEFT JOIN attraction_visit_counts visit_counts
+                    ON visit_counts.attraction_id = monuments.id
+                WHERE monuments.is_active = TRUE
+                ORDER BY COALESCE(visit_counts.visit_count, 0) DESC,
+                         LOWER(monuments.title)
+                """);
+        List<Map<String, Object>> countries = jdbc.queryForList("""
+                WITH country_visits AS (
+                    SELECT COALESCE(
+                               NULLIF(TRIM(SPLIT_PART(monuments.location, ',', 2)), ''),
+                               'Unspecified country') AS country,
+                           LOWER(COALESCE(
+                               NULLIF(TRIM(SPLIT_PART(monuments.location, ',', 2)), ''),
+                               'Unspecified country')) AS country_key,
+                           COALESCE(visit_counts.visit_count, 0) AS visit_count
+                    FROM tourist_monuments monuments
+                    LEFT JOIN attraction_visit_counts visit_counts
+                        ON visit_counts.attraction_id = monuments.id
+                    WHERE monuments.is_active = TRUE
+                ),
+                country_totals AS (
+                    SELECT MIN(country) AS country, SUM(visit_count) AS visit_count
+                    FROM country_visits
+                    GROUP BY country_key
+                )
+                SELECT country, visit_count
+                FROM country_totals
+                ORDER BY visit_count DESC, LOWER(country)
+                """);
+        return Map.of("places", places, "countries", countries);
+    }
+
     @GetMapping("/partners")
     public Map<String, Object> partners(HttpServletRequest request) {
         requireAdminId(request);

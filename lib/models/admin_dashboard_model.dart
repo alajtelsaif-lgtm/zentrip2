@@ -49,6 +49,72 @@ class AdminDashboardData {
   }
 }
 
+class AdminAttractionPopularity {
+  final List<AdminPlaceVisitCount> places;
+  final List<AdminCountryVisitCount> countries;
+
+  const AdminAttractionPopularity({
+    required this.places,
+    required this.countries,
+  });
+
+  factory AdminAttractionPopularity.fromJson(Map<String, dynamic> json) {
+    final placeRows = json['places'] as List? ?? const [];
+    final countryRows = json['countries'] as List? ?? const [];
+    return AdminAttractionPopularity(
+      places: placeRows
+          .whereType<Map<String, dynamic>>()
+          .map(AdminPlaceVisitCount.fromJson)
+          .toList(),
+      countries: countryRows
+          .whereType<Map<String, dynamic>>()
+          .map(AdminCountryVisitCount.fromJson)
+          .toList(),
+    );
+  }
+}
+
+class AdminPlaceVisitCount {
+  final String title;
+  final String city;
+  final String country;
+  final int visitCount;
+
+  const AdminPlaceVisitCount({
+    required this.title,
+    required this.city,
+    required this.country,
+    required this.visitCount,
+  });
+
+  factory AdminPlaceVisitCount.fromJson(Map<String, dynamic> json) =>
+      AdminPlaceVisitCount(
+        title: _displayString(json['title'], fallback: 'Unnamed place'),
+        city: _displayString(json['city']),
+        country: _displayString(json['country']),
+        visitCount: _asInt(json['visit_count']),
+      );
+}
+
+class AdminCountryVisitCount {
+  final String country;
+  final int visitCount;
+
+  const AdminCountryVisitCount({
+    required this.country,
+    required this.visitCount,
+  });
+
+  factory AdminCountryVisitCount.fromJson(Map<String, dynamic> json) =>
+      AdminCountryVisitCount(
+        country: _displayString(
+          json['country'],
+          fallback: 'Unspecified country',
+        ),
+        visitCount: _asInt(json['visit_count']),
+      );
+}
+
 class AdminPartner {
   final int id;
   final String name;
@@ -143,6 +209,11 @@ class AdminCustomer {
         joinedAt: DateTime.tryParse('${json['created_at'] ?? ''}'),
         reservationCount: _asInt(json['reservation_count']),
       );
+}
+
+String _displayString(dynamic value, {String fallback = ''}) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
 }
 
 int _asInt(dynamic value) {

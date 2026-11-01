@@ -2070,6 +2070,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminCustomers => 'Customers';
 
   @override
+  String get adminPopularity => 'Popularity';
+
+  @override
+  String get adminCountryVisits => 'Visits by country';
+
+  @override
+  String get adminPlaceVisits => 'Visits by place';
+
+  @override
+  String get adminNoCountryVisits => 'No country visit totals yet.';
+
+  @override
+  String get adminNoPlaceVisits => 'No place visit totals yet.';
+
+  @override
+  String get adminUnspecifiedCountry => 'Unspecified country';
+
+  @override
   String get adminWelcome => 'Good day';
 
   @override

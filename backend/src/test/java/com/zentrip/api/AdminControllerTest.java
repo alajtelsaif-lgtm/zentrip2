@@ -73,6 +73,42 @@ class AdminControllerTest {
     }
 
     @Test
+    void attractionPopularityReturnsAggregatedPlaceAndCountryCountsForAdmins() {
+        when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
+                .thenReturn("admin");
+        List<Map<String, Object>> places = List.of(Map.of(
+                "title", "Leptis Magna",
+                "city", "Khoms",
+                "country", "Libya",
+                "visit_count", 41L));
+        List<Map<String, Object>> countries = List.of(
+                Map.of("country", "Libya", "visit_count", 41L),
+                Map.of("country", "Unspecified country", "visit_count", 0L));
+        when(jdbc.queryForList(contains("FROM tourist_monuments monuments")))
+                .thenReturn(places, countries);
+
+        Map<String, Object> response = controller.attractionPopularity(authenticatedRequest());
+
+        assertEquals(places, response.get("places"));
+        assertEquals(countries, response.get("countries"));
+        verify(jdbc).queryForList(contains("SUM(visit_count)"));
+    }
+
+    @Test
+    void attractionPopularityRequiresAdministratorRole() {
+        when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
+                .thenReturn("customer");
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.attractionPopularity(authenticatedRequest()));
+
+        assertEquals(403, exception.getStatusCode().value());
+        verify(jdbc, org.mockito.Mockito.never())
+                .queryForList(anyString());
+    }
+
+    @Test
     void customerListRejectsOutOfRangeLimit() {
         when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
                 .thenReturn("admin");

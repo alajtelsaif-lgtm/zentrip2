@@ -11,7 +11,14 @@ import '../../../../routes/app_routes.dart';
 import 'admin_catalog_management.dart';
 import 'admin_partners_management.dart';
 
-enum _AdminSection { overview, partners, offers, reservations, customers }
+enum _AdminSection {
+  overview,
+  popularity,
+  partners,
+  offers,
+  reservations,
+  customers,
+}
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -23,6 +30,7 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   _AdminSection _section = _AdminSection.overview;
   AdminDashboardData? _dashboard;
+  AdminAttractionPopularity? _popularity;
   List<AdminReservation> _reservations = [];
   List<AdminCustomer> _customers = [];
   bool _loading = true;
@@ -66,13 +74,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         section == _AdminSection.offers) {
       return;
     }
+    if (section == _AdminSection.popularity && _popularity != null) return;
     if (section == _AdminSection.reservations && _reservations.isNotEmpty) {
       return;
     }
     if (section == _AdminSection.customers && _customers.isNotEmpty) return;
 
     setState(() => _loadingSection = true);
-    if (section == _AdminSection.reservations) {
+    if (section == _AdminSection.popularity) {
+      final result = await ApiService.instance.getAdminAttractionPopularity();
+      if (!mounted) return;
+      setState(() {
+        _loadingSection = false;
+        if (result.isSuccess && result.data != null) {
+          _popularity = result.data;
+        } else {
+          _error = result.errorMessage;
+        }
+      });
+    } else if (section == _AdminSection.reservations) {
       final result = await ApiService.instance.getAdminReservations();
       if (!mounted) return;
       setState(() {
@@ -113,6 +133,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (!mounted) return;
       if (result.isSuccess && result.data != null) {
         setState(() => _customers = result.data!);
+      } else {
+        setState(() => _error = result.errorMessage);
+      }
+    } else if (_section == _AdminSection.popularity) {
+      final result = await ApiService.instance.getAdminAttractionPopularity();
+      if (!mounted) return;
+      if (result.isSuccess && result.data != null) {
+        setState(() => _popularity = result.data);
       } else {
         setState(() => _error = result.errorMessage);
       }
@@ -232,6 +260,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 8),
           _navItem(
+            l10n.adminPopularity,
+            Icons.insights_outlined,
+            _AdminSection.popularity,
+          ),
+          const SizedBox(height: 8),
+          _navItem(
             l10n.adminPartners,
             Icons.business_outlined,
             _AdminSection.partners,
@@ -306,6 +340,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         NavigationDestination(
             icon: const Icon(Icons.space_dashboard_outlined),
             label: l10n.adminOverview),
+        NavigationDestination(
+            icon: const Icon(Icons.insights_outlined),
+            label: l10n.adminPopularity),
         NavigationDestination(
             icon: const Icon(Icons.business_outlined),
             label: l10n.adminPartners),
@@ -390,6 +427,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   String _sectionTitle(AppLocalizations l10n) => switch (_section) {
         _AdminSection.overview => l10n.adminOverview,
+        _AdminSection.popularity => l10n.adminPopularity,
         _AdminSection.partners => l10n.adminPartners,
         _AdminSection.offers => l10n.adminCatalog,
         _AdminSection.reservations => l10n.adminReservations,
@@ -477,6 +515,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           constraints: const BoxConstraints(maxWidth: 1320),
           child: switch (_section) {
             _AdminSection.overview => _overview(l10n, isWide),
+            _AdminSection.popularity => _popularityView(l10n),
             _AdminSection.partners =>
               AdminPartnersManagement(key: _partnersKey),
             _AdminSection.offers => AdminCatalogManagement(
@@ -593,6 +632,74 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 18),
           _recentReservations(l10n, data.recentReservations),
         ],
+      ],
+    );
+  }
+
+  Widget _popularityView(AppLocalizations l10n) {
+    final popularity = _popularity ??
+        const AdminAttractionPopularity(
+          places: [],
+          countries: [],
+        );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Panel(
+          title: l10n.adminCountryVisits,
+          child: popularity.countries.isEmpty
+              ? _EmptyText(l10n.adminNoCountryVisits)
+              : Column(
+                  children: popularity.countries
+                      .map((item) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.public_rounded),
+                            title: Text(
+                              item.country == 'Unspecified country'
+                                  ? l10n.adminUnspecifiedCountry
+                                  : item.country,
+                            ),
+                            trailing: Text(
+                              NumberFormat.decimalPattern(
+                                      Localizations.localeOf(context)
+                                          .toString())
+                                  .format(item.visitCount),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ))
+                      .toList(),
+                ),
+        ),
+        const SizedBox(height: 18),
+        _Panel(
+          title: l10n.adminPlaceVisits,
+          child: popularity.places.isEmpty
+              ? _EmptyText(l10n.adminNoPlaceVisits)
+              : Column(
+                  children: popularity.places
+                      .map((item) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.place_outlined),
+                            title: Text(item.title),
+                            subtitle: Text([
+                              item.city,
+                              item.country.isEmpty
+                                  ? l10n.adminUnspecifiedCountry
+                                  : item.country,
+                            ].where((part) => part.isNotEmpty).join(', ')),
+                            trailing: Text(
+                              NumberFormat.decimalPattern(
+                                      Localizations.localeOf(context)
+                                          .toString())
+                                  .format(item.visitCount),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ))
+                      .toList(),
+                ),
+        ),
       ],
     );
   }

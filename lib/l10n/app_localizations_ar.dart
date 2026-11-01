@@ -2056,6 +2056,24 @@ class AppLocalizationsAr extends AppLocalizations {
   String get adminCustomers => 'العملاء';
 
   @override
+  String get adminPopularity => 'الشعبية';
+
+  @override
+  String get adminCountryVisits => 'الزيارات حسب الدولة';
+
+  @override
+  String get adminPlaceVisits => 'الزيارات حسب المكان';
+
+  @override
+  String get adminNoCountryVisits => 'لا توجد إجماليات زيارات للدول بعد.';
+
+  @override
+  String get adminNoPlaceVisits => 'لا توجد إجماليات زيارات للأماكن بعد.';
+
+  @override
+  String get adminUnspecifiedCountry => 'دولة غير محددة';
+
+  @override
   String get adminWelcome => 'أهلاً بك';
 
   @override

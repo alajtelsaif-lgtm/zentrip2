@@ -791,6 +791,14 @@ class ApiService {
     });
   }
 
+  Future<ApiResult<AdminAttractionPopularity>> getAdminAttractionPopularity() {
+    return _request(() async {
+      final response = await _dio.get('/admin/attractions/popularity');
+      return AdminAttractionPopularity.fromJson(
+          response.data as Map<String, dynamic>);
+    });
+  }
+
   Future<ApiResult<List<AdminReservation>>> getAdminReservations() {
     return _request(() async {
       final response = await _dio.get('/admin/reservations');

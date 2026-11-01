@@ -3952,6 +3952,42 @@ abstract class AppLocalizations {
   /// **'العملاء'**
   String get adminCustomers;
 
+  /// No description provided for @adminPopularity.
+  ///
+  /// In ar, this message translates to:
+  /// **'الشعبية'**
+  String get adminPopularity;
+
+  /// No description provided for @adminCountryVisits.
+  ///
+  /// In ar, this message translates to:
+  /// **'الزيارات حسب الدولة'**
+  String get adminCountryVisits;
+
+  /// No description provided for @adminPlaceVisits.
+  ///
+  /// In ar, this message translates to:
+  /// **'الزيارات حسب المكان'**
+  String get adminPlaceVisits;
+
+  /// No description provided for @adminNoCountryVisits.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد إجماليات زيارات للدول بعد.'**
+  String get adminNoCountryVisits;
+
+  /// No description provided for @adminNoPlaceVisits.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا توجد إجماليات زيارات للأماكن بعد.'**
+  String get adminNoPlaceVisits;
+
+  /// No description provided for @adminUnspecifiedCountry.
+  ///
+  /// In ar, this message translates to:
+  /// **'دولة غير محددة'**
+  String get adminUnspecifiedCountry;
+
   /// No description provided for @adminWelcome.
   ///
   /// In ar, this message translates to:

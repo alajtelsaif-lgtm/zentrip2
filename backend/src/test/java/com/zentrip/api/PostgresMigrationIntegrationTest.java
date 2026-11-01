@@ -87,6 +87,63 @@ class PostgresMigrationIntegrationTest {
     }
 
     @Test
+    void adminAttractionPopularityAggregatesCountsAndHandlesUnspecifiedCountries()
+            throws Exception {
+        jdbc.update("UPDATE users SET role = 'admin' WHERE id = ?", userId);
+        String suffix = UUID.randomUUID().toString();
+        String country = "Popularity-" + suffix;
+        String firstId = "popularity-first-" + suffix;
+        String secondId = "popularity-second-" + suffix;
+        String unspecifiedId = "popularity-unspecified-" + suffix;
+        jdbc.update("""
+                INSERT INTO tourist_monuments (id, title, location, description, tags)
+                VALUES (?, ?, ?, 'Test attraction', '[]'::jsonb)
+                """, firstId, "Popularity place one " + suffix, "Tripoli, " + country);
+        jdbc.update("""
+                INSERT INTO tourist_monuments (id, title, location, description, tags)
+                VALUES (?, ?, ?, 'Test attraction', '[]'::jsonb)
+                """, secondId, "Popularity place two " + suffix,
+                "Benghazi, " + country.toLowerCase());
+        jdbc.update("""
+                INSERT INTO tourist_monuments (id, title, location, description, tags)
+                VALUES (?, ?, 'Ghadames', 'Test attraction', '[]'::jsonb)
+                """, unspecifiedId, "Popularity place unspecified " + suffix);
+        jdbc.update("""
+                INSERT INTO attraction_visit_counts (attraction_id, visit_count)
+                VALUES (?, 4), (?, 6)
+                """, firstId, secondId);
+
+        MvcResult result = http.perform(get("/api/admin/attractions/popularity")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode response = json.readTree(result.getResponse().getContentAsString());
+
+        JsonNode countryTotal = null;
+        for (JsonNode row : response.path("countries")) {
+            if (row.path("country").asText().equalsIgnoreCase(country)) {
+                countryTotal = row;
+                break;
+            }
+        }
+        assertNotNull(countryTotal);
+        assertEquals(10, countryTotal.path("visit_count").asInt());
+
+        JsonNode unspecifiedPlace = null;
+        for (JsonNode row : response.path("places")) {
+            if (row.path("title").asText().equals("Popularity place unspecified " + suffix)) {
+                unspecifiedPlace = row;
+                break;
+            }
+        }
+        assertNotNull(unspecifiedPlace);
+        assertEquals("", unspecifiedPlace.path("country").asText());
+        assertEquals(0, unspecifiedPlace.path("visit_count").asInt());
+        assertFalse(response.toString().contains("visitor_hash"));
+        assertFalse(response.toString().contains("visitor_id"));
+    }
+
+    @Test
     void adminPartnerChangesCanBeReversedWithoutDeletingTheirHistory() throws Exception {
         jdbc.update("UPDATE users SET role = 'admin' WHERE id = ?", userId);
         String ownerToken = UUID.randomUUID().toString();

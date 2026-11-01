@@ -44,6 +44,46 @@ void main() {
     });
   });
 
+  test('admin attraction popularity parses aggregate counts and empty fields',
+      () {
+    final popularity = AdminAttractionPopularity.fromJson({
+      'places': [
+        {
+          'title': 'Leptis Magna',
+          'city': 'Khoms',
+          'country': 'Libya',
+          'visit_count': 41,
+        },
+        {
+          'title': null,
+          'city': '',
+          'country': null,
+          'visit_count': null,
+        },
+      ],
+      'countries': [
+        {'country': 'Libya', 'visit_count': 41},
+        {'country': '', 'visit_count': '0'},
+      ],
+    });
+
+    expect(popularity.places.first.title, 'Leptis Magna');
+    expect(popularity.places.first.visitCount, 41);
+    expect(popularity.places.last.title, 'Unnamed place');
+    expect(popularity.places.last.visitCount, 0);
+    expect(popularity.countries.first.country, 'Libya');
+    expect(popularity.countries.last.country, 'Unspecified country');
+    expect(popularity.countries.last.visitCount, 0);
+  });
+
+  test('admin attraction popularity accepts empty country and place lists', () {
+    final popularity =
+        AdminAttractionPopularity.fromJson({'places': [], 'countries': []});
+
+    expect(popularity.places, isEmpty);
+    expect(popularity.countries, isEmpty);
+  });
+
   test('admin role is parsed without granting it to legacy users', () {
     final admin = UserModel.fromJson({
       'id': 1,
