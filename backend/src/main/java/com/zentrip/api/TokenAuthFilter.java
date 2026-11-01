@@ -42,7 +42,7 @@ public class TokenAuthFilter extends OncePerRequestFilter {
             if (!token.isEmpty()) {
                 String hash = sha256(token);
                 List<Map<String, Object>> identities = jdbc.queryForList("""
-                        SELECT u.id AS user_id, u.role
+                        SELECT u.id AS user_id, u.role, u.partner_id
                         FROM api_tokens t
                         JOIN users u ON u.id = t.user_id
                         WHERE t.token_hash = ? AND t.expires_at > ?
@@ -56,6 +56,11 @@ public class TokenAuthFilter extends OncePerRequestFilter {
                     if (rawUserId instanceof Number userId && SUPPORTED_ROLES.contains(role)) {
                         request.setAttribute("authUserId", userId.longValue());
                         request.setAttribute("authRole", role);
+                        Object rawPartnerId = identity.get("partner_id");
+                        if (rawPartnerId instanceof Number partnerId
+                                && partnerId.longValue() > 0) {
+                            request.setAttribute("authPartnerId", partnerId.longValue());
+                        }
                         request.setAttribute("authTokenHash", hash);
                         SecurityContextHolder.getContext().setAuthentication(
                                 UsernamePasswordAuthenticationToken.authenticated(

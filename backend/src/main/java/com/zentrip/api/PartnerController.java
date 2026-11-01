@@ -1314,29 +1314,56 @@ public class PartnerController {
                     (SELECT COUNT(*) FROM partner_listings
                         WHERE partner_id = ? AND active = TRUE) AS active_listing_count,
                     (SELECT COUNT(*) FROM trips
-                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled')
+                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled'
+                          AND EXISTS (SELECT 1 FROM partner_listings l
+                              WHERE l.id = trips.partner_listing_id
+                                AND l.partner_id = trips.partner_id))
                       + (SELECT COUNT(*) FROM bookings
-                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled')
+                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled'
+                          AND EXISTS (SELECT 1 FROM partner_listings l
+                              WHERE l.id = bookings.partner_listing_id
+                                AND l.partner_id = bookings.partner_id))
                       + (SELECT COUNT(*) FROM transfers
-                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled')
+                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled'
+                          AND EXISTS (SELECT 1 FROM partner_listings l
+                              WHERE l.id = transfers.partner_listing_id
+                                AND l.partner_id = transfers.partner_id))
                         AS reservation_count,
                     (SELECT COUNT(*) FROM users u
                         WHERE u.role = 'customer' AND EXISTS (
                             SELECT 1 FROM trips t
                             WHERE t.partner_id = ? AND t.user_id = u.id
+                              AND EXISTS (SELECT 1 FROM partner_listings l
+                                  WHERE l.id = t.partner_listing_id
+                                    AND l.partner_id = t.partner_id)
                             UNION ALL
                             SELECT 1 FROM bookings b
                             WHERE b.partner_id = ? AND b.user_id = u.id
+                              AND EXISTS (SELECT 1 FROM partner_listings l
+                                  WHERE l.id = b.partner_listing_id
+                                    AND l.partner_id = b.partner_id)
                             UNION ALL
                             SELECT 1 FROM transfers x
                             WHERE x.partner_id = ? AND x.user_id = u.id
+                              AND EXISTS (SELECT 1 FROM partner_listings l
+                                  WHERE l.id = x.partner_listing_id
+                                    AND l.partner_id = x.partner_id)
                         )) AS customer_count,
                     COALESCE((SELECT SUM(total_amount) FROM bookings
-                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled'), 0)
+                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled'
+                          AND EXISTS (SELECT 1 FROM partner_listings l
+                              WHERE l.id = bookings.partner_listing_id
+                                AND l.partner_id = bookings.partner_id)), 0)
                       + COALESCE((SELECT SUM(price) FROM trips
-                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled'), 0)
+                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled'
+                          AND EXISTS (SELECT 1 FROM partner_listings l
+                              WHERE l.id = trips.partner_listing_id
+                                AND l.partner_id = trips.partner_id)), 0)
                       + COALESCE((SELECT SUM(price) FROM transfers
-                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled'), 0)
+                        WHERE partner_id = ? AND LOWER(status) <> 'cancelled'
+                          AND EXISTS (SELECT 1 FROM partner_listings l
+                              WHERE l.id = transfers.partner_listing_id
+                                AND l.partner_id = transfers.partner_id)), 0)
                         AS booked_value
                 """, partner.id(), partner.id(), partner.id(), partner.id(), partner.id(),
                 partner.id(), partner.id(), partner.id(), partner.id(), partner.id(),
@@ -1611,7 +1638,8 @@ public class PartnerController {
                         : 0,
                 id, partner.id());
         if (updated != 1) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found");
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "This listing is not managed by your partner account");
         }
         if (refreshGoogleRating) {
             googlePlacesRatingSync.refreshAsync(
@@ -1665,11 +1693,23 @@ public class PartnerController {
                 SELECT u.id, u.name, u.email, u.phone, u.created_at,
                     COUNT(reservations.id) AS reservation_count
                 FROM (
-                    SELECT user_id, id FROM trips WHERE partner_id = ?
+                    SELECT user_id, id FROM trips
+                    WHERE partner_id = ? AND EXISTS (
+                        SELECT 1 FROM partner_listings l
+                        WHERE l.id = trips.partner_listing_id
+                          AND l.partner_id = trips.partner_id)
                     UNION ALL
-                    SELECT user_id, id FROM bookings WHERE partner_id = ?
+                    SELECT user_id, id FROM bookings
+                    WHERE partner_id = ? AND EXISTS (
+                        SELECT 1 FROM partner_listings l
+                        WHERE l.id = bookings.partner_listing_id
+                          AND l.partner_id = bookings.partner_id)
                     UNION ALL
-                    SELECT user_id, id FROM transfers WHERE partner_id = ?
+                    SELECT user_id, id FROM transfers
+                    WHERE partner_id = ? AND EXISTS (
+                        SELECT 1 FROM partner_listings l
+                        WHERE l.id = transfers.partner_listing_id
+                          AND l.partner_id = transfers.partner_id)
                 ) reservations
                 JOIN users u ON u.id = reservations.user_id
                 WHERE u.role = 'customer'
@@ -1691,7 +1731,10 @@ public class PartnerController {
                         COALESCE(t.departure_date, t.created_at) AS reservation_date,
                         COALESCE(t.price, 0) AS amount, t.status, t.created_at
                     FROM trips t JOIN users u ON u.id = t.user_id
-                    WHERE t.partner_id = ?
+                    WHERE t.partner_id = ? AND EXISTS (
+                        SELECT 1 FROM partner_listings l
+                        WHERE l.id = t.partner_listing_id
+                          AND l.partner_id = t.partner_id)
                     UNION ALL
                     SELECT CONCAT('booking-', b.id) AS id, b.id AS reservation_id,
                         b.partner_listing_id, b.type,
@@ -1702,7 +1745,10 @@ public class PartnerController {
                         COALESCE(b.total_amount, b.price, 0) AS amount,
                         b.status, b.created_at
                     FROM bookings b JOIN users u ON u.id = b.user_id
-                    WHERE b.partner_id = ?
+                    WHERE b.partner_id = ? AND EXISTS (
+                        SELECT 1 FROM partner_listings l
+                        WHERE l.id = b.partner_listing_id
+                          AND l.partner_id = b.partner_id)
                     UNION ALL
                     SELECT CONCAT('transfer-', x.id) AS id, x.id AS reservation_id,
                         x.partner_listing_id, 'transfer' AS type,
@@ -1712,7 +1758,10 @@ public class PartnerController {
                         x.pickup_time AS reservation_date, x.price AS amount,
                         x.status, x.created_at
                     FROM transfers x JOIN users u ON u.id = x.user_id
-                    WHERE x.partner_id = ?
+                    WHERE x.partner_id = ? AND EXISTS (
+                        SELECT 1 FROM partner_listings l
+                        WHERE l.id = x.partner_listing_id
+                          AND l.partner_id = x.partner_id)
                 ) reservations
                 ORDER BY created_at DESC
                 LIMIT ?
@@ -1952,7 +2001,8 @@ public class PartnerController {
             listing.put("attributes", listingAttributes);
             return listing;
         } catch (org.springframework.dao.EmptyResultDataAccessException exception) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Listing not found");
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "This listing is not managed by your partner account");
         }
     }
 

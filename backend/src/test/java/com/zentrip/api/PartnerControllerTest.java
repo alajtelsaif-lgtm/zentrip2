@@ -137,8 +137,29 @@ class PartnerControllerTest {
                 () -> controller.updateListing(
                         42L, Map.of("title", "Other company's hotel"), authenticatedRequest()));
 
-        assertEquals(404, error.getStatusCode().value());
+        assertEquals(403, error.getStatusCode().value());
         verify(jdbc, never()).update(contains("UPDATE partner_listings SET"));
+    }
+
+    @Test
+    void partnerReservationsOnlyIncludeRowsLinkedToListingsOwnedByThatPartner() {
+        when(jdbc.queryForMap(contains("FROM users u JOIN partners p"), eq(7L)))
+                .thenReturn(Map.of(
+                        "partner_id", 3L,
+                        "name", "Example Hotel",
+                        "service_type", "hotel"));
+        when(jdbc.queryForList(
+                contains("l.id = t.partner_listing_id"),
+                eq(3L), eq(3L), eq(3L), eq(50)))
+                .thenReturn(List.of());
+
+        Map<String, Object> response =
+                controller.partnerReservations(50, authenticatedRequest());
+
+        assertEquals(List.of(), response.get("reservations"));
+        verify(jdbc).queryForList(
+                contains("l.id = t.partner_listing_id"),
+                eq(3L), eq(3L), eq(3L), eq(50));
     }
 
     @Test

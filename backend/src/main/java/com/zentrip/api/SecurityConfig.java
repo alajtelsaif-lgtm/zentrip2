@@ -18,7 +18,9 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(
-            HttpSecurity http, TokenAuthFilter tokenAuthFilter) throws Exception {
+            HttpSecurity http,
+            TokenAuthFilter tokenAuthFilter,
+            RlsContextFilter rlsContextFilter) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
@@ -50,7 +52,8 @@ public class SecurityConfig {
                     "/api/maps/**",
                     "/api/ai", "/api/ai/**",
                     "/api/preferences/travel", "/api/preferences/travel/**",
-                    "/api/profile", "/api/profile/**"
+                    "/api/profile", "/api/profile/**",
+                    "/api/hotels/search-results/*/rates"
                 ).hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.GET, "/api/reviews").permitAll()
                 .requestMatchers(
@@ -73,7 +76,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/**").denyAll()
                 .anyRequest().permitAll()
             )
-            .addFilterBefore(tokenAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(tokenAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(rlsContextFilter, TokenAuthFilter.class);
 
         return http.build();
     }
@@ -83,6 +87,15 @@ public class SecurityConfig {
             TokenAuthFilter tokenAuthFilter) {
         FilterRegistrationBean<TokenAuthFilter> registration =
                 new FilterRegistrationBean<>(tokenAuthFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    FilterRegistrationBean<RlsContextFilter> rlsContextFilterRegistration(
+            RlsContextFilter rlsContextFilter) {
+        FilterRegistrationBean<RlsContextFilter> registration =
+                new FilterRegistrationBean<>(rlsContextFilter);
         registration.setEnabled(false);
         return registration;
     }

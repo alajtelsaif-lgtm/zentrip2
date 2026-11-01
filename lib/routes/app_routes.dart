@@ -63,7 +63,17 @@ abstract class AppRoutes {
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     final user = ApiService.instance.currentUser;
-    if (user?.isAdmin == true || user?.isPartner == true) {
+    final isDashboardRoute =
+        settings.name == adminDashboard || settings.name == partnerDashboard;
+    if (isDashboardRoute) {
+      if (user == null) {
+        return _fade(const LoginScreen(), const RouteSettings(name: auth));
+      }
+      if (!user.isAdmin && user.role.toLowerCase() != 'partner') {
+        return _fade(const AppShell(), const RouteSettings(name: home));
+      }
+    }
+    if (user?.isAdmin == true || user?.role.toLowerCase() == 'partner') {
       final dashboardRoute = user!.isAdmin ? adminDashboard : partnerDashboard;
       if (settings.name != dashboardRoute) {
         final dashboard = user.isAdmin

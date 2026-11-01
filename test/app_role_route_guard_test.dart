@@ -68,4 +68,37 @@ void main() {
 
     expect(route.settings.name, AppRoutes.home);
   });
+
+  test('customers opening either privileged dashboard return to home', () {
+    api.currentUser = const UserModel(
+      id: 3,
+      name: 'Customer',
+      email: 'customer@example.com',
+      phone: '',
+    );
+
+    final adminRoute = AppRoutes.onGenerateRoute(
+      const RouteSettings(name: AppRoutes.adminDashboard),
+    );
+    final partnerRoute = AppRoutes.onGenerateRoute(
+      const RouteSettings(name: AppRoutes.partnerDashboard),
+    );
+
+    expect(adminRoute.settings.name, AppRoutes.home);
+    expect(partnerRoute.settings.name, AppRoutes.home);
+  });
+
+  test('signed-out dashboard requests return to login', () {
+    api.currentUser = null;
+
+    final adminRoute = AppRoutes.onGenerateRoute(
+      const RouteSettings(name: AppRoutes.adminDashboard),
+    );
+    final partnerRoute = AppRoutes.onGenerateRoute(
+      const RouteSettings(name: AppRoutes.partnerDashboard),
+    );
+
+    expect(adminRoute.settings.name, AppRoutes.auth);
+    expect(partnerRoute.settings.name, AppRoutes.auth);
+  });
 }
