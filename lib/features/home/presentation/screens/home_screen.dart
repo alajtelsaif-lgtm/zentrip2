@@ -395,6 +395,7 @@ class _HomeScreenState extends State<HomeScreen> {
       flexibleDepartureMonths:
           _flexibleFlightSelection?.departureMonths ?? const [],
       flexibleTripDurationDays: _flexibleFlightSelection?.tripDurationDays ?? 7,
+      flexibleWeekendsOnly: _flexibleFlightSelection?.weekendsOnly ?? false,
     );
     setState(() => _isSearchingFlights = true);
     try {

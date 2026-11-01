@@ -531,7 +531,7 @@ class PartnerControllerTest {
                                 firstDate + "T11:00:00", 3)));
 
         Map<String, Object> response = controller.searchFlexibleFlights(
-                "mra", "mji", selectedMonths, "round_trip", 7, 1, "economy");
+                "mra", "mji", selectedMonths, "round_trip", 7, 1, "economy", false);
 
         List<?> flights = (List<?>) response.get("flights");
         assertEquals(3, flights.size());
@@ -552,11 +552,34 @@ class PartnerControllerTest {
         ResponseStatusException error = assertThrows(
                 ResponseStatusException.class,
                 () -> controller.searchFlexibleFlights(
-                        "MRA", "MJI", months, "one_way", 7, 1, "economy"));
+                        "MRA", "MJI", months, "one_way", 7, 1, "economy", false));
 
         assertEquals(400, error.getStatusCode().value());
         verify(jdbc, never()).queryForList(
                 org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void flexibleWeekendSearchOnlyIncludesFridayDepartures() {
+        java.time.LocalDate friday = java.time.LocalDate.now().with(
+                java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.FRIDAY));
+        java.time.LocalDate saturday = friday.plusDays(1);
+        String months = java.util.stream.Stream.of(friday, saturday)
+                .map(java.time.YearMonth::from)
+                .distinct()
+                .map(java.time.YearMonth::toString)
+                .collect(java.util.stream.Collectors.joining(","));
+        when(jdbc.queryForList(contains("WHERE l.type = 'flight'")))
+                .thenReturn(List.of(
+                        partnerFlight(41L, "MRA", "MJI", friday + "T08:00:00", 3),
+                        partnerFlight(42L, "MRA", "MJI", saturday + "T08:00:00", 3)));
+
+        Map<String, Object> response = controller.searchFlexibleFlights(
+                "MRA", "MJI", months, "round_trip", 2, 1, "economy", true);
+
+        List<?> flights = (List<?>) response.get("flights");
+        assertEquals(1, flights.size());
+        assertEquals("partner-41", ((Map<?, ?>) flights.getFirst()).get("id"));
     }
 
     @Test

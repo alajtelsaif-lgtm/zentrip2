@@ -1450,6 +1450,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get flightWeekend => 'عطلة نهاية الأسبوع';
 
   @override
+  String get flightWeekendHint =>
+      'المغادرة يوم الجمعة، والعودة يوم الأحد للرحلات ذهابًا وإيابًا.';
+
+  @override
   String get flightWeek => 'أسبوع';
 
   @override

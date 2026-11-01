@@ -313,6 +313,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       flexibleDepartureMonths:
           _flexibleFlightSelection?.departureMonths ?? const [],
       flexibleTripDurationDays: _flexibleFlightSelection?.tripDurationDays ?? 7,
+      flexibleWeekendsOnly: _flexibleFlightSelection?.weekendsOnly ?? false,
     );
     unawaited(FlightSearchHistory.saveDestination(_toCode, _toCity));
     if (!mounted) return;

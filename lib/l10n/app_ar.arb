@@ -480,6 +480,7 @@
   "flightSelectDates": "اختر التواريخ",
   "flightTripLength": "كم مدة رحلتك؟",
   "flightWeekend": "عطلة نهاية الأسبوع",
+  "flightWeekendHint": "المغادرة يوم الجمعة، والعودة يوم الأحد للرحلات ذهابًا وإيابًا.",
   "flightWeek": "أسبوع",
   "flightMonth": "شهر",
   "flightOther": "مدة أخرى",

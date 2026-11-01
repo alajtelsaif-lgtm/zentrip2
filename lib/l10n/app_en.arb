@@ -494,6 +494,7 @@
   "flightSelectDates": "Select dates",
   "flightTripLength": "How long is your trip?",
   "flightWeekend": "A weekend",
+  "flightWeekendHint": "Weekend departures are Fridays. Return trips come back Sunday.",
   "flightWeek": "A week",
   "flightMonth": "A month",
   "flightOther": "Other",

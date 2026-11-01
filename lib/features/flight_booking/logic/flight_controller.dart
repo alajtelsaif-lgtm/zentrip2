@@ -14,6 +14,7 @@ class FlightSearchParams {
   final bool isRoundTrip;
   final List<DateTime> flexibleDepartureMonths;
   final int flexibleTripDurationDays;
+  final bool flexibleWeekendsOnly;
 
   const FlightSearchParams({
     required this.originCode,
@@ -27,6 +28,7 @@ class FlightSearchParams {
     this.isRoundTrip = false,
     this.flexibleDepartureMonths = const [],
     this.flexibleTripDurationDays = 7,
+    this.flexibleWeekendsOnly = false,
   });
 
   bool get isFlexible => flexibleDepartureMonths.isNotEmpty;
@@ -63,6 +65,7 @@ class FlightController extends ChangeNotifier {
         seatClass: params.seatClass,
         flexibleDepartureMonths: params.flexibleDepartureMonths,
         flexibleTripDurationDays: params.flexibleTripDurationDays,
+        flexibleWeekendsOnly: params.flexibleWeekendsOnly,
       );
       if (revision != _searchRevision) return;
       results = flights;

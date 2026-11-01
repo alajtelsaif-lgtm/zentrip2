@@ -616,7 +616,8 @@ public class PartnerController {
             @RequestParam(name = "trip_type", defaultValue = "one_way") String tripType,
             @RequestParam(name = "trip_duration_days", defaultValue = "7") int tripDurationDays,
             @RequestParam(defaultValue = "1") int adults,
-            @RequestParam(name = "seat_class", defaultValue = "economy") String seatClass) {
+            @RequestParam(name = "seat_class", defaultValue = "economy") String seatClass,
+            @RequestParam(name = "weekends_only", defaultValue = "false") boolean weekendsOnly) {
         String originCode = origin.trim().toUpperCase(Locale.ROOT);
         String destinationCode = destination.trim().toUpperCase(Locale.ROOT);
         if (!originCode.matches("[A-Z0-9]{3}")
@@ -634,6 +635,10 @@ public class PartnerController {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "trip_duration_days must be between 1 and 60");
         }
+        if (weekendsOnly && tripDurationDays != 2) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Weekend trips must use a 2-day duration");
+        }
         String normalizedClass = seatClass.trim().toLowerCase(Locale.ROOT);
         if (!Set.of("economy", "business", "first").contains(normalizedClass)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported seat_class");
@@ -645,12 +650,17 @@ public class PartnerController {
         for (YearMonth month : selectedMonths) {
             for (int day = 1; day <= month.lengthOfMonth(); day++) {
                 LocalDate departure = month.atDay(day);
-                if (!departure.isBefore(today)) departureDates.add(departure);
+                if (!departure.isBefore(today)
+                        && (!weekendsOnly
+                            || departure.getDayOfWeek() == java.time.DayOfWeek.FRIDAY)) {
+                    departureDates.add(departure);
+                }
             }
         }
         if (departureDates.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "The selected months contain no future dates");
+            return Map.of(
+                    "flights", List.of(),
+                    "months", selectedMonths.stream().map(YearMonth::toString).toList());
         }
 
         List<Map<String, Object>> flights = partnerFlightListings(

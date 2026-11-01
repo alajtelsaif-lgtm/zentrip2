@@ -102,13 +102,14 @@ class _FlexibleFlightDatesSheetState extends State<_FlexibleFlightDatesSheet> {
     _selectedMonths =
         validInitial.isEmpty ? {_availableMonths.first} : validInitial;
     _tripDurationDays = widget.initialSelection?.tripDurationDays ?? 7;
-    _otherSelected = !_presetDurations.contains(_tripDurationDays);
+    _otherSelected = widget.initialSelection?.isCustomDuration == true ||
+        !_presetDurations.contains(_tripDurationDays);
     _customDaysController = TextEditingController(
       text: _otherSelected ? '$_tripDurationDays' : '10',
     );
   }
 
-  static const _presetDurations = {3, 7, 30};
+  static const _presetDurations = {2, 7, 30};
 
   @override
   void dispose() {
@@ -154,6 +155,8 @@ class _FlexibleFlightDatesSheetState extends State<_FlexibleFlightDatesSheet> {
     final selection = FlexibleFlightSelection(
       departureMonths: _selectedMonths.toList()..sort((a, b) => a.compareTo(b)),
       tripDurationDays: _tripDurationDays,
+      weekendsOnly: !_otherSelected && _tripDurationDays == 2,
+      isCustomDuration: _otherSelected,
     );
     if (!selection.isValid) return;
     Navigator.of(context).pop(selection);
@@ -200,8 +203,8 @@ class _FlexibleFlightDatesSheetState extends State<_FlexibleFlightDatesSheet> {
                 children: [
                   _DurationChoice(
                     label: l10n.flightWeekend,
-                    selected: !_otherSelected && _tripDurationDays == 3,
-                    onTap: () => _selectDuration(3),
+                    selected: !_otherSelected && _tripDurationDays == 2,
+                    onTap: () => _selectDuration(2),
                   ),
                   _DurationChoice(
                     label: l10n.flightWeek,
@@ -221,6 +224,14 @@ class _FlexibleFlightDatesSheetState extends State<_FlexibleFlightDatesSheet> {
                 ],
               ),
             ),
+            if (!_otherSelected && _tripDurationDays == 2)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                child: Text(
+                  l10n.flightWeekendHint,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
             if (_otherSelected)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),

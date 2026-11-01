@@ -2847,6 +2847,12 @@ abstract class AppLocalizations {
   /// **'عطلة نهاية الأسبوع'**
   String get flightWeekend;
 
+  /// No description provided for @flightWeekendHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'المغادرة يوم الجمعة، والعودة يوم الأحد للرحلات ذهابًا وإيابًا.'**
+  String get flightWeekendHint;
+
   /// No description provided for @flightWeek.
   ///
   /// In ar, this message translates to:

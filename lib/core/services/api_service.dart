@@ -1058,6 +1058,7 @@ class ApiService {
     String seatClass = 'economy',
     List<DateTime> flexibleDepartureMonths = const [],
     int flexibleTripDurationDays = 7,
+    bool flexibleWeekendsOnly = false,
   }) async {
     if (useMockMode) {
       await Future.delayed(_mockDelay);
@@ -1109,6 +1110,7 @@ class ApiService {
         'seat_class': seatClass,
         if (isFlexible) 'months': flexibleMonths.join(','),
         if (isFlexible) 'trip_duration_days': flexibleTripDurationDays,
+        if (isFlexible) 'weekends_only': flexibleWeekendsOnly,
         if (!isFlexible) 'departure_date': _formatDate(departureDate),
         if (!isFlexible && returnDate != null)
           'return_date': _formatDate(returnDate),
