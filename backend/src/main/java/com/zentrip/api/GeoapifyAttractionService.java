@@ -40,7 +40,7 @@ public class GeoapifyAttractionService {
             "turkiye", List.of("Istanbul"),
             "saudi arabia", List.of("Jeddah"),
             "united arab emirates", List.of("Dubai"),
-            "indonesia", List.of("Bali", "Jakarta"));
+            "indonesia", List.of("Denpasar", "Jakarta"));
 
     private final String apiKey;
     private final RestClient geoapify;
@@ -147,6 +147,10 @@ public class GeoapifyAttractionService {
         if (results.isEmpty()) return null;
 
         Map<?, ?> result = map(results.getFirst());
+        String geocodedCountry = text(result.get("country"));
+        if (geocodedCountry != null && !sameCountry(geocodedCountry, country)) {
+            return null;
+        }
         Double latitude = number(result.get("lat"));
         Double longitude = number(result.get("lon"));
         if (latitude == null || longitude == null
@@ -371,6 +375,22 @@ public class GeoapifyAttractionService {
         if (joined.contains("natural")) return "natural";
         if (joined.contains("architecture")) return "architecture";
         return "landmark";
+    }
+
+    private static boolean sameCountry(String first, String second) {
+        return normalizeCountry(first).equals(normalizeCountry(second));
+    }
+
+    private static String normalizeCountry(String country) {
+        String normalized = country.trim().toLowerCase(Locale.ROOT)
+                .replace('ü', 'u')
+                .replaceAll("[^a-z0-9]+", " ")
+                .trim();
+        return switch (normalized) {
+            case "turkey", "turkiye" -> "turkiye";
+            case "uae", "united arab emirates" -> "uae";
+            default -> normalized;
+        };
     }
 
     private static String wikidataQid(Map<?, ?> properties) {

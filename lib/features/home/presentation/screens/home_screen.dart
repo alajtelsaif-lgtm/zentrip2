@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -160,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadMonuments() async {
     try {
-      final destination = AirportOption.byCity(_toName);
+      final destination = _airportByCity(_toName);
       final monuments = await AttractionsController.loadFeaturedMonuments(
         city: _toName,
         country: destination?.country ?? 'Libya',
@@ -211,6 +213,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return AirportOption.byCode(code);
   }
 
+  AirportOption? _airportByCity(String city) {
+    for (final airport in _airports) {
+      if (airport.city.toLowerCase() == city.trim().toLowerCase()) {
+        return airport;
+      }
+    }
+    return AirportOption.byCity(city);
+  }
+
   Future<void> _chooseAirport({required bool origin}) async {
     final selected = await showModalBottomSheet<AirportOption>(
       context: context,
@@ -224,15 +235,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (selected == null || !mounted) return;
     setState(() {
+      _airports = [
+        ..._airports.where((airport) => airport.code != selected.code),
+        selected,
+      ];
       if (origin) {
         _originEdited = true;
         _fromCode = selected.code;
-        _fromName = selected.airportName;
+        _fromName = selected.city;
       } else {
         _toCode = selected.code;
-        _toName = selected.airportName;
+        _toName = selected.city;
+        _monuments = [];
+        _monumentsLoading = true;
+        _monumentsFailed = false;
       }
     });
+    if (!origin) _loadMonuments();
   }
 
   Future<void> _chooseDate({required bool departure}) async {
@@ -1281,20 +1300,32 @@ class _AirportPickerSheetState extends State<_AirportPickerSheet> {
   late List<AirportOption> _results = widget.airports;
   bool _isLoading = false;
   int _requestId = 0;
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _queryController.dispose();
     super.dispose();
   }
 
-  Future<void> _search(String query) async {
+  void _search(String query) {
+    _debounce?.cancel();
     final requestId = ++_requestId;
+    final localMatches =
+        widget.airports.where((airport) => airport.matches(query)).toList();
     setState(() {
-      _results =
-          widget.airports.where((airport) => airport.matches(query)).toList();
-      _isLoading = true;
+      _results = localMatches;
+      _isLoading = query.trim().length >= 2;
     });
+    if (query.trim().length < 2) return;
+    _debounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _fetchSearchResults(query, requestId),
+    );
+  }
+
+  Future<void> _fetchSearchResults(String query, int requestId) async {
     try {
       final matches = await widget.onSearch(query);
       if (!mounted || requestId != _requestId) return;

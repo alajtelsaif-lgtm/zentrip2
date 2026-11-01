@@ -12,11 +12,9 @@ class AttractionsController extends ChangeNotifier {
   String selectedCategory = 'all';
   String selectedCountry = 'Libya';
 
-  static List<String> get countryOptions => AirportOption.supported
-      .map((airport) => airport.country)
-      .toSet()
-      .toList()
-    ..sort();
+  static List<String> get countryOptions =>
+      AirportOption.supported.map((airport) => airport.country).toSet().toList()
+        ..sort();
 
   static const categories = [
     'all',

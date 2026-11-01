@@ -61,14 +61,17 @@ public class PartnerController {
     private final JdbcTemplate jdbc;
     private final ProfilePhotoStorage imageStorage;
     private final GooglePlacesRatingSync googlePlacesRatingSync;
+    private final GeoapifyAirportService geoapifyAirportService;
 
     public PartnerController(
             JdbcTemplate jdbc,
             ProfilePhotoStorage imageStorage,
-            GooglePlacesRatingSync googlePlacesRatingSync) {
+            GooglePlacesRatingSync googlePlacesRatingSync,
+            GeoapifyAirportService geoapifyAirportService) {
         this.jdbc = jdbc;
         this.imageStorage = imageStorage;
         this.googlePlacesRatingSync = googlePlacesRatingSync;
+        this.geoapifyAirportService = geoapifyAirportService;
     }
 
     @PostMapping("/partner/hotel-images")
@@ -604,7 +607,20 @@ public class PartnerController {
                 ORDER BY city, code
                 LIMIT 50
                 """, normalizedQuery, pattern, pattern, pattern, pattern, pattern);
-        return Map.of("airports", airports);
+        if (normalizedQuery.length() < 2) {
+            return Map.of("airports", airports);
+        }
+
+        Map<String, Map<String, Object>> uniqueAirports = new LinkedHashMap<>();
+        for (Map<String, Object> airport : airports) {
+            uniqueAirports.put(
+                    String.valueOf(airport.get("code")).toUpperCase(Locale.ROOT), airport);
+        }
+        for (Map<String, Object> airport : geoapifyAirportService.search(normalizedQuery)) {
+            uniqueAirports.putIfAbsent(
+                    String.valueOf(airport.get("code")).toUpperCase(Locale.ROOT), airport);
+        }
+        return Map.of("airports", uniqueAirports.values().stream().limit(50).toList());
     }
 
     @GetMapping("/flights/search")

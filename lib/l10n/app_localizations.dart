@@ -2577,6 +2577,18 @@ abstract class AppLocalizations {
   /// **'ابحث عن وجهة أو معلم...'**
   String get attractionSearchHint;
 
+  /// No description provided for @attractionCountryFilter.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث عن الأماكن حسب الدولة'**
+  String get attractionCountryFilter;
+
+  /// No description provided for @attractionCountryLoadError.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذر تحميل الأماكن. تحقق من الاتصال وحاول مرة أخرى.'**
+  String get attractionCountryLoadError;
+
   /// No description provided for @attractionCategoryAll.
   ///
   /// In ar, this message translates to:

@@ -1310,6 +1310,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Search for a destination or attraction...';
 
   @override
+  String get attractionCountryFilter => 'Search places by country';
+
+  @override
+  String get attractionCountryLoadError =>
+      'Places could not be loaded. Check your connection and try again.';
+
+  @override
   String get attractionCategoryAll => 'All';
 
   @override

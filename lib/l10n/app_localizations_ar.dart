@@ -1299,6 +1299,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get attractionSearchHint => 'ابحث عن وجهة أو معلم...';
 
   @override
+  String get attractionCountryFilter => 'ابحث عن الأماكن حسب الدولة';
+
+  @override
+  String get attractionCountryLoadError =>
+      'تعذر تحميل الأماكن. تحقق من الاتصال وحاول مرة أخرى.';
+
+  @override
   String get attractionCategoryAll => 'الكل';
 
   @override

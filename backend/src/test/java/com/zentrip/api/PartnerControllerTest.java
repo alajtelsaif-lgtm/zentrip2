@@ -26,8 +26,49 @@ import static org.mockito.Mockito.when;
 class PartnerControllerTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final ProfilePhotoStorage imageStorage = mock(ProfilePhotoStorage.class);
+    private final GeoapifyAirportService geoapifyAirportService =
+            mock(GeoapifyAirportService.class);
     private final PartnerController controller = new PartnerController(
-            jdbc, imageStorage, mock(GooglePlacesRatingSync.class));
+            jdbc, imageStorage, mock(GooglePlacesRatingSync.class), geoapifyAirportService);
+
+    @Test
+    void airportSearchCombinesLocalAirportsWithGlobalProviderMatches() {
+        when(jdbc.queryForList(
+                contains("FROM airports"),
+                eq("london"),
+                eq("%london%"),
+                eq("%london%"),
+                eq("%london%"),
+                eq("%london%"),
+                eq("%london%")))
+                .thenReturn(List.of(Map.of(
+                        "code", "LHR",
+                        "city", "London",
+                        "airport_name", "Heathrow Airport",
+                        "country", "United Kingdom",
+                        "region", "England")));
+        when(geoapifyAirportService.search("london"))
+                .thenReturn(List.of(
+                        Map.of(
+                                "code", "LHR",
+                                "city", "London",
+                                "airport_name", "Heathrow Airport",
+                                "country", "United Kingdom",
+                                "region", "England"),
+                        Map.of(
+                                "code", "LGW",
+                                "city", "London",
+                                "airport_name", "Gatwick Airport",
+                                "country", "United Kingdom",
+                                "region", "England")));
+
+        Map<String, Object> response = controller.searchAirports(" London ");
+
+        List<?> airports = (List<?>) response.get("airports");
+        assertEquals(2, airports.size());
+        assertEquals("LHR", ((Map<?, ?>) airports.get(0)).get("code"));
+        assertEquals("LGW", ((Map<?, ?>) airports.get(1)).get("code"));
+    }
 
     @Test
     void hotelImageUploadRequiresAnAuthenticatedHotelPartnerAndStoresImage() {
