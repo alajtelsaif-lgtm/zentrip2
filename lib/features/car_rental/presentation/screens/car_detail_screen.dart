@@ -200,7 +200,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         car.transmission == 'automatic'
                             ? l10n.carTransmissionAuto
                             : l10n.carTransmissionManual,
-                        AppColors.accentOrange),
+                        AppColors.primary),
                     _SpecChip(
                         Icons.ac_unit_rounded,
                         car.hasAC ? l10n.carHasAc : l10n.carNoAc,
@@ -258,7 +258,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                     const Divider(height: 20),
                     _PriceRow(l10n.carTotal,
                         '\$${car.totalPriceForDays(days).toStringAsFixed(0)}',
-                        isBold: true, color: AppColors.accentOrange),
+                        isBold: true, color: AppColors.primary),
                   ]),
                 ).animate().fade(delay: 150.ms),
                 const SizedBox(height: 28),
@@ -277,7 +277,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                           ? l10n.carBooking
                           : l10n.carBookNow),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accentOrange),
+                      backgroundColor: AppColors.primary),
                 ).animate().fade(delay: 220.ms),
               ]),
             ),

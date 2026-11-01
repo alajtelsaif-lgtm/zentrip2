@@ -194,7 +194,7 @@ class _CarRentalScreenState extends State<CarRentalScreen> {
       TextSpan(
         text: value.substring(start, end),
         style: const TextStyle(
-          color: AppColors.accentOrange,
+          color: AppColors.primary,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -276,7 +276,7 @@ class _CarRentalScreenState extends State<CarRentalScreen> {
                     decoration: InputDecoration(
                       hintText: l10n.carPickupCityHint,
                       prefixIcon: const Icon(Icons.place_rounded,
-                          color: AppColors.accentOrange),
+                          color: AppColors.primary),
                       suffixIcon: _isLoadingLocation
                           ? const Padding(
                               padding: EdgeInsets.all(14),
@@ -377,12 +377,12 @@ class _CarRentalScreenState extends State<CarRentalScreen> {
                           horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
                           color: _type == t
-                              ? AppColors.accentOrange
+                              ? AppColors.primary
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                               color: _type == t
-                                  ? AppColors.accentOrange
+                                  ? AppColors.primary
                                   : AppColors.border)),
                       child: Text(l,
                           style: TextStyle(
@@ -412,8 +412,8 @@ class _CarRentalScreenState extends State<CarRentalScreen> {
                   : const Icon(Icons.search_rounded),
               label: Text(
                   _ctrl.isLoading ? l10n.carSearching : l10n.carSearchButton),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accentOrange),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             ),
           ).animate().fade(delay: 180.ms),
           const SizedBox(height: 8),
@@ -621,7 +621,7 @@ class _CarCard extends StatelessWidget {
                     style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 18,
-                        color: AppColors.accentOrange)),
+                        color: AppColors.primary)),
                 Text(
                     '\$${car.pricePerDay.toStringAsFixed(0)} ${l10n.carPerDaySuffix}',
                     style: const TextStyle(
@@ -640,7 +640,7 @@ class _CarCard extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
-                        color: AppColors.accentOrange,
+                        color: AppColors.primary,
                         borderRadius: BorderRadius.circular(8)),
                     child: Text(l10n.book,
                         style: const TextStyle(

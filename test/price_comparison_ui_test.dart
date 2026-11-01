@@ -133,7 +133,7 @@ void main() {
       // The card is below the route header on narrow screens.
       await tester.drag(find.byType(ListView), const Offset(0, -260));
       await tester.pumpAndSettle();
-      expect(find.text('EUR 75.25'), findsOneWidget);
+      expect(find.text('€75.25'), findsOneWidget);
       expect(tester.takeException(), isNull);
       ctrl.dispose();
     });
@@ -177,7 +177,7 @@ void main() {
       await tester.tap(find.text('EUR').last);
       await tester.pumpAndSettle();
       expect(ctrl.results.length, 1);
-      expect(find.textContaining('EUR 50.00'), findsWidgets);
+      expect(find.textContaining('€50.00'), findsWidgets);
       expect(tester.takeException(), isNull);
       ctrl.dispose();
     });

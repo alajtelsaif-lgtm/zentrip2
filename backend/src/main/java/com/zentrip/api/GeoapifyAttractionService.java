@@ -103,7 +103,8 @@ public class GeoapifyAttractionService {
                     batches.add(new PlaceBatch(searchCity, center, features));
                     allFeatures.addAll(features);
                 } catch (RestClientException exception) {
-                    LOG.warn("Geoapify places unavailable for a destination city.");
+                    String reason = classifyProviderFailure(exception);
+                    LOG.warn("Geoapify places unavailable for a destination city ({})", reason);
                 }
             }
 
@@ -187,9 +188,8 @@ public class GeoapifyAttractionService {
         Map<?, ?> response = geoapify.get()
                 .uri(uri -> uri.path("/v2/places")
                         .queryParam("categories",
-                                "tourism.sights,tourism.attraction,tourism.museum,"
-                                        + "entertainment.museum,leisure.park,heritage,"
-                                        + "building.historic,building.architecture")
+                                "tourism.sights,tourism.attraction,entertainment.museum,"
+                                        + "leisure.park,heritage,building.historic")
                         .queryParam("filter", "circle:" + center.longitude()
                                 + "," + center.latitude() + ",25000")
                         .queryParam("bias", "proximity:" + center.longitude()
@@ -410,7 +410,7 @@ public class GeoapifyAttractionService {
                 || joined.contains("monument") || joined.contains("archaeological")) {
             return "historical";
         }
-        if (joined.contains("architecture")) return "architecture";
+        if (joined.contains("tourism.sights.building")) return "architecture";
         return "landmark";
     }
 
@@ -418,14 +418,30 @@ public class GeoapifyAttractionService {
         String joined = String.join(" ", categories).toLowerCase(Locale.ROOT);
         return joined.contains("tourism.sights")
                 || joined.contains("tourism.attraction")
-                || joined.contains("tourism.museum")
                 || joined.contains("entertainment.museum")
                 || joined.contains("leisure.park")
                 || joined.contains("heritage")
                 || joined.contains("historic")
                 || joined.contains("monument")
-                || joined.contains("archaeological")
-                || joined.contains("building.architecture");
+                || joined.contains("archaeological");
+    }
+
+    static String classifyProviderFailure(RestClientException exception) {
+        if (exception instanceof RestClientResponseException response) {
+            return classifyProviderFailure(
+                    response.getStatusCode().value(), response.getResponseBodyAsString());
+        }
+        return "network or timeout error";
+    }
+
+    static String classifyProviderFailure(int status, String responseBody) {
+        if (status != 400) return "HTTP " + status;
+        String safeBody = responseBody == null
+                ? ""
+                : responseBody.toLowerCase(Locale.ROOT);
+        if (safeBody.contains("category")) return "HTTP 400 (category filter rejected)";
+        if (safeBody.contains("filter")) return "HTTP 400 (place filter rejected)";
+        return "HTTP 400 (provider rejected request)";
     }
 
     private static String highlightCategory(List<String> categories) {

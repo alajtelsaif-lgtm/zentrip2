@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/api_service.dart';
 import '../../../../core/services/current_location_service.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -179,17 +180,49 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
 
   Future<void> _pickAirport({required bool isOrigin}) async {
     final l10n = AppLocalizations.of(context);
+    Timer? debounce;
+    var searchVersion = 0;
     final selected = await showModalBottomSheet<AirportOption>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) {
         var query = '';
+        var airports = AirportOption.supported;
+        var isLoading = true;
+        var didInitialize = false;
+
+        Future<void> loadAirports(
+          String value,
+          StateSetter setSheetState,
+        ) async {
+          final version = ++searchVersion;
+          try {
+            final matches = await ApiService.instance.searchAirports(value);
+            if (!sheetContext.mounted || version != searchVersion) return;
+            setSheetState(() {
+              airports = matches;
+              isLoading = false;
+            });
+          } catch (_) {
+            if (!sheetContext.mounted || version != searchVersion) return;
+            setSheetState(() {
+              airports = [];
+              isLoading = false;
+            });
+          }
+        }
+
         return SafeArea(
           child: StatefulBuilder(
             builder: (sheetContext, setSheetState) {
-              final airports = AirportOption.supported
-                  .where((airport) => airport.matches(query))
-                  .toList();
+              if (!didInitialize) {
+                didInitialize = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (sheetContext.mounted) {
+                    unawaited(loadAirports('', setSheetState));
+                  }
+                });
+              }
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -212,37 +245,59 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         hintText: l10n.partnerAirportSearch,
                         border: const OutlineInputBorder(),
                       ),
-                      onChanged: (value) => setSheetState(() => query = value),
+                      onChanged: (value) {
+                        query = value;
+                        searchVersion++;
+                        debounce?.cancel();
+                        setSheetState(() {
+                          isLoading = true;
+                          airports = [];
+                        });
+                        debounce = Timer(const Duration(milliseconds: 350), () {
+                          unawaited(loadAirports(value.trim(), setSheetState));
+                        });
+                      },
                     ),
                   ),
                   Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.only(bottom: 16),
-                      itemCount: airports.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final airport = airports[index];
-                        final label =
-                            '${_cityForCode(airport.code, l10n)} [${airport.code}]';
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: AppColors.primarySurface,
-                            child: Text(airport.code,
-                                style: const TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800)),
+                    child: airports.isEmpty
+                        ? Center(
+                            child: isLoading
+                                ? const CircularProgressIndicator()
+                                : Text(l10n.noResults),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.only(bottom: 16),
+                            itemCount: airports.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final airport = airports[index];
+                              final label =
+                                  '${_cityForCode(airport.code, l10n)} [${airport.code}]';
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: AppColors.primarySurface,
+                                  child: Text(
+                                    airport.code,
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                title: Text.rich(_highlightMatch(label, query)),
+                                subtitle: Text.rich(_highlightMatch(
+                                  '${airport.airportName} · ${airport.country}',
+                                  query,
+                                )),
+                                onTap: () =>
+                                    Navigator.pop(sheetContext, airport),
+                              );
+                            },
                           ),
-                          title: Text.rich(_highlightMatch(label, query)),
-                          subtitle: Text.rich(_highlightMatch(
-                            '${airport.airportName} · ${airport.country}',
-                            query,
-                          )),
-                          onTap: () => Navigator.pop(sheetContext, airport),
-                        );
-                      },
-                    ),
                   ),
                 ],
               );
@@ -251,6 +306,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         );
       },
     );
+    debounce?.cancel();
     if (selected == null || !mounted) return;
     setState(() {
       if (isOrigin) {

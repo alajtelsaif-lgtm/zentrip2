@@ -104,7 +104,9 @@ public class DuffelStayService {
             JsonNode results = response == null
                     ? null
                     : response.path("data").path("results");
-            if (results == null || !results.isArray()) return List.of();
+            if (results == null || !results.isArray()) {
+                return new SearchOutcome(List.of(), List.of());
+            }
 
             List<Map<String, Object>> hotels = new ArrayList<>();
             for (JsonNode result : results) {
