@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../features/flight_booking/logic/flight_controller.dart';
+import '../../../../features/flight_booking/logic/flexible_flight_selection.dart';
+import '../../../../features/flight_booking/presentation/widgets/flexible_flight_dates_button.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/services/current_location_service.dart';
@@ -45,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _roundTrip = true;
   DateTime _departureDate = DateTime.now().add(const Duration(days: 7));
   DateTime? _returnDate = DateTime.now().add(const Duration(days: 14));
+  FlexibleFlightSelection? _flexibleFlightSelection;
   int _passengers = 1;
   String _seatClass = 'economy';
   bool _isSearchingFlights = false;
@@ -197,8 +200,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void _setTripType(bool roundTrip) {
     setState(() {
       _roundTrip = roundTrip;
-      if (roundTrip && _returnDate == null) {
-        _returnDate = _departureDate.add(const Duration(days: 7));
+      if (roundTrip && _flexibleFlightSelection != null) {
+        _returnDate = _departureDate.add(
+          Duration(days: _flexibleFlightSelection!.tripDurationDays),
+        );
+      } else if (roundTrip && _returnDate == null) {
+        _returnDate = _departureDate.add(
+          const Duration(days: 7),
+        );
       }
     });
   }
@@ -266,6 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (selected == null || !mounted) return;
     setState(() {
+      _flexibleFlightSelection = null;
       if (departure) {
         _departureDate = selected;
         if (_returnDate != null && _returnDate!.isBefore(selected)) {
@@ -273,6 +283,27 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       } else {
         _returnDate = selected;
+      }
+    });
+  }
+
+  void _setFlexibleFlightSelection(FlexibleFlightSelection? selection) {
+    setState(() {
+      _flexibleFlightSelection = selection;
+      if (selection != null) {
+        final firstMonth = selection.departureMonths.reduce(
+          (a, b) => a.isBefore(b) ? a : b,
+        );
+        final now = DateTime.now();
+        _departureDate =
+            firstMonth.year == now.year && firstMonth.month == now.month
+                ? DateTime(now.year, now.month, now.day)
+                : firstMonth;
+        if (_roundTrip) {
+          _returnDate = _departureDate.add(
+            Duration(days: selection.tripDurationDays),
+          );
+        }
       }
     });
   }
@@ -361,6 +392,9 @@ class _HomeScreenState extends State<HomeScreen> {
       passengers: _passengers,
       seatClass: _seatClass,
       isRoundTrip: _roundTrip,
+      flexibleDepartureMonths:
+          _flexibleFlightSelection?.departureMonths ?? const [],
+      flexibleTripDurationDays: _flexibleFlightSelection?.tripDurationDays ?? 7,
     );
     setState(() => _isSearchingFlights = true);
     try {
@@ -425,10 +459,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPickDestination: () => _chooseAirport(origin: false),
                         departureDate: _departureDate,
                         returnDate: _returnDate,
+                        flexibleSelection: _flexibleFlightSelection,
                         passengers: _passengers,
                         seatClass: _seatClass,
                         onPickDepartureDate: () => _chooseDate(departure: true),
                         onPickReturnDate: () => _chooseDate(departure: false),
+                        onFlexibleDatesChanged: _setFlexibleFlightSelection,
                         onPickPassengers: _choosePassengers,
                         onPickSeatClass: _chooseSeatClass,
                         isSearching: _isSearchingFlights,
@@ -949,10 +985,12 @@ class _SearchCard extends StatelessWidget {
     required this.onPickDestination,
     required this.departureDate,
     required this.returnDate,
+    required this.flexibleSelection,
     required this.passengers,
     required this.seatClass,
     required this.onPickDepartureDate,
     required this.onPickReturnDate,
+    required this.onFlexibleDatesChanged,
     required this.onPickPassengers,
     required this.onPickSeatClass,
     required this.isSearching,
@@ -966,9 +1004,11 @@ class _SearchCard extends StatelessWidget {
   final VoidCallback onPickOrigin, onPickDestination;
   final DateTime departureDate;
   final DateTime? returnDate;
+  final FlexibleFlightSelection? flexibleSelection;
   final int passengers;
   final String seatClass;
   final VoidCallback onPickDepartureDate, onPickReturnDate;
+  final ValueChanged<FlexibleFlightSelection?> onFlexibleDatesChanged;
   final VoidCallback onPickPassengers, onPickSeatClass;
   final bool isSearching;
   final VoidCallback onSearch;
@@ -1081,24 +1121,35 @@ class _SearchCard extends StatelessWidget {
                 child: _SelectField(
                   label: l10n.departureDate,
                   icon: Icons.calendar_today_outlined,
-                  value: MaterialLocalizations.of(context)
-                      .formatMediumDate(departureDate),
+                  value: flexibleSelection == null
+                      ? MaterialLocalizations.of(context)
+                          .formatMediumDate(departureDate)
+                      : l10n.flightFlexibleButton,
                   onTap: onPickDepartureDate,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _SelectField(
-                  label: l10n.returnDate,
+                  label: flexibleSelection != null && roundTrip
+                      ? l10n.flightDuration
+                      : l10n.returnDate,
                   icon: Icons.calendar_today_outlined,
-                  value: roundTrip && returnDate != null
-                      ? MaterialLocalizations.of(context)
-                          .formatMediumDate(returnDate!)
-                      : '—',
+                  value: flexibleSelection != null && roundTrip
+                      ? '${flexibleSelection!.tripDurationDays} ${l10n.flightDays}'
+                      : roundTrip && returnDate != null
+                          ? MaterialLocalizations.of(context)
+                              .formatMediumDate(returnDate!)
+                          : '—',
                   onTap: roundTrip ? onPickReturnDate : null,
                 ),
               ),
             ],
+          ),
+          FlexibleFlightDatesButton(
+            selection: flexibleSelection,
+            onChanged: onFlexibleDatesChanged,
+            compact: false,
           ),
           const SizedBox(height: 10),
           Row(

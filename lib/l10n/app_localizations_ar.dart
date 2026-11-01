@@ -1438,6 +1438,43 @@ class AppLocalizationsAr extends AppLocalizations {
   String get flightNoResults => 'لا توجد رحلات متاحة';
 
   @override
+  String get flightFlexibleButton => 'تواريخ مرنة';
+
+  @override
+  String get flightSelectDates => 'اختر التواريخ';
+
+  @override
+  String get flightTripLength => 'كم مدة رحلتك؟';
+
+  @override
+  String get flightWeekend => 'عطلة نهاية الأسبوع';
+
+  @override
+  String get flightWeek => 'أسبوع';
+
+  @override
+  String get flightMonth => 'شهر';
+
+  @override
+  String get flightOther => 'مدة أخرى';
+
+  @override
+  String get flightDuration => 'المدة';
+
+  @override
+  String get flightDays => 'أيام';
+
+  @override
+  String get flightWhenToGo => 'متى تريد السفر؟';
+
+  @override
+  String get flightSelectUpToMonths => 'اختر حتى 3 أشهر';
+
+  @override
+  String get flightFlexibleSearchLoading =>
+      'جارٍ البحث عن الرحلات خلال الأشهر المحددة…';
+
+  @override
   String flightNoResultsForSearch(
       Object origin, Object destination, Object date) {
     return 'لا توجد رحلات من $origin إلى $destination بتاريخ $date.';
@@ -1483,9 +1520,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get flightSelectedSeats => 'المقاعد المختارة';
-
-  @override
-  String get flightDuration => 'المدة';
 
   @override
   String get flightBookingConfirmed => 'تم تأكيد الحجز';

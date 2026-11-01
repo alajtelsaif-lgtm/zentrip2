@@ -69,8 +69,24 @@ class _FlightResultsScreenState extends State<FlightResultsScreen> {
         listenable: ctrl,
         builder: (_, __) {
           if (ctrl.isLoading) {
-            return const Center(
-                child: CircularProgressIndicator(color: AppColors.primary));
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: AppColors.primary),
+                  if (ctrl.searchParams?.isFlexible == true) ...[
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        l10n.flightFlexibleSearchLoading,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
           }
           if (ctrl.results.isEmpty) {
             return Center(
@@ -120,6 +136,16 @@ class _FlightResultsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final params = controller.searchParams;
+    final departureLabel = params == null
+        ? l10n.searchFlights
+        : params.isFlexible
+            ? [
+                ...params.flexibleDepartureMonths.map((month) =>
+                    MaterialLocalizations.of(context).formatMonthYear(month)),
+                '${params.flexibleTripDurationDays} ${l10n.flightDays}',
+              ].join(' · ')
+            : MaterialLocalizations.of(context)
+                .formatMediumDate(params.departureDate);
     return Container(
       height: 194,
       margin: const EdgeInsets.only(bottom: 16),
@@ -149,10 +175,7 @@ class _FlightResultsHeader extends StatelessWidget {
                   const SizedBox(width: 7),
                   Expanded(
                     child: Text(
-                      params == null
-                          ? l10n.searchFlights
-                          : MaterialLocalizations.of(context)
-                              .formatMediumDate(params.departureDate),
+                      departureLabel,
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -346,11 +369,25 @@ class _FlightCardState extends State<_FlightCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(flight.airline,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: AppColors.primary)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(flight.airline,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: AppColors.primary)),
+                  const SizedBox(height: 2),
+                  Text(
+                    MaterialLocalizations.of(context)
+                        .formatMediumDate(flight.departureTime),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
               Row(children: [
                 if (!flight.priceIsTotal && flight.priceCurrencyCode == 'USD')
                   ListenableBuilder(

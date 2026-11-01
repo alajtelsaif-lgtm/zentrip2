@@ -476,6 +476,18 @@
   "flightClassLabel": "الدرجة",
   "flightSelectThis": "اختر هذه الرحلة",
   "flightNoResults": "لا توجد رحلات متاحة",
+  "flightFlexibleButton": "تواريخ مرنة",
+  "flightSelectDates": "اختر التواريخ",
+  "flightTripLength": "كم مدة رحلتك؟",
+  "flightWeekend": "عطلة نهاية الأسبوع",
+  "flightWeek": "أسبوع",
+  "flightMonth": "شهر",
+  "flightOther": "مدة أخرى",
+  "flightDuration": "مدة الرحلة",
+  "flightDays": "أيام",
+  "flightWhenToGo": "متى تريد السفر؟",
+  "flightSelectUpToMonths": "اختر حتى 3 أشهر",
+  "flightFlexibleSearchLoading": "جارٍ البحث عن الرحلات خلال الأشهر المحددة…",
   "flightNoResultsForSearch": "لا توجد رحلات من {origin} إلى {destination} بتاريخ {date}.",
   "@flightNoResultsForSearch": {
     "placeholders": {

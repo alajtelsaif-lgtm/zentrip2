@@ -1056,9 +1056,34 @@ class ApiService {
     bool isRoundTrip = false,
     int adults = 1,
     String seatClass = 'economy',
+    List<DateTime> flexibleDepartureMonths = const [],
+    int flexibleTripDurationDays = 7,
   }) async {
     if (useMockMode) {
       await Future.delayed(_mockDelay);
+      if (flexibleDepartureMonths.isNotEmpty) {
+        final now = DateTime.now();
+        final months = flexibleDepartureMonths.toSet().toList()
+          ..sort((a, b) => a.compareTo(b));
+        return months
+            .map((month) {
+              final firstDay = DateTime(month.year, month.month, 1);
+              final sampleDate = firstDay.isBefore(
+                DateTime(now.year, now.month, now.day),
+              )
+                  ? DateTime(now.year, now.month, now.day)
+                  : firstDay;
+              return MockDataService.flights(
+                origin: originCode,
+                destination: destinationCode,
+                originCity: originCity,
+                destinationCity: destinationCity,
+                departureDate: sampleDate,
+              );
+            })
+            .expand((flights) => flights)
+            .toList();
+      }
       return MockDataService.flights(
         origin: originCode,
         destination: destinationCode,
@@ -1067,17 +1092,30 @@ class ApiService {
         departureDate: departureDate,
       );
     }
+    final flexibleMonths = flexibleDepartureMonths
+        .map((month) =>
+            '${month.year.toString().padLeft(4, '0')}-${month.month.toString().padLeft(2, '0')}')
+        .toSet()
+        .toList()
+      ..sort();
+    final isFlexible = flexibleMonths.isNotEmpty;
     final res = await _dio.get(
-      '/flights/search',
+      isFlexible ? '/flights/search/flexible' : '/flights/search',
       queryParameters: {
         'origin': originCode,
         'destination': destinationCode,
-        'departure_date': _formatDate(departureDate),
-        if (returnDate != null) 'return_date': _formatDate(returnDate),
         'trip_type': isRoundTrip ? 'round_trip' : 'one_way',
         'adults': adults,
         'seat_class': seatClass,
+        if (isFlexible) 'months': flexibleMonths.join(','),
+        if (isFlexible) 'trip_duration_days': flexibleTripDurationDays,
+        if (!isFlexible) 'departure_date': _formatDate(departureDate),
+        if (!isFlexible && returnDate != null)
+          'return_date': _formatDate(returnDate),
       },
+      options: isFlexible
+          ? Options(receiveTimeout: const Duration(seconds: 150))
+          : null,
     );
     final payload = res.data;
     if (payload is! Map || payload['flights'] is! List) {

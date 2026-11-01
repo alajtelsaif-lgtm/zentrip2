@@ -19,9 +19,14 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class DuffelFlightService {
@@ -29,6 +34,12 @@ public class DuffelFlightService {
     private static final String API_BASE_URL = "https://api.duffel.com";
     private static final String OFFER_REQUEST_PATH =
             "/air/offer_requests?return_offers=true&supplier_timeout=10000";
+    private static final ExecutorService FLEXIBLE_SEARCH_EXECUTOR =
+            Executors.newFixedThreadPool(8, runnable -> {
+                Thread thread = new Thread(runnable, "duffel-flexible-search");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     private final boolean enabled;
     private final String accessToken;
@@ -107,6 +118,64 @@ public class DuffelFlightService {
                     HttpStatus.BAD_GATEWAY,
                     "The flight provider could not complete this search");
         }
+    }
+
+    /**
+     * Duffel searches an exact departure date per offer request. Flexible searches therefore
+     * fan out over the selected calendar days, using a bounded executor and stopping queued
+     * calls when the provider rejects the configured credentials.
+     */
+    public List<Map<String, Object>> searchFlightsForDates(
+            String origin,
+            String destination,
+            List<LocalDate> departureDates,
+            Integer tripDurationDays,
+            int adults,
+            String cabinClass) {
+        if (!isConfigured() || departureDates.isEmpty()) return List.of();
+
+        AtomicBoolean credentialsRejected = new AtomicBoolean(false);
+        List<CompletableFuture<List<Map<String, Object>>>> searches =
+                departureDates.stream()
+                        .map(departureDate -> CompletableFuture.supplyAsync(() -> {
+                            if (credentialsRejected.get()) {
+                                return List.<Map<String, Object>>of();
+                            }
+                            LocalDate returnDate = tripDurationDays == null
+                                    ? null
+                                    : departureDate.plusDays(tripDurationDays);
+                            try {
+                                return searchFlights(
+                                        origin,
+                                        destination,
+                                        departureDate,
+                                        returnDate,
+                                        adults,
+                                        cabinClass);
+                            } catch (ResponseStatusException exception) {
+                                String reason = exception.getReason();
+                                if (reason != null
+                                        && reason.contains("rejected the configured access token")) {
+                                    credentialsRejected.set(true);
+                                } else {
+                                    LOG.warn("Duffel flexible search failed for departure date {}",
+                                            departureDate);
+                                }
+                                return List.<Map<String, Object>>of();
+                            } catch (RuntimeException exception) {
+                                LOG.warn("Duffel flexible search failed for departure date {}",
+                                        departureDate);
+                                return List.<Map<String, Object>>of();
+                            }
+                        }, FLEXIBLE_SEARCH_EXECUTOR))
+                        .toList();
+
+        CompletableFuture.allOf(searches.toArray(CompletableFuture[]::new)).join();
+        return searches.stream()
+                .flatMap(search -> search.join().stream())
+                .sorted(Comparator.comparing((Map<String, Object> flight) ->
+                        String.valueOf(flight.get("departure_time"))))
+                .toList();
     }
 
     private static Map<String, Object> slice(

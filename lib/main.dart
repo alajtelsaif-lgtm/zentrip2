@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -18,7 +20,7 @@ import 'routes/app_routes.dart';
 /// مفتاح تنقّل عام يسمح بالتنقل من أي مكان في التطبيق حتى خارج BuildContext.
 final navigatorKey = GlobalKey<NavigatorState>();
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   ApiService.instance.init();
 
@@ -37,22 +39,33 @@ void main() async {
     );
   };
 
-  // تحميل التفضيلات المحفوظة قبل بناء الواجهة
-  await Future.wait([
-    ThemeController.instance.loadSavedTheme(),
-    LocaleController.instance.loadSavedLocale(),
-    FavoritesController.instance.load(),
-    NotificationsStore.instance.load(),
-    PriceAlertsStore.instance.load(),
-    CurrencyService.instance.init(),
-    ConnectivityService.instance.init(),
-  ]);
-
-  // تسجيل استقبال Push Notifications (آمن تمامًا حتى لو Firebase لسه مش
-  // مظبوط — بترجع فورًا من غير أي تأثير، راجع push_notification_service.dart).
-  await PushNotificationService.instance.initialize();
-
   runApp(const ZentripApp());
+  unawaited(_initializeServices());
+}
+
+Future<void> _initializeServices() async {
+  await Future.wait([
+    _initializeSafely('theme', ThemeController.instance.loadSavedTheme),
+    _initializeSafely('locale', LocaleController.instance.loadSavedLocale),
+    _initializeSafely('favorites', FavoritesController.instance.load),
+    _initializeSafely('notifications', NotificationsStore.instance.load),
+    _initializeSafely('price alerts', PriceAlertsStore.instance.load),
+    _initializeSafely('currency', CurrencyService.instance.init),
+    _initializeSafely('connectivity', ConnectivityService.instance.init),
+    _initializeSafely(
+        'push notifications', PushNotificationService.instance.initialize),
+  ]);
+}
+
+Future<void> _initializeSafely(
+  String service,
+  Future<void> Function() initialize,
+) async {
+  try {
+    await initialize().timeout(const Duration(seconds: 8));
+  } catch (error) {
+    debugPrint('Startup initialization for $service was skipped: $error');
+  }
 }
 
 class ZentripApp extends StatelessWidget {

@@ -9,6 +9,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
 import '../../../../routes/app_routes.dart';
 import '../../logic/flight_controller.dart';
+import '../../logic/flexible_flight_selection.dart';
+import '../widgets/flexible_flight_dates_button.dart';
 
 /// مفتاح تخزين آخر وجهة تم البحث عنها، يُستخدم من شاشة SearchFlightsScreen
 /// (لعرض اقتراح "كرر آخر بحث") ومن هذه الشاشة نفسها.
@@ -135,6 +137,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
 
   DateTime _departure = DateTime.now().add(const Duration(days: 7));
   DateTime? _return;
+  FlexibleFlightSelection? _flexibleFlightSelection;
 
   Future<void> _loadCurrentAirport() async {
     setState(() => _isLoadingOriginLocation = true);
@@ -307,10 +310,26 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       passengers: _passengers,
       seatClass: _class,
       isRoundTrip: _isRoundTrip,
+      flexibleDepartureMonths:
+          _flexibleFlightSelection?.departureMonths ?? const [],
+      flexibleTripDurationDays: _flexibleFlightSelection?.tripDurationDays ?? 7,
     );
     unawaited(FlightSearchHistory.saveDestination(_toCode, _toCity));
     if (!mounted) return;
     Navigator.pushNamed(context, AppRoutes.flightResults, arguments: params);
+  }
+
+  void _setRoundTrip(bool roundTrip) {
+    setState(() {
+      _isRoundTrip = roundTrip;
+      if (roundTrip && _flexibleFlightSelection != null) {
+        _return = _departure.add(
+          Duration(days: _flexibleFlightSelection!.tripDurationDays),
+        );
+      } else if (roundTrip && _return == null) {
+        _return = _departure.add(const Duration(days: 7));
+      }
+    });
   }
 
   @override
@@ -340,12 +359,12 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                     _TripTypeChip(
                         label: l10n.oneWay,
                         selected: !_isRoundTrip,
-                        onTap: () => setState(() => _isRoundTrip = false)),
+                        onTap: () => _setRoundTrip(false)),
                     const SizedBox(width: 10),
                     _TripTypeChip(
                         label: l10n.roundTrip,
                         selected: _isRoundTrip,
-                        onTap: () => setState(() => _isRoundTrip = true)),
+                        onTap: () => _setRoundTrip(true)),
                   ],
                 ).animate().fade(duration: 300.ms),
                 const SizedBox(height: 20),
@@ -437,7 +456,12 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                                   firstDate: DateTime.now(),
                                   lastDate: DateTime.now()
                                       .add(const Duration(days: 365)));
-                              if (d != null) setState(() => _departure = d);
+                              if (d != null) {
+                                setState(() {
+                                  _departure = d;
+                                  _flexibleFlightSelection = null;
+                                });
+                              }
                             })),
                     if (_isRoundTrip) ...[
                       const SizedBox(width: 10),
@@ -455,11 +479,42 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                                     firstDate: _departure,
                                     lastDate: DateTime.now()
                                         .add(const Duration(days: 365)));
-                                if (d != null) setState(() => _return = d);
+                                if (d != null) {
+                                  setState(() {
+                                    _return = d;
+                                    _flexibleFlightSelection = null;
+                                  });
+                                }
                               })),
                     ],
                   ],
                 ).animate().fade(delay: 180.ms),
+                FlexibleFlightDatesButton(
+                  selection: _flexibleFlightSelection,
+                  onChanged: (selection) {
+                    if (selection == null ||
+                        selection.departureMonths.isEmpty) {
+                      return;
+                    }
+                    final firstMonth = selection.departureMonths.reduce(
+                      (a, b) => a.isBefore(b) ? a : b,
+                    );
+                    final now = DateTime.now();
+                    final departureAnchor = firstMonth.year == now.year &&
+                            firstMonth.month == now.month
+                        ? DateTime(now.year, now.month, now.day)
+                        : firstMonth;
+                    setState(() {
+                      _flexibleFlightSelection = selection;
+                      _departure = departureAnchor;
+                      if (_isRoundTrip) {
+                        _return = departureAnchor.add(
+                          Duration(days: selection.tripDurationDays),
+                        );
+                      }
+                    });
+                  },
+                ),
                 const SizedBox(height: 16),
 
                 // ── Passengers + Class ────────────────────────────────

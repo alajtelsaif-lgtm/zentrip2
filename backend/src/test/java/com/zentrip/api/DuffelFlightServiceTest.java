@@ -108,6 +108,52 @@ class DuffelFlightServiceTest {
     }
 
     @Test
+    void flexibleSearchCreatesOneProviderRequestPerDepartureDate() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        String response = """
+                {
+                  "data": {
+                    "offers": [{
+                      "id": "off_flexible",
+                      "total_amount": "150.50",
+                      "total_currency": "USD",
+                      "owner": {"name": "Example Air", "iata_code": "EX"},
+                      "slices": [{
+                        "segments": [{
+                          "departing_at": "2026-11-08T09:00:00",
+                          "arriving_at": "2026-11-08T11:15:00",
+                          "origin": {"iata_code": "MJI", "city_name": "Misrata"},
+                          "destination": {"iata_code": "TUN", "city_name": "Tunis"}
+                        }]
+                      }]
+                    }]
+                  }
+                }
+                """;
+        server.expect(requestTo(OFFER_REQUEST_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(OFFER_REQUEST_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+        DuffelFlightService service =
+                new DuffelFlightService("unit-test-token", true, builder);
+
+        List<Map<String, Object>> flights = service.searchFlightsForDates(
+                "MJI",
+                "TUN",
+                List.of(LocalDate.parse("2026-11-08"), LocalDate.parse("2026-11-09")),
+                7,
+                1,
+                "economy");
+
+        assertEquals(2, flights.size());
+        assertEquals("duffel", flights.getFirst().get("source"));
+        server.verify();
+    }
+
+    @Test
     void disabledProviderDoesNotUseConfiguredToken() {
         DuffelFlightService service = new DuffelFlightService(
                 "unit-test-token", false, RestClient.builder());

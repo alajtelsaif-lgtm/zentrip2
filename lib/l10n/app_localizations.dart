@@ -2823,6 +2823,78 @@ abstract class AppLocalizations {
   /// **'لا توجد رحلات متاحة'**
   String get flightNoResults;
 
+  /// No description provided for @flightFlexibleButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'تواريخ مرنة'**
+  String get flightFlexibleButton;
+
+  /// No description provided for @flightSelectDates.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر التواريخ'**
+  String get flightSelectDates;
+
+  /// No description provided for @flightTripLength.
+  ///
+  /// In ar, this message translates to:
+  /// **'كم مدة رحلتك؟'**
+  String get flightTripLength;
+
+  /// No description provided for @flightWeekend.
+  ///
+  /// In ar, this message translates to:
+  /// **'عطلة نهاية الأسبوع'**
+  String get flightWeekend;
+
+  /// No description provided for @flightWeek.
+  ///
+  /// In ar, this message translates to:
+  /// **'أسبوع'**
+  String get flightWeek;
+
+  /// No description provided for @flightMonth.
+  ///
+  /// In ar, this message translates to:
+  /// **'شهر'**
+  String get flightMonth;
+
+  /// No description provided for @flightOther.
+  ///
+  /// In ar, this message translates to:
+  /// **'مدة أخرى'**
+  String get flightOther;
+
+  /// No description provided for @flightDuration.
+  ///
+  /// In ar, this message translates to:
+  /// **'المدة'**
+  String get flightDuration;
+
+  /// No description provided for @flightDays.
+  ///
+  /// In ar, this message translates to:
+  /// **'أيام'**
+  String get flightDays;
+
+  /// No description provided for @flightWhenToGo.
+  ///
+  /// In ar, this message translates to:
+  /// **'متى تريد السفر؟'**
+  String get flightWhenToGo;
+
+  /// No description provided for @flightSelectUpToMonths.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر حتى 3 أشهر'**
+  String get flightSelectUpToMonths;
+
+  /// No description provided for @flightFlexibleSearchLoading.
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ البحث عن الرحلات خلال الأشهر المحددة…'**
+  String get flightFlexibleSearchLoading;
+
   /// No description provided for @flightNoResultsForSearch.
   ///
   /// In ar, this message translates to:
@@ -2901,12 +2973,6 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'المقاعد المختارة'**
   String get flightSelectedSeats;
-
-  /// No description provided for @flightDuration.
-  ///
-  /// In ar, this message translates to:
-  /// **'المدة'**
-  String get flightDuration;
 
   /// No description provided for @flightBookingConfirmed.
   ///

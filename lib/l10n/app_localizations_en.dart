@@ -1451,6 +1451,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get flightNoResults => 'No flights available';
 
   @override
+  String get flightFlexibleButton => 'I\'m flexible';
+
+  @override
+  String get flightSelectDates => 'Select dates';
+
+  @override
+  String get flightTripLength => 'How long is your trip?';
+
+  @override
+  String get flightWeekend => 'A weekend';
+
+  @override
+  String get flightWeek => 'A week';
+
+  @override
+  String get flightMonth => 'A month';
+
+  @override
+  String get flightOther => 'Other';
+
+  @override
+  String get flightDuration => 'Duration';
+
+  @override
+  String get flightDays => 'days';
+
+  @override
+  String get flightWhenToGo => 'When do you want to go?';
+
+  @override
+  String get flightSelectUpToMonths => 'Select up to 3 months';
+
+  @override
+  String get flightFlexibleSearchLoading =>
+      'Searching flights across your selected months…';
+
+  @override
   String flightNoResultsForSearch(
       Object origin, Object destination, Object date) {
     return 'No flights found from $origin to $destination on $date.';
@@ -1496,9 +1533,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get flightSelectedSeats => 'Selected seats';
-
-  @override
-  String get flightDuration => 'Duration';
 
   @override
   String get flightBookingConfirmed => 'Booking Confirmed';

@@ -34,7 +34,10 @@ import java.util.regex.Pattern;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 
@@ -605,6 +608,77 @@ public class PartnerController {
         return airportDirectoryService.search(query);
     }
 
+    @GetMapping("/flights/search/flexible")
+    public Map<String, Object> searchFlexibleFlights(
+            @RequestParam String origin,
+            @RequestParam String destination,
+            @RequestParam String months,
+            @RequestParam(name = "trip_type", defaultValue = "one_way") String tripType,
+            @RequestParam(name = "trip_duration_days", defaultValue = "7") int tripDurationDays,
+            @RequestParam(defaultValue = "1") int adults,
+            @RequestParam(name = "seat_class", defaultValue = "economy") String seatClass) {
+        String originCode = origin.trim().toUpperCase(Locale.ROOT);
+        String destinationCode = destination.trim().toUpperCase(Locale.ROOT);
+        if (!originCode.matches("[A-Z0-9]{3}")
+                || !destinationCode.matches("[A-Z0-9]{3}")
+                || originCode.equals(destinationCode)
+                || adults < 1 || adults > 9) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid flight search parameters");
+        }
+        if (!Set.of("one_way", "round_trip").contains(tripType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid trip_type");
+        }
+        boolean roundTrip = "round_trip".equals(tripType);
+        if (tripDurationDays < 1 || tripDurationDays > 60) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "trip_duration_days must be between 1 and 60");
+        }
+        String normalizedClass = seatClass.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("economy", "business", "first").contains(normalizedClass)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported seat_class");
+        }
+
+        List<YearMonth> selectedMonths = parseFlexibleFlightMonths(months);
+        LocalDate today = LocalDate.now();
+        List<LocalDate> departureDates = new ArrayList<>();
+        for (YearMonth month : selectedMonths) {
+            for (int day = 1; day <= month.lengthOfMonth(); day++) {
+                LocalDate departure = month.atDay(day);
+                if (!departure.isBefore(today)) departureDates.add(departure);
+            }
+        }
+        if (departureDates.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "The selected months contain no future dates");
+        }
+
+        List<Map<String, Object>> flights = partnerFlightListings(
+                originCode,
+                destinationCode,
+                Set.copyOf(departureDates),
+                adults,
+                normalizedClass);
+        if (duffelFlightService.isConfigured()) {
+            try {
+                flights.addAll(duffelFlightService.searchFlightsForDates(
+                        originCode,
+                        destinationCode,
+                        departureDates,
+                        roundTrip ? tripDurationDays : null,
+                        adults,
+                        normalizedClass));
+            } catch (RuntimeException exception) {
+                LOG.warn("Duffel flexible flight search failed; returning {} matching partner flights",
+                        flights.size());
+            }
+        }
+        flights.sort(Comparator.comparing(flight -> text(flight.get("departure_time"))));
+        return Map.of(
+                "flights", flights,
+                "months", selectedMonths.stream().map(YearMonth::toString).toList());
+    }
+
     @GetMapping("/flights/search")
     public Map<String, Object> searchFlights(
             @RequestParam String origin,
@@ -634,39 +708,12 @@ public class PartnerController {
         if (!Set.of("economy", "business", "first").contains(normalizedClass)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported seat_class");
         }
-        List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT l.*, p.name AS partner_name, p.slug AS partner_slug
-                FROM partner_listings l
-                JOIN partners p ON p.id = l.partner_id AND p.status = 'active'
-                WHERE l.type = 'flight' AND l.active = TRUE
-                ORDER BY l.updated_at DESC
-                """);
-        List<Map<String, Object>> flights = new java.util.ArrayList<>();
-        for (Map<String, Object> row : rows) {
-            Map<String, Object> details = attributes(row.get("attributes"));
-            if (!originCode.equalsIgnoreCase(text(details.get("origin_code")))
-                    || !destinationCode.equalsIgnoreCase(
-                            text(details.get("destination_code")))) {
-                continue;
-            }
-            String departureTime = text(details.get("departure_time"));
-            if (departureTime.length() < 10
-                    || !requestedDeparture.equals(
-                            parseFlightDate(departureTime.substring(0, 10), "departure_time"))) {
-                continue;
-            }
-            Object rawSeats = details.get("seats_available");
-            if (rawSeats != null && intValue(rawSeats) < adults) continue;
-            String priceKey = switch (normalizedClass) {
-                case "business" -> "business_price";
-                case "first" -> "first_price";
-                default -> null;
-            };
-            if (priceKey != null && details.get(priceKey) == null) continue;
-            Map<String, Object> flight = publicListing(row, "flight");
-            if (priceKey != null) flight.put("economy_price", details.get(priceKey));
-            flights.add(flight);
-        }
+        List<Map<String, Object>> flights = partnerFlightListings(
+                originCode,
+                destinationCode,
+                Set.of(requestedDeparture),
+                adults,
+                normalizedClass);
         if (duffelFlightService.isConfigured()) {
             try {
                 flights.addAll(duffelFlightService.searchFlights(
@@ -685,6 +732,86 @@ public class PartnerController {
             }
         }
         return Map.of("flights", flights);
+    }
+
+    private List<Map<String, Object>> partnerFlightListings(
+            String originCode,
+            String destinationCode,
+            Set<LocalDate> departureDates,
+            int adults,
+            String normalizedClass) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT l.*, p.name AS partner_name, p.slug AS partner_slug
+                FROM partner_listings l
+                JOIN partners p ON p.id = l.partner_id AND p.status = 'active'
+                WHERE l.type = 'flight' AND l.active = TRUE
+                ORDER BY l.updated_at DESC
+                """);
+        List<Map<String, Object>> flights = new java.util.ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> details = attributes(row.get("attributes"));
+            if (!originCode.equalsIgnoreCase(text(details.get("origin_code")))
+                    || !destinationCode.equalsIgnoreCase(
+                            text(details.get("destination_code")))) {
+                continue;
+            }
+            String departureTime = text(details.get("departure_time"));
+            LocalDate listingDeparture = listingDepartureDate(departureTime);
+            if (listingDeparture == null || !departureDates.contains(listingDeparture)) continue;
+            Object rawSeats = details.get("seats_available");
+            if (rawSeats != null && intValue(rawSeats) < adults) continue;
+            String priceKey = switch (normalizedClass) {
+                case "business" -> "business_price";
+                case "first" -> "first_price";
+                default -> null;
+            };
+            if (priceKey != null && details.get(priceKey) == null) continue;
+            Map<String, Object> flight = publicListing(row, "flight");
+            if (priceKey != null) flight.put("economy_price", details.get(priceKey));
+            flights.add(flight);
+        }
+        return flights;
+    }
+
+    private static List<YearMonth> parseFlexibleFlightMonths(String rawMonths) {
+        if (rawMonths == null || rawMonths.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "months is required");
+        }
+        String[] values = rawMonths.split(",");
+        if (values.length > 3) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Select no more than 3 departure months");
+        }
+
+        YearMonth currentMonth = YearMonth.now();
+        YearMonth latestAllowedMonth = currentMonth.plusMonths(12);
+        LinkedHashSet<YearMonth> selected = new LinkedHashSet<>();
+        try {
+            for (String value : values) {
+                YearMonth month = YearMonth.parse(value.trim());
+                if (month.isBefore(currentMonth) || month.isAfter(latestAllowedMonth)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST, "Departure month is outside the search window");
+                }
+                selected.add(month);
+            }
+        } catch (DateTimeParseException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "months must use YYYY-MM format");
+        }
+        if (selected.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "months is required");
+        }
+        return selected.stream().sorted().toList();
+    }
+
+    private static LocalDate listingDepartureDate(String value) {
+        if (value == null || value.length() < 10) return null;
+        try {
+            return LocalDate.parse(value.substring(0, 10));
+        } catch (DateTimeParseException exception) {
+            return null;
+        }
     }
 
     private static LocalDate parseFlightDate(String value, String field) {

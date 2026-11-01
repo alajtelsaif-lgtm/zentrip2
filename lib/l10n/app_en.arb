@@ -490,6 +490,18 @@
   "flightClassLabel": "Class",
   "flightSelectThis": "Select this flight",
   "flightNoResults": "No flights available",
+  "flightFlexibleButton": "I'm flexible",
+  "flightSelectDates": "Select dates",
+  "flightTripLength": "How long is your trip?",
+  "flightWeekend": "A weekend",
+  "flightWeek": "A week",
+  "flightMonth": "A month",
+  "flightOther": "Other",
+  "flightDuration": "Trip duration",
+  "flightDays": "days",
+  "flightWhenToGo": "When do you want to go?",
+  "flightSelectUpToMonths": "Select up to 3 months",
+  "flightFlexibleSearchLoading": "Searching flights across your selected months…",
   "flightNoResultsForSearch": "No flights found from {origin} to {destination} on {date}.",
   "@flightNoResultsForSearch": {
     "placeholders": {

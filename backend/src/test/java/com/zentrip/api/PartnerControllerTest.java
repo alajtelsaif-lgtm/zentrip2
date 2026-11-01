@@ -510,6 +510,56 @@ class PartnerControllerTest {
     }
 
     @Test
+    void flexibleFlightSearchIncludesPartnerFlightsFromEachSelectedMonth() {
+        java.time.LocalDate firstDate = java.time.LocalDate.now().plusDays(2);
+        java.time.YearMonth firstMonth = java.time.YearMonth.from(firstDate);
+        java.time.YearMonth secondMonth = firstMonth.plusMonths(1);
+        java.time.YearMonth thirdMonth = firstMonth.plusMonths(2);
+        java.time.LocalDate secondDate = secondMonth.atDay(5);
+        java.time.LocalDate thirdDate = thirdMonth.atDay(7);
+        String selectedMonths = String.join(
+                ",", firstMonth.toString(), secondMonth.toString(), thirdMonth.toString());
+        when(jdbc.queryForList(contains("WHERE l.type = 'flight'")))
+                .thenReturn(List.of(
+                        partnerFlight(31L, "MRA", "MJI",
+                                firstDate + "T08:00:00", 3),
+                        partnerFlight(32L, "MRA", "MJI",
+                                secondDate + "T09:00:00", 3),
+                        partnerFlight(33L, "MRA", "MJI",
+                                thirdDate + "T10:00:00", 3),
+                        partnerFlight(34L, "MRA", "BEN",
+                                firstDate + "T11:00:00", 3)));
+
+        Map<String, Object> response = controller.searchFlexibleFlights(
+                "mra", "mji", selectedMonths, "round_trip", 7, 1, "economy");
+
+        List<?> flights = (List<?>) response.get("flights");
+        assertEquals(3, flights.size());
+        assertEquals(List.of(
+                firstMonth.toString(), secondMonth.toString(), thirdMonth.toString()),
+                response.get("months"));
+        assertEquals("partner-31", ((Map<?, ?>) flights.getFirst()).get("id"));
+        assertEquals("partner-33", ((Map<?, ?>) flights.getLast()).get("id"));
+    }
+
+    @Test
+    void flexibleFlightSearchRejectsMoreThanThreeMonthsBeforeQueryingDatabase() {
+        String months = java.time.YearMonth.now() + ","
+                + java.time.YearMonth.now().plusMonths(1) + ","
+                + java.time.YearMonth.now().plusMonths(2) + ","
+                + java.time.YearMonth.now().plusMonths(3);
+
+        ResponseStatusException error = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.searchFlexibleFlights(
+                        "MRA", "MJI", months, "one_way", 7, 1, "economy"));
+
+        assertEquals(400, error.getStatusCode().value());
+        verify(jdbc, never()).queryForList(
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
     void flightSearchKeepsPartnerResultsWhenDuffelIsUnavailable() {
         when(jdbc.queryForList(contains("WHERE l.type = 'flight'")))
                 .thenReturn(List.of(partnerFlight(

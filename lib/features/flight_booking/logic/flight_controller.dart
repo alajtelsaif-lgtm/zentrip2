@@ -12,6 +12,8 @@ class FlightSearchParams {
   final int passengers;
   final String seatClass; // 'economy' | 'business' | 'first'
   final bool isRoundTrip;
+  final List<DateTime> flexibleDepartureMonths;
+  final int flexibleTripDurationDays;
 
   const FlightSearchParams({
     required this.originCode,
@@ -23,7 +25,11 @@ class FlightSearchParams {
     this.passengers = 1,
     this.seatClass = 'economy',
     this.isRoundTrip = false,
+    this.flexibleDepartureMonths = const [],
+    this.flexibleTripDurationDays = 7,
   });
+
+  bool get isFlexible => flexibleDepartureMonths.isNotEmpty;
 }
 
 enum FlightSort { cheapest, fastest }
@@ -55,6 +61,8 @@ class FlightController extends ChangeNotifier {
         isRoundTrip: params.isRoundTrip,
         adults: params.passengers,
         seatClass: params.seatClass,
+        flexibleDepartureMonths: params.flexibleDepartureMonths,
+        flexibleTripDurationDays: params.flexibleTripDurationDays,
       );
       if (revision != _searchRevision) return;
       results = flights;
