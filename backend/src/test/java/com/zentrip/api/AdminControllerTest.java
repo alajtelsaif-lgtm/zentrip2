@@ -17,6 +17,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -132,6 +133,55 @@ class AdminControllerTest {
                 () -> controller.partners(authenticatedRequest()));
 
         assertEquals(403, exception.getStatusCode().value());
+    }
+
+    @Test
+    void partnerDirectoryOmitsPlacesAndDoesNotDependOnLegacyReviewTable() {
+        when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
+                .thenReturn("admin");
+        when(jdbc.queryForList(contains("FROM partners p"))).thenReturn(List.of());
+
+        Map<String, Object> response = controller.partners(authenticatedRequest());
+
+        assertEquals(List.of(), response.get("partners"));
+        verify(jdbc).queryForList(contains(
+                "WHERE TRIM(LOWER(COALESCE(p.service_type, ''))) <> 'attraction'"));
+    }
+
+    @Test
+    void legacyPlaceListingDoesNotRequireTheOptionalReviewTable() {
+        when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
+                .thenReturn("admin");
+        when(jdbc.queryForObject(
+                "SELECT to_regclass('legacy_attraction_partner_reviews') IS NOT NULL",
+                Boolean.class))
+                .thenReturn(false);
+        when(jdbc.queryForList(contains("WHERE LOWER(p.service_type) = 'attraction'")))
+                .thenReturn(List.of());
+
+        Map<String, Object> response =
+                controller.legacyAttractionPartners(authenticatedRequest());
+
+        assertEquals(List.of(), response.get("partners"));
+        verify(jdbc).queryForList(contains("NULL AS approved_at, NULL AS reviewed_by_name"));
+    }
+
+    @Test
+    void legacyPlaceReviewFailsSafelyWhenReviewStorageIsMissing() {
+        when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
+                .thenReturn("admin");
+        when(jdbc.queryForObject(
+                "SELECT to_regclass('legacy_attraction_partner_reviews') IS NOT NULL",
+                Boolean.class))
+                .thenReturn(false);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.reviewAndRetireAttractionPartner(
+                        12, Map.of("approved", true), authenticatedRequest()));
+
+        assertEquals(409, exception.getStatusCode().value());
+        verify(jdbc, never()).queryForList(contains("FOR UPDATE"));
     }
 
     @Test

@@ -55,7 +55,7 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Column(children: [
               DropdownButtonFormField<String>(
-                value: _ctrl.selectedCountry,
+                initialValue: _ctrl.selectedCountry,
                 decoration: InputDecoration(
                   labelText: l10n.attractionCountryFilter,
                   prefixIcon: const Icon(Icons.public_rounded),
@@ -159,10 +159,11 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
             child: ListenableBuilder(
               listenable: _ctrl,
               builder: (_, __) {
-                if (_ctrl.isLoading)
+                if (_ctrl.isLoading) {
                   return const Center(
                       child: CircularProgressIndicator(
                           color: AppColors.accentPurple));
+                }
                 if (_ctrl.hasError) {
                   return Center(
                     child: Text(
@@ -175,12 +176,13 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                     ),
                   );
                 }
-                if (_ctrl.results.isEmpty)
+                if (_ctrl.results.isEmpty) {
                   return Center(
                       child: Text(l10n.noResults,
                           style: const TextStyle(
                               color: AppColors.textSecondary,
                               fontWeight: FontWeight.w600)));
+                }
                 return GridView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(

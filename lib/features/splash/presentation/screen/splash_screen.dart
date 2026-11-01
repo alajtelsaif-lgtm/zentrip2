@@ -175,7 +175,7 @@ class _OrbitalGlobeState extends State<_OrbitalGlobe>
             child: Align(
               alignment: Alignment.topCenter,
               child: Padding(
-                padding: EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.only(top: 12),
                 child: Transform.rotate(
                   angle: math.pi / 2,
                   child: const Icon(

@@ -73,7 +73,11 @@ class _FlightResultsScreenState extends State<FlightResultsScreen> {
                 child: CircularProgressIndicator(color: AppColors.primary));
           }
           if (ctrl.results.isEmpty) {
-            return Center(child: Text(l10n.flightNoResults));
+            return Center(
+              child: Text(
+                ctrl.hasSearchError ? l10n.genericError : l10n.flightNoResults,
+              ),
+            );
           }
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
@@ -350,40 +354,40 @@ class _FlightCardState extends State<_FlightCard> {
               Row(children: [
                 if (!flight.priceIsTotal && flight.priceCurrencyCode == 'USD')
                   ListenableBuilder(
-                  listenable: PriceAlertsStore.instance,
-                  builder: (_, __) {
-                    final tracking = PriceAlertsStore.instance.isTracking(
-                        flight.originCode,
-                        flight.destinationCode,
-                        flight.departureTime);
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () async {
-                        if (tracking) {
-                          await PriceAlertsStore.instance.untrack(
-                              flight.originCode,
-                              flight.destinationCode,
-                              flight.departureTime);
-                        } else {
-                          await PriceAlertsStore.instance.track(
-                            originCode: flight.originCode,
-                            destinationCode: flight.destinationCode,
-                            departureDate: flight.departureTime,
-                            priceUsd: flight.economyPrice,
-                          );
-                        }
-                      },
-                      child: Icon(
-                          tracking
-                              ? Icons.notifications_active_rounded
-                              : Icons.notifications_none_rounded,
-                          size: 20,
-                          color: tracking
-                              ? AppColors.accentOrange
-                              : AppColors.textSecondary),
-                    );
-                  },
-                ),
+                    listenable: PriceAlertsStore.instance,
+                    builder: (_, __) {
+                      final tracking = PriceAlertsStore.instance.isTracking(
+                          flight.originCode,
+                          flight.destinationCode,
+                          flight.departureTime);
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () async {
+                          if (tracking) {
+                            await PriceAlertsStore.instance.untrack(
+                                flight.originCode,
+                                flight.destinationCode,
+                                flight.departureTime);
+                          } else {
+                            await PriceAlertsStore.instance.track(
+                              originCode: flight.originCode,
+                              destinationCode: flight.destinationCode,
+                              departureDate: flight.departureTime,
+                              priceUsd: flight.economyPrice,
+                            );
+                          }
+                        },
+                        child: Icon(
+                            tracking
+                                ? Icons.notifications_active_rounded
+                                : Icons.notifications_none_rounded,
+                            size: 20,
+                            color: tracking
+                                ? AppColors.accentOrange
+                                : AppColors.textSecondary),
+                      );
+                    },
+                  ),
               ]),
             ],
           ),
@@ -437,9 +441,10 @@ class _FlightCardState extends State<_FlightCard> {
                         color: AppColors.accentRed,
                         fontWeight: FontWeight.w600)),
               Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(flight.priceCurrencyCode == 'USD'
-                    ? '\$'
-                    : '${flight.priceCurrencyCode} ',
+                Text(
+                    flight.priceCurrencyCode == 'USD'
+                        ? '\$'
+                        : '${flight.priceCurrencyCode} ',
                     style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -471,7 +476,7 @@ class _FlightCardState extends State<_FlightCard> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-          onPressed: flight.isDuffelOffer ? null : onSelect,
+              onPressed: flight.isDuffelOffer ? null : onSelect,
               style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
               child: Text(l10n.flightSelectThis),
             ),

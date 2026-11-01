@@ -63,18 +63,21 @@ public class PartnerController {
     private final GooglePlacesRatingSync googlePlacesRatingSync;
     private final AirportDirectoryService airportDirectoryService;
     private final DuffelFlightService duffelFlightService;
+    private final DuffelStayService duffelStayService;
 
     public PartnerController(
             JdbcTemplate jdbc,
             ProfilePhotoStorage imageStorage,
             GooglePlacesRatingSync googlePlacesRatingSync,
             AirportDirectoryService airportDirectoryService,
-            DuffelFlightService duffelFlightService) {
+            DuffelFlightService duffelFlightService,
+            DuffelStayService duffelStayService) {
         this.jdbc = jdbc;
         this.imageStorage = imageStorage;
         this.googlePlacesRatingSync = googlePlacesRatingSync;
         this.airportDirectoryService = airportDirectoryService;
         this.duffelFlightService = duffelFlightService;
+        this.duffelStayService = duffelStayService;
     }
 
     @PostMapping("/partner/hotel-images")
@@ -674,8 +677,10 @@ public class PartnerController {
                         adults,
                         normalizedClass));
             } catch (ResponseStatusException exception) {
-                if (flights.isEmpty()) throw exception;
                 LOG.warn("Duffel unavailable; returning {} matching partner flights",
+                        flights.size());
+            } catch (RuntimeException exception) {
+                LOG.warn("Duffel flight search failed; returning {} matching partner flights",
                         flights.size());
             }
         }
@@ -735,11 +740,111 @@ public class PartnerController {
 
     @GetMapping("/hotels/search")
     public Map<String, Object> searchHotels(
-            @RequestParam(defaultValue = "") String city) {
-        List<Map<String, Object>> rows = hotelSearchRows(city.trim());
-        return Map.of("hotels", rows.stream()
+            @RequestParam(defaultValue = "") String city,
+            @RequestParam(name = "check_in", required = false) String checkIn,
+            @RequestParam(name = "check_out", required = false) String checkOut,
+            @RequestParam(defaultValue = "1") int rooms,
+            @RequestParam(defaultValue = "2") int guests) {
+        if (rooms < 1 || rooms > 10 || guests < 1 || guests > 20) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid room or guest count");
+        }
+        String normalizedCity = city.trim();
+        List<Map<String, Object>> rows = hotelSearchRows(normalizedCity);
+        List<Map<String, Object>> hotels = rows.stream()
                 .map(row -> publicListing(row, "hotel"))
-                .toList());
+                .collect(java.util.stream.Collectors.toCollection(
+                        java.util.ArrayList::new));
+        LocalDate parsedCheckIn = checkIn == null || checkIn.isBlank()
+                ? null
+                : parseFlightDate(checkIn, "check_in");
+        LocalDate parsedCheckOut = checkOut == null || checkOut.isBlank()
+                ? null
+                : parseFlightDate(checkOut, "check_out");
+        if ((parsedCheckIn == null) != (parsedCheckOut == null)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Both check_in and check_out are required");
+        }
+        if (parsedCheckIn != null) {
+            long nights = java.time.temporal.ChronoUnit.DAYS.between(
+                    parsedCheckIn, parsedCheckOut);
+            if (!parsedCheckOut.isAfter(parsedCheckIn) || nights > 99
+                    || parsedCheckIn.isAfter(LocalDate.now().plusDays(330))) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Invalid hotel stay dates");
+            }
+            HotelCoordinates center = hotelSearchCoordinates(normalizedCity, rows);
+            if (center != null && duffelStayService.isConfigured()) {
+                hotels.addAll(duffelStayService.searchHotels(
+                        normalizedCity,
+                        center.latitude(),
+                        center.longitude(),
+                        parsedCheckIn,
+                        parsedCheckOut,
+                        rooms,
+                        guests));
+            }
+        }
+        long partnerCount = hotels.stream()
+                .filter(hotel -> "partner".equals(hotel.get("source")))
+                .count();
+        long duffelCount = hotels.size() - partnerCount;
+        return Map.of(
+                "hotels", List.copyOf(hotels),
+                "sources", Map.of("partner", partnerCount, "duffel", duffelCount));
+    }
+
+    private HotelCoordinates hotelSearchCoordinates(
+            String city, List<Map<String, Object>> partnerRows) {
+        if (city.isBlank()) return null;
+        try {
+            Map<String, Object> directory = airportDirectoryService.search(city);
+            Object resolved = directory.get("resolved_location");
+            if (resolved instanceof Map<?, ?> location) {
+                HotelCoordinates coordinates = coordinatesFrom(location);
+                if (coordinates != null) return coordinates;
+            }
+            Object airportValues = directory.get("airports");
+            if (airportValues instanceof List<?> airports) {
+                for (Object airport : airports) {
+                    if (airport instanceof Map<?, ?> airportMap) {
+                        HotelCoordinates coordinates = coordinatesFrom(airportMap);
+                        if (coordinates != null) return coordinates;
+                    }
+                }
+            }
+        } catch (RuntimeException exception) {
+            LOG.debug("Airport directory could not resolve hotel search location.");
+        }
+        for (Map<String, Object> row : partnerRows) {
+            HotelCoordinates coordinates = hotelCoordinates(attributes(row.get("attributes")));
+            if (coordinates != null) return coordinates;
+        }
+        return null;
+    }
+
+    private static HotelCoordinates coordinatesFrom(Map<?, ?> location) {
+        Double latitude = coordinateValue(location.get("latitude"));
+        Double longitude = coordinateValue(location.get("longitude"));
+        if (latitude == null || longitude == null
+                || !validCoordinate(latitude, -90, 90)
+                || !validCoordinate(longitude, -180, 180)) {
+            return null;
+        }
+        return new HotelCoordinates(latitude, longitude);
+    }
+
+    private static Double coordinateValue(Object value) {
+        if (value instanceof Number number) {
+            double coordinate = number.doubleValue();
+            return Double.isFinite(coordinate) ? coordinate : null;
+        }
+        try {
+            double coordinate = Double.parseDouble(text(value));
+            return Double.isFinite(coordinate) ? coordinate : null;
+        } catch (NumberFormatException exception) {
+            return null;
+        }
     }
 
     @GetMapping("/hotels/nearby")
@@ -1439,6 +1544,7 @@ public class PartnerController {
         listing.put("partner_name", partnerName);
         listing.put("city", city);
         listing.put("country", country);
+        listing.put("source", "partner");
         listing.put("description",
                 "flight".equals(type) ? "" : text(row.get("description")));
         listing.put("image_url", "flight".equals(type) ? null : row.get("image_url"));

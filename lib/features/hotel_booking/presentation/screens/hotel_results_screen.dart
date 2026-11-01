@@ -81,7 +81,8 @@ class _HotelResultsScreenState extends State<HotelResultsScreen> {
               const Icon(Icons.hotel_rounded,
                   size: 64, color: AppColors.textHint),
               const SizedBox(height: 12),
-              Text(l10n.hotelNoResults,
+              Text(
+                  ctrl.hasSearchError ? l10n.genericError : l10n.hotelNoResults,
                   style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontWeight: FontWeight.w600))
@@ -181,7 +182,7 @@ class _HotelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSoldOut = hotel.availableRooms < rooms;
+    final isSoldOut = hotel.availabilityKnown && hotel.availableRooms < rooms;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -340,7 +341,7 @@ class _HotelCard extends StatelessWidget {
                       text: TextSpan(children: [
                     TextSpan(
                         text:
-                            '\$${hotel.pricingFor(nights, rooms: rooms).totalPrice.toStringAsFixed(0)}',
+                            '${hotel.priceCurrencyCode} ${hotel.pricingFor(nights, rooms: rooms).totalPrice.toStringAsFixed(0)}',
                         style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,

@@ -21,6 +21,7 @@ class HotelSearchParams {
 }
 
 enum HotelSort { priceLow, priceHigh, rating, distance }
+
 enum HotelFilter { all, budget, midRange, luxury }
 
 class HotelController extends ChangeNotifier {
@@ -30,24 +31,40 @@ class HotelController extends ChangeNotifier {
   List<HotelModel> _all = [];
   List<HotelModel> results = [];
   bool isLoading = false;
+  bool hasSearchError = false;
   HotelSort sort = HotelSort.rating;
   HotelFilter filter = HotelFilter.all;
   HotelModel? selectedHotel;
+  int _searchRevision = 0;
 
   Future<void> search(HotelSearchParams params) async {
+    final revision = ++_searchRevision;
     searchParams = params;
     isLoading = true;
+    hasSearchError = false;
     notifyListeners();
-    _all = await ApiService.instance.searchHotels(
-      city: params.city,
-      checkIn: params.checkIn,
-      checkOut: params.checkOut,
-      rooms: params.rooms,
-      guests: params.guests,
-    );
-    _applyFilter();
-    isLoading = false;
-    notifyListeners();
+    try {
+      final hotels = await ApiService.instance.searchHotels(
+        city: params.city,
+        checkIn: params.checkIn,
+        checkOut: params.checkOut,
+        rooms: params.rooms,
+        guests: params.guests,
+      );
+      if (revision != _searchRevision) return;
+      _all = hotels;
+      _applyFilter();
+    } catch (_) {
+      if (revision != _searchRevision) return;
+      _all = [];
+      results = [];
+      hasSearchError = true;
+    } finally {
+      if (revision == _searchRevision) {
+        isLoading = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> searchNearby(
@@ -56,6 +73,7 @@ class HotelController extends ChangeNotifier {
     required double longitude,
     double radiusMeters = defaultNearbyRadiusMeters,
   }) async {
+    final revision = ++_searchRevision;
     searchParams = HotelSearchParams(
       city: params.city,
       checkIn: params.checkIn,
@@ -64,6 +82,7 @@ class HotelController extends ChangeNotifier {
       guests: params.guests,
     );
     isLoading = true;
+    hasSearchError = false;
     sort = HotelSort.distance;
     notifyListeners();
     try {
@@ -72,10 +91,18 @@ class HotelController extends ChangeNotifier {
         lng: longitude,
         radiusMeters: radiusMeters,
       );
+      if (revision != _searchRevision) return;
       _applyFilter();
+    } catch (_) {
+      if (revision != _searchRevision) return;
+      _all = [];
+      results = [];
+      hasSearchError = true;
     } finally {
-      isLoading = false;
-      notifyListeners();
+      if (revision == _searchRevision) {
+        isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -99,15 +126,42 @@ class HotelController extends ChangeNotifier {
   void _applyFilter() {
     List<HotelModel> r = List.of(_all);
     switch (filter) {
-      case HotelFilter.budget: r = r.where((h) => h.pricePerNight < 100).toList(); break;
-      case HotelFilter.midRange: r = r.where((h) => h.pricePerNight >= 100 && h.pricePerNight < 250).toList(); break;
-      case HotelFilter.luxury: r = r.where((h) => h.pricePerNight >= 250).toList(); break;
-      default: break;
+      case HotelFilter.budget:
+        r = r.where((h) => h.pricePerNight < 100).toList();
+        break;
+      case HotelFilter.midRange:
+        r = r
+            .where((h) => h.pricePerNight >= 100 && h.pricePerNight < 250)
+            .toList();
+        break;
+      case HotelFilter.luxury:
+        r = r.where((h) => h.pricePerNight >= 250).toList();
+        break;
+      default:
+        break;
     }
     switch (sort) {
-      case HotelSort.priceLow: r.sort((a, b) => a.pricePerNight.compareTo(b.pricePerNight)); break;
-      case HotelSort.priceHigh: r.sort((a, b) => b.pricePerNight.compareTo(a.pricePerNight)); break;
-      case HotelSort.rating: r.sort((a, b) => b.rating.compareTo(a.rating)); break;
+      case HotelSort.priceLow:
+        r.sort((a, b) {
+          final currencyOrder =
+              a.priceCurrencyCode.compareTo(b.priceCurrencyCode);
+          return currencyOrder != 0
+              ? currencyOrder
+              : a.pricePerNight.compareTo(b.pricePerNight);
+        });
+        break;
+      case HotelSort.priceHigh:
+        r.sort((a, b) {
+          final currencyOrder =
+              a.priceCurrencyCode.compareTo(b.priceCurrencyCode);
+          return currencyOrder != 0
+              ? currencyOrder
+              : b.pricePerNight.compareTo(a.pricePerNight);
+        });
+        break;
+      case HotelSort.rating:
+        r.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
       case HotelSort.distance:
         r.sort((a, b) => (a.distanceMeters ?? double.infinity)
             .compareTo(b.distanceMeters ?? double.infinity));

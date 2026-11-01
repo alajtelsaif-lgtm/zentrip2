@@ -209,7 +209,7 @@ class _TicketCard extends StatelessWidget {
                       ),
                       child: Text(
                         confirmedLabel.toUpperCase(),
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AppColors.primary,
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
@@ -239,9 +239,7 @@ class _TicketCard extends StatelessWidget {
                         ),
                       ),
                       _RoutePoint(
-                          code: routeEnd!,
-                          city: secondaryText,
-                          alignEnd: true),
+                          code: routeEnd!, city: secondaryText, alignEnd: true),
                     ],
                   )
                 else ...[
@@ -449,4 +447,3 @@ class _TicketNotchedDivider extends StatelessWidget {
     );
   }
 }
-

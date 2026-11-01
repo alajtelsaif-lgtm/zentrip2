@@ -30,6 +30,9 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
   int _photoIndex = 0;
   Future<ApiResult<List<ReviewModel>>>? _hotelReviewsFuture;
 
+  String _formatPrice(HotelModel hotel, double amount, {int decimals = 0}) =>
+      '${hotel.priceCurrencyCode} ${amount.toStringAsFixed(decimals)}';
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -67,8 +70,12 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
       AppSnackbar.error(context, l10n.genericError);
       return;
     }
+    if (hotel.isDuffelOffer) {
+      AppSnackbar.warning(context, l10n.hotelDuffelBookingUnavailable);
+      return;
+    }
     final rooms = ctrl?.searchParams?.rooms ?? 1;
-    if (hotel.availableRooms < rooms) {
+    if (hotel.availabilityKnown && hotel.availableRooms < rooms) {
       AppSnackbar.error(context, l10n.hotelSoldOut);
       return;
     }
@@ -106,6 +113,7 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
 
     setState(() => _isBooking = true);
     await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
     final booking = BookingModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       type: BookingType.hotel,
@@ -156,8 +164,9 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
           primaryText: hotel.name,
           secondaryText: hotel.address,
           reference: ref,
-          dateLabel: MaterialLocalizations.of(context).formatMediumDate(checkIn),
-          priceLabel: '\$${totalPrice.toStringAsFixed(2)}',
+          dateLabel:
+              MaterialLocalizations.of(context).formatMediumDate(checkIn),
+          priceLabel: _formatPrice(hotel, totalPrice, decimals: 2),
           serviceIcon: Icons.hotel_rounded,
         ),
       ),
@@ -173,7 +182,7 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
     final nights = ctrl?.searchParams?.nights ?? 1;
     final rooms = ctrl?.searchParams?.rooms ?? 1;
     if (hotel == null) return const BookingLoadError();
-    final isSoldOut = hotel.availableRooms < rooms;
+    final isSoldOut = hotel.availabilityKnown && hotel.availableRooms < rooms;
     final pricing = hotel.pricingFor(nights, rooms: rooms);
 
     return Scaffold(
@@ -341,27 +350,29 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                   child: Column(children: [
                     _Row(
                       l10n.hotelNightPrice,
-                      '\$${hotel.pricePerNight.toStringAsFixed(0)}',
+                      _formatPrice(hotel, hotel.pricePerNight),
                     ),
                     _Row(l10n.hotelNightsCount, l10n.hotelNightsValue(nights)),
                     _Row(
                       l10n.hotelSubtotal,
-                      '\$${pricing.subtotal.toStringAsFixed(0)}',
+                      _formatPrice(hotel, pricing.subtotal),
                     ),
                     _Row(
                       '${l10n.hotelTaxesFees} '
-                          '(${hotel.taxAndFeesPercentage.toStringAsFixed(0)}%)',
-                      '\$${pricing.taxAndFees.toStringAsFixed(0)}',
+                      '(${hotel.taxAndFeesPercentage.toStringAsFixed(0)}%)',
+                      _formatPrice(hotel, pricing.taxAndFees),
                     ),
                     const Divider(height: 20),
                     _Row(l10n.hotelTotal,
-                        '\$${pricing.totalPrice.toStringAsFixed(0)}',
+                        _formatPrice(hotel, pricing.totalPrice),
                         isBold: true, color: AppColors.primary),
                   ]),
                 ).animate().fade(delay: 200.ms),
                 const SizedBox(height: 28),
                 ElevatedButton.icon(
-                  onPressed: _isBooking || isSoldOut ? null : _book,
+                  onPressed: _isBooking || isSoldOut || hotel.isDuffelOffer
+                      ? null
+                      : _book,
                   icon: _isBooking
                       ? const SizedBox(
                           width: 18,
@@ -369,11 +380,13 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.hotel_rounded),
-                  label: Text(isSoldOut
-                      ? l10n.hotelSoldOut
-                      : _isBooking
-                          ? l10n.hotelBookingInProgress
-                          : l10n.hotelBookNow),
+                  label: Text(hotel.isDuffelOffer
+                      ? l10n.hotelDuffelBookingUnavailable
+                      : isSoldOut
+                          ? l10n.hotelSoldOut
+                          : _isBooking
+                              ? l10n.hotelBookingInProgress
+                              : l10n.hotelBookNow),
                 ).animate().fade(delay: 280.ms),
                 const SizedBox(height: 20),
               ]),

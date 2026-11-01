@@ -842,12 +842,13 @@ class _Header extends StatelessWidget {
               children: [
                 Text(
                   l10n.greeting,
-                  style: TextStyle(fontSize: 13, color: Color(0xFFC9D0F5)),
+                  style:
+                      const TextStyle(fontSize: 13, color: Color(0xFFC9D0F5)),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   l10n.homeSearchTitle,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,

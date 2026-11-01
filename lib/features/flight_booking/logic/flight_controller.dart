@@ -32,16 +32,20 @@ class FlightController extends ChangeNotifier {
   FlightSearchParams? searchParams;
   List<FlightModel> results = [];
   bool isLoading = false;
+  bool hasSearchError = false;
   FlightSort sort = FlightSort.cheapest;
   FlightModel? selectedFlight;
+  int _searchRevision = 0;
 
   Future<void> search(FlightSearchParams params) async {
+    final revision = ++_searchRevision;
     searchParams = params;
     isLoading = true;
+    hasSearchError = false;
     results = [];
     notifyListeners();
     try {
-      results = await ApiService.instance.searchFlights(
+      final flights = await ApiService.instance.searchFlights(
         originCode: params.originCode,
         destinationCode: params.destinationCode,
         originCity: params.originCity,
@@ -52,10 +56,18 @@ class FlightController extends ChangeNotifier {
         adults: params.passengers,
         seatClass: params.seatClass,
       );
+      if (revision != _searchRevision) return;
+      results = flights;
       _applySort();
+    } catch (_) {
+      if (revision != _searchRevision) return;
+      results = [];
+      hasSearchError = true;
     } finally {
-      isLoading = false;
-      notifyListeners();
+      if (revision == _searchRevision) {
+        isLoading = false;
+        notifyListeners();
+      }
     }
   }
 

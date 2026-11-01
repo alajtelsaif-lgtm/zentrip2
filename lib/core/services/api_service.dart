@@ -1028,11 +1028,8 @@ class ApiService {
     }
   }
 
-  // ── Search: Flights / Hotels / Cars / Attractions / Transfers ───────────
-  // كل الطلبات دي بتروح لباك اند Zentrip نفسه (نفس baseUrl فوق) — الباك
-  // اند هو اللي بيكلم Amadeus/Booking.com بمفاتيحه الخاصة (مخزّنة في
-  // .env عنده)، ويرجّعلنا بيانات بنفس شكل الموديلات هنا بالظبط. يعني
-  // مفتاح API حقيقي **مايتحطش في التطبيق خالص** — ده مبدأ أمان أساسي.
+  // Search requests go through Zentrip's backend so provider credentials stay
+  // server-side and provider responses use the app's existing model contracts.
 
   Future<AirportSearchResult> searchAirportDirectory(String query) async {
     final response = await _dio.get(
@@ -1082,10 +1079,37 @@ class ApiService {
         'seat_class': seatClass,
       },
     );
-    return (res.data['flights'] as List)
-        .map((flight) =>
-            FlightModel.fromJson(Map<String, dynamic>.from(flight as Map)))
-        .toList();
+    final payload = res.data;
+    if (payload is! Map || payload['flights'] is! List) {
+      throw const FormatException('Invalid flight search response');
+    }
+    final flights = <FlightModel>[];
+    for (final value in payload['flights'] as List) {
+      if (value is! Map) continue;
+      final json = Map<String, dynamic>.from(value);
+      if (!_isUsableFlight(json)) continue;
+      flights.add(FlightModel.fromJson(json));
+    }
+    return flights;
+  }
+
+  static bool _isUsableFlight(Map<String, dynamic> json) {
+    final origin = (json['origin_code'] ?? '').toString().trim();
+    final destination = (json['destination_code'] ?? '').toString().trim();
+    final departure =
+        DateTime.tryParse((json['departure_time'] ?? '').toString());
+    final arrival = DateTime.tryParse((json['arrival_time'] ?? '').toString());
+    final rawPrice = json['economy_price'];
+    final price = rawPrice is num
+        ? rawPrice.toDouble()
+        : double.tryParse((rawPrice ?? '').toString());
+    return origin.isNotEmpty &&
+        destination.isNotEmpty &&
+        departure != null &&
+        arrival != null &&
+        price != null &&
+        price.isFinite &&
+        price >= 0;
   }
 
   Future<ApiResult<FlightSeatMap>> getFlightSeatMap(String flightId) {
@@ -1215,27 +1239,27 @@ class ApiService {
       await Future.delayed(_mockDelay);
       return MockDataService.hotels(city: city);
     }
-    try {
-      final res = await _dio.get(
-        '/hotels/search',
-        queryParameters: {
-          'city': city,
-          if (checkIn != null) 'check_in': _formatDate(checkIn),
-          if (checkOut != null) 'check_out': _formatDate(checkOut),
-          'rooms': rooms,
-          'guests': guests,
-        },
-      );
-      final hotels = (res.data['hotels'] as List)
-          .map((h) => HotelModel.fromJson(h as Map<String, dynamic>))
-          .toList();
-      return [...hotels, ...MockDataService.hotels(city: city)];
-    } catch (_) {
-      final partnerHotels = (await _loadPartnerInventory('hotel', city: city))
-          .map(HotelModel.fromJson)
-          .toList();
-      return [...partnerHotels, ...MockDataService.hotels(city: city)];
+    final res = await _dio.get(
+      '/hotels/search',
+      queryParameters: {
+        'city': city,
+        if (checkIn != null) 'check_in': _formatDate(checkIn),
+        if (checkOut != null) 'check_out': _formatDate(checkOut),
+        'rooms': rooms,
+        'guests': guests,
+      },
+    );
+    final payload = res.data;
+    if (payload is! Map || payload['hotels'] is! List) {
+      throw const FormatException('Invalid hotel search response');
     }
+    final byId = <String, HotelModel>{};
+    for (final value in payload['hotels'] as List) {
+      if (value is! Map) continue;
+      final hotel = HotelModel.fromJson(Map<String, dynamic>.from(value));
+      if (hotel.id.isNotEmpty) byId.putIfAbsent(hotel.id, () => hotel);
+    }
+    return byId.values.toList(growable: false);
   }
 
   Future<List<String>> searchHotelLocations(String query) async {

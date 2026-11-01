@@ -79,6 +79,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
     setState(() => _isBooking = true);
     await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
     final booking = BookingModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       type: BookingType.car,

@@ -34,6 +34,11 @@ class HotelModel {
   final bool isActive;
   final String? locationInput;
   final String? googlePlaceId;
+  final String source;
+  final String priceCurrencyCode;
+  final String? providerSearchResultId;
+  final String? providerAccommodationId;
+  final bool availabilityKnown;
 
   const HotelModel({
     required this.id,
@@ -64,7 +69,14 @@ class HotelModel {
     this.isActive = true,
     this.locationInput,
     this.googlePlaceId,
+    this.source = 'partner',
+    this.priceCurrencyCode = 'USD',
+    this.providerSearchResultId,
+    this.providerAccommodationId,
+    this.availabilityKnown = true,
   });
+
+  bool get isDuffelOffer => source == 'duffel';
 
   static String _stringFromDynamic(dynamic value, [String fallback = '']) {
     if (value == null) return fallback;
@@ -85,8 +97,12 @@ class HotelModel {
 
   static double _doubleFromDynamic(dynamic value, [double fallback = 0]) {
     if (value == null) return fallback;
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value) ?? fallback;
+    final parsed = value is num
+        ? value.toDouble()
+        : value is String
+            ? double.tryParse(value)
+            : null;
+    if (parsed != null && parsed.isFinite) return parsed;
     return fallback;
   }
 
@@ -94,10 +110,41 @@ class HotelModel {
     final raw = json['attributes'];
     if (raw is Map) return Map<String, dynamic>.from(raw);
     if (raw is String && raw.trim().isNotEmpty) {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } on FormatException {
+        return const {};
+      }
     }
     return const {};
+  }
+
+  static List<String> _stringList(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .where((item) => item != null)
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+
+  static bool _boolFromDynamic(dynamic value, [bool fallback = false]) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      switch (value.trim().toLowerCase()) {
+        case '1':
+        case 'true':
+        case 'yes':
+          return true;
+        case '0':
+        case 'false':
+        case 'no':
+          return false;
+      }
+    }
+    return fallback;
   }
 
   static List<Map<String, dynamic>> _objectList(dynamic value) {
@@ -109,8 +156,9 @@ class HotelModel {
   }
 
   static double? _coordinateFrom(Object? value) {
-    if (value is num) return value.toDouble();
-    return double.tryParse('$value'.trim());
+    final parsed =
+        value is num ? value.toDouble() : double.tryParse('$value'.trim());
+    return parsed != null && parsed.isFinite ? parsed : null;
   }
 
   static (double?, double?) _coordinatesFromInput(String value) {
@@ -204,6 +252,11 @@ class HotelModel {
         isActive: isActive,
         locationInput: locationInput,
         googlePlaceId: googlePlaceId,
+        source: source,
+        priceCurrencyCode: priceCurrencyCode,
+        providerSearchResultId: providerSearchResultId,
+        providerAccommodationId: providerAccommodationId,
+        availabilityKnown: availabilityKnown,
       );
 
   factory HotelModel.fromJson(Map<String, dynamic> json) {
@@ -238,16 +291,14 @@ class HotelModel {
       ),
     );
 
-    final rawGoogleRating = json['google_rating'] ??
-        attributes['google_rating'] ??
-        json['rating'];
+    final rawGoogleRating =
+        json['google_rating'] ?? attributes['google_rating'] ?? json['rating'];
     final rawGoogleReviewCount = json['google_review_count'] ??
         attributes['google_review_count'] ??
         json['review_count'];
     final googleRating = _doubleFromDynamic(rawGoogleRating);
     final googleReviewCount = _intFromDynamic(rawGoogleReviewCount);
-    if (kDebugMode &&
-        _stringFromDynamic(json['id']).startsWith('partner-')) {
+    if (kDebugMode && _stringFromDynamic(json['id']).startsWith('partner-')) {
       debugPrint(
         '[HotelModel] Google rating parse for ${json['id']}: '
         'rating=$rawGoogleRating (${rawGoogleRating.runtimeType}) '
@@ -290,17 +341,10 @@ class HotelModel {
               _stringFromDynamic(json['image_url']).trim().isEmpty
           ? _fallbackImageUrl
           : _stringFromDynamic(json['image_url']),
-      galleryImages: (json['gallery_images'] as List? ??
-              attributes['gallery_images'] as List? ??
-              const [])
-          .map((image) => image.toString())
-          .where((image) => image.trim().isNotEmpty)
-          .toList(),
-      amenities: (json['amenities'] as List? ??
-              attributes['amenities'] as List? ??
-              const [])
-          .map((e) => e.toString())
-          .toList(),
+      galleryImages: _stringList(
+        json['gallery_images'] ?? attributes['gallery_images'],
+      ),
+      amenities: _stringList(json['amenities'] ?? attributes['amenities']),
       description: _stringFromDynamic(json['description']),
       stars: _intFromDynamic(json['stars'] ?? attributes['stars']),
       latitude: latitude,
@@ -317,15 +361,25 @@ class HotelModel {
         json['availability_schedule'] ?? attributes['availability_schedule'],
       ),
       status: status,
-      isActive: activeValue is bool
-          ? activeValue
-          : activeValue == null ||
-              activeValue == 1 ||
-              activeValue == '1' ||
-              activeValue == 'true',
+      isActive: _boolFromDynamic(activeValue, true),
       locationInput: locationInput.isEmpty ? null : locationInput,
       googlePlaceId: _stringFromDynamic(
         json['google_place_id'] ?? attributes['google_place_id'],
+      ),
+      source: _stringFromDynamic(json['source'], 'partner').toLowerCase(),
+      priceCurrencyCode: _stringFromDynamic(
+        json['price_currency'] ?? json['currency'],
+        'USD',
+      ).toUpperCase(),
+      providerSearchResultId: _nullableString(
+        json['provider_search_result_id'],
+      ),
+      providerAccommodationId: _nullableString(
+        json['provider_accommodation_id'],
+      ),
+      availabilityKnown: _boolFromDynamic(
+        json['availability_known'],
+        true,
       ),
     );
   }

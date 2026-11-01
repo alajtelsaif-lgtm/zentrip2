@@ -3202,6 +3202,12 @@ abstract class AppLocalizations {
   /// **'احجز الآن'**
   String get hotelBookNow;
 
+  /// No description provided for @hotelDuffelBookingUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'حجز فنادق Duffel غير متاح بعد'**
+  String get hotelDuffelBookingUnavailable;
+
   /// No description provided for @hotelSoldOut.
   ///
   /// In ar, this message translates to:

@@ -30,12 +30,14 @@ class PartnerControllerTest {
     private final AirportDirectoryService airportDirectoryService =
             mock(AirportDirectoryService.class);
     private final DuffelFlightService duffelFlightService = mock(DuffelFlightService.class);
+    private final DuffelStayService duffelStayService = mock(DuffelStayService.class);
     private final PartnerController controller = new PartnerController(
             jdbc,
             imageStorage,
             mock(GooglePlacesRatingSync.class),
             airportDirectoryService,
-            duffelFlightService);
+            duffelFlightService,
+            duffelStayService);
 
     @Test
     void airportSearchDelegatesTheUniversalSearchQuery() {
@@ -530,6 +532,39 @@ class PartnerControllerTest {
         List<?> flights = (List<?>) response.get("flights");
         assertEquals(1, flights.size());
         assertEquals("partner-25", ((Map<?, ?>) flights.getFirst()).get("id"));
+    }
+
+    @Test
+    void hotelSearchCombinesPartnerAndDuffelUsingExistingHotelEndpoint() {
+        when(jdbc.queryForList(contains("WHERE l.type = 'hotel'")))
+                .thenReturn(List.of());
+        when(airportDirectoryService.search("London")).thenReturn(Map.of(
+                "airports", List.of(Map.of(
+                        "latitude", 51.5072,
+                        "longitude", -0.1276))));
+        when(duffelStayService.isConfigured()).thenReturn(true);
+        Map<String, Object> duffelHotel = Map.of(
+                "id", "duffel-srr-search-result",
+                "source", "duffel",
+                "name", "Duffel Test Hotel",
+                "price_currency", "GBP");
+        when(duffelStayService.searchHotels(
+                eq("London"),
+                eq(51.5072),
+                eq(-0.1276),
+                eq(java.time.LocalDate.parse("2026-12-01")),
+                eq(java.time.LocalDate.parse("2026-12-03")),
+                eq(1),
+                eq(2)))
+                .thenReturn(List.of(duffelHotel));
+
+        Map<String, Object> response = controller.searchHotels(
+                "London", "2026-12-01", "2026-12-03", 1, 2);
+
+        List<?> hotels = (List<?>) response.get("hotels");
+        assertEquals(1, hotels.size());
+        assertEquals("duffel", ((Map<?, ?>) hotels.getFirst()).get("source"));
+        assertEquals(Map.of("partner", 0L, "duffel", 1L), response.get("sources"));
     }
 
     @Test

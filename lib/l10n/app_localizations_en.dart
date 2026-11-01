@@ -1669,6 +1669,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hotelBookNow => 'Book Now';
 
   @override
+  String get hotelDuffelBookingUnavailable =>
+      'Duffel hotel booking is not available yet';
+
+  @override
   String get hotelSoldOut => 'Sold out';
 
   @override

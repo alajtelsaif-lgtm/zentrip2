@@ -571,6 +571,7 @@
   "hotelBookingSuccess": "✅ تم حجز الفندق بنجاح!",
   "hotelBookingInProgress": "جارٍ الحجز...",
   "hotelBookNow": "احجز الآن",
+  "hotelDuffelBookingUnavailable": "حجز فنادق Duffel غير متاح بعد",
   "hotelSoldOut": "نفدت الغرف",
   "hotelAbout": "عن الفندق",
   "hotelAmenities": "المرافق",

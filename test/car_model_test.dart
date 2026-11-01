@@ -39,7 +39,7 @@ void main() {
   });
 
   test('calculates total rental price for the selected duration', () {
-    final car = CarModel(
+    const car = CarModel(
       id: 'car-1',
       brand: 'Kia',
       model: 'Picanto',
@@ -49,7 +49,7 @@ void main() {
       seats: 4,
       transmission: 'manual',
       fuelType: 'gasoline',
-      features: const [],
+      features: [],
       rating: 4.1,
       pickupLocation: 'Misrata',
       insuranceFee: 4,

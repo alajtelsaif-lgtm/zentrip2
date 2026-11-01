@@ -1655,6 +1655,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hotelBookNow => 'احجز الآن';
 
   @override
+  String get hotelDuffelBookingUnavailable => 'حجز فنادق Duffel غير متاح بعد';
+
+  @override
   String get hotelSoldOut => 'نفدت الغرف';
 
   @override

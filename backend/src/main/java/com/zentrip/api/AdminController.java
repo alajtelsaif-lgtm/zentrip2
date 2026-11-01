@@ -128,7 +128,7 @@ public class AdminController {
                        COALESCE(accounts.account_count, 0) AS account_count,
                        COALESCE(accounts.contact_emails, '') AS contact_emails,
                        COALESCE(listings.listing_count, 0) AS listing_count,
-                       reviews.approved_at AS attraction_reviewed_at
+                       NULL::timestamp AS attraction_reviewed_at
                 FROM partners p
                 LEFT JOIN (
                     SELECT partner_id, COUNT(*) AS account_count,
@@ -142,8 +142,7 @@ public class AdminController {
                     FROM partner_listings
                     GROUP BY partner_id
                 ) listings ON listings.partner_id = p.id
-                LEFT JOIN legacy_attraction_partner_reviews reviews
-                    ON reviews.partner_id = p.id
+                WHERE TRIM(LOWER(COALESCE(p.service_type, ''))) <> 'attraction'
                 ORDER BY (LOWER(p.status) = 'active') DESC, LOWER(p.name), p.id
                 """);
         return Map.of("partners", rows);
@@ -152,10 +151,20 @@ public class AdminController {
     @GetMapping("/partners/legacy-attractions")
     public Map<String, Object> legacyAttractionPartners(HttpServletRequest request) {
         requireAdminId(request);
-        List<Map<String, Object>> rows = jdbc.queryForList("""
+        boolean hasReviewStorage = legacyAttractionReviewStorageExists();
+        String reviewColumns = hasReviewStorage
+                ? "reviews.approved_at, reviewer.name AS reviewed_by_name"
+                : "NULL AS approved_at, NULL AS reviewed_by_name";
+        String reviewJoins = hasReviewStorage
+                ? """
+                  LEFT JOIN legacy_attraction_partner_reviews reviews
+                      ON reviews.partner_id = p.id
+                  LEFT JOIN users reviewer ON reviewer.id = reviews.reviewed_by
+                  """
+                : "";
+        String sql = """
                 SELECT p.id AS partner_id, p.name AS partner_name, p.slug,
-                       p.status, p.created_at, reviews.approved_at,
-                       reviewer.name AS reviewed_by_name,
+                       p.status, p.created_at, %s,
                        u.email AS account_email,
                        l.id AS listing_id, l.type AS listing_type, l.title,
                        l.city, l.country, l.description, l.image_url, l.price,
@@ -164,13 +173,12 @@ public class AdminController {
                        l.google_maps_url, l.place_id
                 FROM partners p
                 LEFT JOIN users u ON u.partner_id = p.id
-                LEFT JOIN legacy_attraction_partner_reviews reviews
-                    ON reviews.partner_id = p.id
-                LEFT JOIN users reviewer ON reviewer.id = reviews.reviewed_by
+                %s
                 LEFT JOIN partner_listings l ON l.partner_id = p.id
                 WHERE LOWER(p.service_type) = 'attraction'
                 ORDER BY p.id, l.id, u.email
-                """);
+                """.formatted(reviewColumns, reviewJoins);
+        List<Map<String, Object>> rows = jdbc.queryForList(sql);
 
         Map<Long, Map<String, Object>> partnersById = new LinkedHashMap<>();
         for (Map<String, Object> row : rows) {
@@ -237,6 +245,11 @@ public class AdminController {
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
         long adminId = requireAdminId(request);
+        if (!legacyAttractionReviewStorageExists()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Legacy attraction review storage is unavailable; no changes were made");
+        }
         if (!booleanValue(body.get("approved"), false)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Admin approval is required before retiring access");
@@ -1060,6 +1073,12 @@ public class AdminController {
                 WHERE id = ? AND LOWER(service_type) = 'attraction'
                 """, Integer.class, id);
         return count != null && count > 0;
+    }
+
+    private boolean legacyAttractionReviewStorageExists() {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT to_regclass('legacy_attraction_partner_reviews') IS NOT NULL",
+                Boolean.class));
     }
 
     private static String jsonList(Object raw) {

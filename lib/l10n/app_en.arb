@@ -585,6 +585,7 @@
   "hotelBookingSuccess": "✅ Hotel booked successfully!",
   "hotelBookingInProgress": "Booking...",
   "hotelBookNow": "Book Now",
+  "hotelDuffelBookingUnavailable": "Duffel hotel booking is not available yet",
   "hotelSoldOut": "Sold out",
   "hotelAbout": "About the Hotel",
   "hotelAmenities": "Amenities",
