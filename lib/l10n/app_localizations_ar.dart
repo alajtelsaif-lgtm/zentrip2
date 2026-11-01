@@ -1705,6 +1705,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hotelAmenities => 'المرافق';
 
   @override
+  String get hotelRoomRatesTitle => 'أسعار الغرف المتاحة';
+
+  @override
+  String get hotelRoomRatesLoading => 'جارٍ تحميل الأسعار الحالية…';
+
+  @override
+  String get hotelRoomRatesUnavailable => 'أسعار الغرف غير متاحة مؤقتًا.';
+
+  @override
   String get hotelDefaultDescription =>
       'فندق راقٍ يقع في قلب المدينة يوفر أجواءً مريحة ومرافق متكاملة للضيوف.';
 

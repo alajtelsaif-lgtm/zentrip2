@@ -1720,6 +1720,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hotelAmenities => 'Amenities';
 
   @override
+  String get hotelRoomRatesTitle => 'Available room rates';
+
+  @override
+  String get hotelRoomRatesLoading => 'Loading current rates…';
+
+  @override
+  String get hotelRoomRatesUnavailable =>
+      'Room rates are temporarily unavailable.';
+
+  @override
   String get hotelDefaultDescription =>
       'An upscale hotel in the heart of the city offering a comfortable atmosphere and full amenities for guests.';
 

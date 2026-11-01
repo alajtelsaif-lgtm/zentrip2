@@ -3298,6 +3298,24 @@ abstract class AppLocalizations {
   /// **'المرافق'**
   String get hotelAmenities;
 
+  /// No description provided for @hotelRoomRatesTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أسعار الغرف المتاحة'**
+  String get hotelRoomRatesTitle;
+
+  /// No description provided for @hotelRoomRatesLoading.
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ تحميل الأسعار الحالية…'**
+  String get hotelRoomRatesLoading;
+
+  /// No description provided for @hotelRoomRatesUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'أسعار الغرف غير متاحة مؤقتًا.'**
+  String get hotelRoomRatesUnavailable;
+
   /// No description provided for @hotelDefaultDescription.
   ///
   /// In ar, this message translates to:

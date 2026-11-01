@@ -1,9 +1,14 @@
 package com.zentrip.api;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 
@@ -39,5 +44,46 @@ class SecurityConfigIntegrationTest {
                         .contentType("application/json")
                         .content("{\"email\":\"user@example.com\",\"password\":\"wrong\"}"))
                 .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void protectedRoleEndpointsRejectRequestsWithoutTokens() throws Exception {
+        mockMvc.perform(get("/api/admin/dashboard"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/partner/dashboard"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/bookings"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void customerTokenCannotReadAdminOrPartnerDashboards() throws Exception {
+        String token = "customer-role-test-token";
+        when(jdbcTemplate.queryForList(
+                contains("FROM api_tokens t"),
+                eq(TokenAuthFilter.sha256(token)),
+                any(Timestamp.class)))
+                .thenReturn(List.of(Map.of("user_id", 27L, "role", "customer")));
+
+        mockMvc.perform(get("/api/admin/dashboard")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/partner/dashboard")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void customerTokenCanReachCustomerBookingEndpoints() throws Exception {
+        String token = "customer-booking-test-token";
+        when(jdbcTemplate.queryForList(
+                contains("FROM api_tokens t"),
+                eq(TokenAuthFilter.sha256(token)),
+                any(Timestamp.class)))
+                .thenReturn(List.of(Map.of("user_id", 28L, "role", "customer")));
+
+        mockMvc.perform(get("/api/bookings")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
     }
 }

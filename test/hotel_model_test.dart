@@ -70,6 +70,50 @@ void main() {
     expect(hotel.isActive, isTrue);
   });
 
+  test('Duffel room offers and rating provenance are retained', () {
+    final hotel = HotelModel.fromJson({
+      'id': 'duffel-srr-example',
+      'source': 'duffel',
+      'provider_search_result_id': 'srr_example',
+      'rating_source': 'duffel',
+      'review_score': 8.6,
+      'room_types': [
+        {
+          'name': 'Double room',
+          'rates': [
+            {
+              'id': 'rate-1',
+              'name': 'Breakfast included',
+              'total_amount': '400.00',
+              'total_currency': 'GBP',
+            },
+          ],
+        },
+      ],
+      'offers': [
+        {
+          'id': 'rate-1',
+          'room_name': 'Double room',
+          'name': 'Breakfast included',
+          'total_amount': '400.00',
+          'total_currency': 'GBP',
+        },
+      ],
+    });
+
+    expect(hotel.ratingSource, 'duffel');
+    expect(hotel.reviewScore, 8.6);
+    expect(hotel.roomTypes.single['rates'], hasLength(1));
+    expect(hotel.offers.single['total_currency'], 'GBP');
+
+    final updated = hotel.withRoomOffers(
+      roomTypes: hotel.roomTypes,
+      offers: hotel.offers,
+    );
+    expect(updated.providerSearchResultId, 'srr_example');
+    expect(updated.offers, hasLength(1));
+  });
+
   test('hotel location coordinates parse from a Google Maps query URL', () {
     final hotel = HotelModel.fromJson({
       'id': 'hotel-url-coordinates',

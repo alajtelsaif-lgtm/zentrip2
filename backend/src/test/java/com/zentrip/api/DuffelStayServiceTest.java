@@ -23,6 +23,8 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class DuffelStayServiceTest {
     private static final String SEARCH_URL = "https://api.duffel.com/stays/search";
+    private static final String RATES_URL =
+            "https://api.duffel.com/stays/search_results/srr-test-result/actions/fetch_all_rates";
     private static final String STAY_RESPONSE = """
             {
               "data": {
@@ -52,6 +54,50 @@ class DuffelStayServiceTest {
                     "amenities": [{"type": "wifi", "description": "Wi-Fi"}]
                   }
                 }]
+              }
+            }
+            """;
+    private static final String RATES_RESPONSE = """
+            {
+              "data": {
+                "id": "srr-test-result",
+                "expires_at": "2026-12-01T09:00:00Z",
+                "check_in_date": "2026-12-01",
+                "check_out_date": "2026-12-03",
+                "rooms": 2,
+                "accommodation": {
+                  "rooms": [{
+                    "name": "Double room",
+                    "beds": [{"type": "double", "count": 1}],
+                    "photos": [{"url": "https://example.com/room.jpg"}],
+                    "rates": [
+                      {
+                        "id": "rate-breakfast",
+                        "name": "Breakfast included",
+                        "total_amount": "400.00",
+                        "total_currency": "GBP",
+                        "quantity_available": 2,
+                        "payment_type": "pay_now",
+                        "board_type": "breakfast",
+                        "cancellation_timeline": [{
+                          "before": "2026-11-30T12:00:00Z",
+                          "refund_amount": "400.00",
+                          "refund_currency": "GBP"
+                        }],
+                        "benefits": [{"type": "breakfast"}]
+                      },
+                      {
+                        "id": "rate-room-only",
+                        "name": "Room only",
+                        "total_amount": "360.00",
+                        "total_currency": "GBP",
+                        "quantity_available": 1,
+                        "payment_type": "pay_now",
+                        "board_type": "room_only"
+                      }
+                    ]
+                  }]
+                }
               }
             }
             """;
@@ -152,5 +198,38 @@ class DuffelStayServiceTest {
                 LocalDate.parse("2026-12-03"),
                 1,
                 2).isEmpty());
+    }
+
+    @Test
+    void fetchesAndNormalizesAllRoomRatesForAnOpenedSearchResult() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(RATES_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("Authorization", "Bearer unit-test-token"))
+                .andExpect(header("Duffel-Version", "v2"))
+                .andRespond(withSuccess(RATES_RESPONSE, MediaType.APPLICATION_JSON));
+
+        DuffelStayService service =
+                new DuffelStayService("unit-test-token", true, builder);
+
+        Map<String, Object> response = service.fetchAllRates("srr-test-result");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> offers =
+                (List<Map<String, Object>>) response.get("offers");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> roomTypes =
+                (List<Map<String, Object>>) response.get("room_types");
+
+        assertEquals("srr-test-result", response.get("provider_search_result_id"));
+        assertEquals(1, roomTypes.size());
+        assertEquals(2, offers.size());
+        assertEquals("Double room", offers.getFirst().get("room_name"));
+        assertEquals("GBP", offers.getFirst().get("total_currency"));
+        assertEquals(2, offers.getFirst().get("quantity_available"));
+        assertEquals(0, new BigDecimal("100.00").compareTo(
+                (BigDecimal) offers.getFirst().get("price_per_night")));
+        assertTrue(offers.getFirst().containsKey("cancellation_timeline"));
+        server.verify();
     }
 }

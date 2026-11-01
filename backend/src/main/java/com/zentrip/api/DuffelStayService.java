@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,6 +26,8 @@ public class DuffelStayService {
     private static final Logger LOG = LoggerFactory.getLogger(DuffelStayService.class);
     private static final String API_BASE_URL = "https://api.duffel.com";
     private static final String SEARCH_PATH = "/stays/search";
+    private static final String FETCH_RATES_PATH =
+            "/stays/search_results/%s/actions/fetch_all_rates";
 
     private final boolean enabled;
     private final String accessToken;
@@ -106,6 +110,174 @@ public class DuffelStayService {
         }
     }
 
+    /**
+     * Search results contain only a best-effort cheapest rate. Fetch the current complete
+     * room/rate inventory only after a traveler opens a specific Duffel result.
+     */
+    public Map<String, Object> fetchAllRates(String searchResultId) {
+        if (!isConfigured()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "Hotel provider is not configured");
+        }
+
+        try {
+            JsonNode response = restClient.post()
+                    .uri(FETCH_RATES_PATH.formatted(searchResultId))
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Duffel-Version", "v2")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            JsonNode result = response == null ? null : response.path("data");
+            if (result == null || result.isMissingNode() || result.isNull()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY, "Hotel provider returned no rate details");
+            }
+
+            int roomsRequested = Math.max(1, result.path("rooms").asInt(1));
+            long nights = stayNights(result);
+            List<Map<String, Object>> roomTypes = new ArrayList<>();
+            List<Map<String, Object>> offers = new ArrayList<>();
+            JsonNode rawRooms = result.path("accommodation").path("rooms");
+            if (rawRooms.isArray()) {
+                for (JsonNode rawRoom : rawRooms) {
+                    String roomName = text(rawRoom, "name");
+                    List<String> photos = photoUrls(rawRoom.path("photos"));
+                    List<Map<String, Object>> rates = new ArrayList<>();
+                    JsonNode rawRates = rawRoom.path("rates");
+                    if (rawRates.isArray()) {
+                        for (JsonNode rawRate : rawRates) {
+                            Map<String, Object> rate = normalizeRate(
+                                    rawRate, roomName, nights, roomsRequested);
+                            if (rate != null) {
+                                rates.add(rate);
+                                offers.add(rate);
+                            }
+                        }
+                    }
+                    if (rates.isEmpty()) continue;
+
+                    Map<String, Object> room = new LinkedHashMap<>();
+                    room.put("name", roomName);
+                    room.put("beds", jsonValue(rawRoom.path("beds")));
+                    room.put("photos", photos);
+                    room.put("rates", List.copyOf(rates));
+                    roomTypes.add(room);
+                }
+            }
+
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("source", "duffel");
+            normalized.put("provider_search_result_id", text(result, "id"));
+            normalized.put("expires_at", text(result, "expires_at"));
+            normalized.put("rooms_requested", roomsRequested);
+            normalized.put("check_in_date", text(result, "check_in_date"));
+            normalized.put("check_out_date", text(result, "check_out_date"));
+            normalized.put("room_types", List.copyOf(roomTypes));
+            normalized.put("offers", List.copyOf(offers));
+            return normalized;
+        } catch (ResponseStatusException exception) {
+            throw exception;
+        } catch (RestClientResponseException exception) {
+            LOG.warn("Duffel stay rate retrieval failed with HTTP status {}",
+                    exception.getStatusCode().value());
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY, "The hotel provider could not load room rates");
+        } catch (RestClientException exception) {
+            LOG.warn("Duffel stay rate retrieval could not reach the provider");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY, "The hotel provider could not load room rates");
+        }
+    }
+
+    private static Map<String, Object> normalizeRate(
+            JsonNode rate, String roomName, long nights, int roomsRequested) {
+        String rateId = text(rate, "id");
+        String currency = firstNonBlank(
+                text(rate, "total_currency"), text(rate, "currency"));
+        BigDecimal total = decimalValue(rate.path("total_amount"));
+        if (rateId.isBlank() || currency.isBlank() || total == null || total.signum() < 0) {
+            return null;
+        }
+
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        normalized.put("id", rateId);
+        normalized.put("rate_id", rateId);
+        normalized.put("room_name", roomName);
+        normalized.put("name", text(rate, "name"));
+        normalized.put("description", text(rate, "description"));
+        normalized.put("total_amount", total);
+        normalized.put("total_currency", currency.toUpperCase(java.util.Locale.ROOT));
+        normalized.put("price_per_night", total.divide(
+                BigDecimal.valueOf(Math.max(1, nights) * roomsRequested),
+                6,
+                RoundingMode.HALF_UP));
+        normalized.put("price_currency", currency.toUpperCase(java.util.Locale.ROOT));
+        normalized.put("due_at_accommodation_amount",
+                decimalValue(rate.path("due_at_accommodation_amount")));
+        normalized.put("due_at_accommodation_currency",
+                text(rate, "due_at_accommodation_currency"));
+        normalized.put("quantity_available", integerOrZero(rate.path("quantity_available")));
+        normalized.put("payment_type", text(rate, "payment_type"));
+        normalized.put("board_type", text(rate, "board_type"));
+        normalized.put("expires_at", text(rate, "expires_at"));
+        normalized.put("cancellation_timeline",
+                jsonValue(rate.path("cancellation_timeline")));
+        normalized.put("benefits", jsonValue(rate.path("benefits")));
+        normalized.put("conditions", jsonValue(rate.path("conditions")));
+        return normalized;
+    }
+
+    private static long stayNights(JsonNode result) {
+        try {
+            LocalDate checkIn = LocalDate.parse(text(result, "check_in_date"));
+            LocalDate checkOut = LocalDate.parse(text(result, "check_out_date"));
+            long nights = java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut);
+            return nights > 0 ? nights : 1;
+        } catch (java.time.DateTimeException exception) {
+            return 1;
+        }
+    }
+
+    private static List<String> photoUrls(JsonNode photos) {
+        if (!photos.isArray()) return List.of();
+        List<String> urls = new ArrayList<>();
+        for (JsonNode photo : photos) {
+            String url = text(photo, "url");
+            if (!url.isBlank()) urls.add(url);
+        }
+        return List.copyOf(urls);
+    }
+
+    private static Object jsonValue(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) return null;
+        if (node.isObject()) {
+            Map<String, Object> values = new LinkedHashMap<>();
+            node.fields().forEachRemaining(entry ->
+                    values.put(entry.getKey(), jsonValue(entry.getValue())));
+            return values;
+        }
+        if (node.isArray()) {
+            List<Object> values = new ArrayList<>();
+            node.forEach(value -> values.add(jsonValue(value)));
+            return java.util.Collections.unmodifiableList(values);
+        }
+        if (node.isNumber()) return node.numberValue();
+        if (node.isBoolean()) return node.booleanValue();
+        return node.asText();
+    }
+
+    private static BigDecimal decimalValue(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) return null;
+        try {
+            return new BigDecimal(node.asText());
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
     private static Map<String, Object> normalizeResult(
             JsonNode result, String requestedCity, long nights, int rooms) {
         String searchResultId = text(result, "id");
@@ -176,12 +348,16 @@ public class DuffelStayService {
         hotel.put("stars", hotelStars);
         // The legacy model displays a five-point rating; Duffel supplies a ten-point score.
         hotel.put("rating", reviewScore == null ? 0 : reviewScore / 2.0);
+        hotel.put("review_score", reviewScore);
+        hotel.put("rating_source", "duffel");
         hotel.put("review_count", reviewCount);
         hotel.put("price_per_night", nightlyAmount);
         hotel.put("price_currency", currency.toUpperCase(java.util.Locale.ROOT));
         hotel.put("tax_and_fees_percentage", 0);
         hotel.put("available_rooms", null);
         hotel.put("availability_known", false);
+        hotel.put("room_types", List.of());
+        hotel.put("offers", List.of());
         hotel.put("is_active", true);
         hotel.put("status", "published");
         hotel.put("partner_listing_id", null);

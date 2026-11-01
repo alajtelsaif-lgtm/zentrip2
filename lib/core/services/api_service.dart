@@ -1308,6 +1308,31 @@ class ApiService {
     return byId.values.toList(growable: false);
   }
 
+  Future<ApiResult<Map<String, dynamic>>> fetchDuffelHotelRates(
+    String searchResultId,
+  ) {
+    return _request(() async {
+      if (useMockMode) {
+        return <String, dynamic>{
+          'room_types': <Map<String, dynamic>>[],
+          'offers': <Map<String, dynamic>>[],
+        };
+      }
+      final response = await _dio.post(
+        '/hotels/search-results/'
+        '${Uri.encodeComponent(searchResultId)}/rates',
+      );
+      if (response.data is! Map) {
+        throw const FormatException('Invalid hotel rates response');
+      }
+      final payload = Map<String, dynamic>.from(response.data as Map);
+      if (payload['room_types'] is! List || payload['offers'] is! List) {
+        throw const FormatException('Hotel rates response is missing offers');
+      }
+      return payload;
+    });
+  }
+
   Future<List<String>> searchHotelLocations(String query) async {
     final normalized = query.trim();
     if (normalized.length < 2) return const [];

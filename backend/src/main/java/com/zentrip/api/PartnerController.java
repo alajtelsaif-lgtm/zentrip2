@@ -931,6 +931,16 @@ public class PartnerController {
                 "sources", Map.of("partner", partnerCount, "duffel", duffelCount));
     }
 
+    @PostMapping("/hotels/search-results/{searchResultId}/rates")
+    public Map<String, Object> hotelRates(@PathVariable String searchResultId) {
+        if (searchResultId == null
+                || !searchResultId.matches("srr[-_][A-Za-z0-9_-]{2,120}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid hotel search result ID");
+        }
+        return duffelStayService.fetchAllRates(searchResultId);
+    }
+
     private HotelCoordinates hotelSearchCoordinates(
             String city, List<Map<String, Object>> partnerRows) {
         if (city.isBlank()) return null;

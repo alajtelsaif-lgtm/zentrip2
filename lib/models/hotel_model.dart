@@ -40,6 +40,9 @@ class HotelModel {
   final String? providerSearchResultId;
   final String? providerAccommodationId;
   final bool availabilityKnown;
+  final String ratingSource;
+  final double? reviewScore;
+  final List<Map<String, dynamic>> offers;
 
   const HotelModel({
     required this.id,
@@ -76,6 +79,9 @@ class HotelModel {
     this.providerSearchResultId,
     this.providerAccommodationId,
     this.availabilityKnown = true,
+    this.ratingSource = 'unknown',
+    this.reviewScore,
+    this.offers = const [],
   });
 
   bool get isDuffelOffer => source == 'duffel';
@@ -266,6 +272,53 @@ class HotelModel {
         providerSearchResultId: providerSearchResultId,
         providerAccommodationId: providerAccommodationId,
         availabilityKnown: availabilityKnown,
+        ratingSource: ratingSource,
+        reviewScore: reviewScore,
+        offers: offers,
+      );
+
+  HotelModel withRoomOffers({
+    required List<Map<String, dynamic>> roomTypes,
+    required List<Map<String, dynamic>> offers,
+  }) =>
+      HotelModel(
+        id: id,
+        name: name,
+        city: city,
+        country: country,
+        locationName: locationName,
+        googleMapsUrl: googleMapsUrl,
+        placeId: placeId,
+        googleRating: googleRating,
+        googleReviewCount: googleReviewCount,
+        pricePerNight: pricePerNight,
+        hasComparisonPrice: hasComparisonPrice,
+        taxAndFeesPercentage: taxAndFeesPercentage,
+        availableRooms: availableRooms,
+        imageUrl: imageUrl,
+        galleryImages: galleryImages,
+        amenities: amenities,
+        description: description,
+        stars: stars,
+        latitude: latitude,
+        longitude: longitude,
+        partnerListingId: partnerListingId,
+        partnerName: partnerName,
+        distanceMeters: distanceMeters,
+        roomTypes: List.unmodifiable(roomTypes),
+        availabilitySchedule: availabilitySchedule,
+        status: status,
+        isActive: isActive,
+        locationInput: locationInput,
+        googlePlaceId: googlePlaceId,
+        source: source,
+        priceCurrencyCode: priceCurrencyCode,
+        providerSearchResultId: providerSearchResultId,
+        providerAccommodationId: providerAccommodationId,
+        availabilityKnown: availabilityKnown,
+        ratingSource: ratingSource,
+        reviewScore: reviewScore,
+        offers: List.unmodifiable(offers),
       );
 
   factory HotelModel.fromJson(Map<String, dynamic> json) {
@@ -393,6 +446,14 @@ class HotelModel {
         json['availability_known'],
         true,
       ),
+      ratingSource: _stringFromDynamic(
+        json['rating_source'],
+        _stringFromDynamic(json['source'], 'unknown') == 'partner'
+            ? 'google_places'
+            : _stringFromDynamic(json['source'], 'unknown'),
+      ),
+      reviewScore: _coordinateFrom(json['review_score']),
+      offers: _objectList(json['offers'] ?? attributes['offers']),
     );
   }
 

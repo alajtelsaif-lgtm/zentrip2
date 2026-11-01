@@ -29,6 +29,10 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
   bool _isBooking = false;
   int _photoIndex = 0;
   Future<ApiResult<List<ReviewModel>>>? _hotelReviewsFuture;
+  HotelModel? _hotelWithRates;
+  String? _ratesRequestId;
+  bool _ratesLoading = false;
+  bool _ratesUnavailable = false;
 
   String _formatPrice(HotelModel hotel, double amount, {int decimals = 0}) =>
       '${hotel.priceCurrencyCode} ${amount.toStringAsFixed(decimals)}';
@@ -40,11 +44,60 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
         ModalRoute.of(context)?.settings.arguments as HotelController?;
     if (_ctrl != controller) {
       _ctrl = controller;
+      _hotelWithRates = null;
+      _ratesRequestId = null;
+      _ratesUnavailable = false;
       final hotel = controller?.selectedHotel;
       if (hotel != null) {
         _hotelReviewsFuture = ApiService.instance.getReviews(itemId: hotel.id);
+        _loadDuffelRates(hotel);
       }
     }
+  }
+
+  void _loadDuffelRates(HotelModel hotel) {
+    final searchResultId = hotel.providerSearchResultId;
+    if (!hotel.isDuffelOffer ||
+        searchResultId == null ||
+        searchResultId.isEmpty ||
+        _ratesRequestId == searchResultId) {
+      return;
+    }
+    _ratesRequestId = searchResultId;
+    _ratesLoading = true;
+    _fetchDuffelRates(hotel, searchResultId);
+  }
+
+  Future<void> _fetchDuffelRates(
+    HotelModel hotel,
+    String searchResultId,
+  ) async {
+    final result =
+        await ApiService.instance.fetchDuffelHotelRates(searchResultId);
+    if (!mounted) return;
+    final payload = result.data;
+    final offers = payload?['offers'] is List
+        ? (payload!['offers'] as List)
+            .whereType<Map>()
+            .map((value) => Map<String, dynamic>.from(value))
+            .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    final roomTypes = payload?['room_types'] is List
+        ? (payload!['room_types'] as List)
+            .whereType<Map>()
+            .map((value) => Map<String, dynamic>.from(value))
+            .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    setState(() {
+      _ratesLoading = false;
+      _ratesUnavailable = result.isFailure || offers.isEmpty;
+      if (result.isSuccess && payload != null) {
+        _hotelWithRates = hotel.withRoomOffers(
+          roomTypes: roomTypes,
+          offers: offers,
+        );
+      }
+    });
   }
 
   void _writeHotelReview(HotelModel hotel) {
@@ -65,7 +118,13 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
   Future<void> _book() async {
     final l10n = AppLocalizations.of(context);
     final ctrl = _ctrl;
-    final hotel = ctrl?.selectedHotel;
+    final selectedHotel = ctrl?.selectedHotel;
+    final hotel = selectedHotel != null &&
+            _hotelWithRates != null &&
+            _hotelWithRates?.providerSearchResultId ==
+                selectedHotel.providerSearchResultId
+        ? _hotelWithRates
+        : selectedHotel;
     if (hotel == null) {
       AppSnackbar.error(context, l10n.genericError);
       return;
@@ -352,6 +411,33 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                       l10n.hotelNightPrice,
                       _formatPrice(hotel, hotel.pricePerNight),
                     ),
+                    if (hotel.isDuffelOffer && hotel.offers.isNotEmpty) ...[
+                      const Divider(height: 20),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          l10n.hotelRoomRatesTitle,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      for (final offer in hotel.offers)
+                        _Row(
+                          _offerName(offer, l10n.hotelRoomRatesTitle),
+                          _offerPrice(offer, hotel.priceCurrencyCode),
+                        ),
+                    ] else if (hotel.isDuffelOffer && _ratesLoading)
+                      _Row(
+                        l10n.hotelRoomRatesTitle,
+                        l10n.hotelRoomRatesLoading,
+                      )
+                    else if (hotel.isDuffelOffer && _ratesUnavailable)
+                      _Row(
+                        l10n.hotelRoomRatesTitle,
+                        l10n.hotelRoomRatesUnavailable,
+                      ),
                     _Row(l10n.hotelNightsCount, l10n.hotelNightsValue(nights)),
                     _Row(
                       l10n.hotelSubtotal,
@@ -395,6 +481,23 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
         ],
       ),
     );
+  }
+
+  String _offerName(Map<String, dynamic> offer, String fallback) {
+    final roomName = offer['room_name']?.toString().trim() ?? '';
+    final rateName = offer['name']?.toString().trim() ?? '';
+    final parts = [roomName, rateName].where((value) => value.isNotEmpty);
+    final label = parts.join(' · ');
+    return label.isEmpty ? fallback : label;
+  }
+
+  String _offerPrice(Map<String, dynamic> offer, String fallbackCurrency) {
+    final amount = double.tryParse('${offer['total_amount'] ?? ''}');
+    if (amount == null || !amount.isFinite) return '—';
+    final currency =
+        (offer['total_currency'] ?? offer['price_currency'] ?? fallbackCurrency)
+            .toString();
+    return '$currency ${amount.toStringAsFixed(2)}';
   }
 
   Widget _hotelReviewsSection(HotelModel hotel, AppLocalizations l10n) {
