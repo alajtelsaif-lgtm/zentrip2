@@ -28,4 +28,44 @@ void main() {
     expect(AirportOption.nearestTo(91, 0), isNull);
     expect(AirportOption.nearestTo(0, 0), isNull);
   });
+
+  test('global directory parses codes coordinates and landmark airport', () {
+    final result = AirportSearchResult.fromJson({
+      'query_type': 'landmark',
+      'total': 1,
+      'airports': [
+        {
+          'code': 'CDG',
+          'icao_code': 'LFPG',
+          'city': 'Paris',
+          'airport_name': 'Charles de Gaulle Airport',
+          'country': 'France',
+          'latitude': 49.0097,
+          'longitude': 2.5479,
+          'is_major': true,
+          'scheduled_service': true,
+        },
+      ],
+      'landmarks': [
+        {
+          'name': 'Eiffel Tower',
+          'highlight_category': 'Architecture',
+          'image_url': 'https://commons.wikimedia.org/example.jpg',
+          'nearest_airport': {
+            'code': 'CDG',
+            'icao_code': 'LFPG',
+            'city': 'Paris',
+            'country': 'France',
+            'distance_km': 26.4,
+          },
+        },
+      ],
+    });
+    expect(result.airports.single.icaoCode, 'LFPG');
+    expect(result.airports.single.isMajor, isTrue);
+    expect(result.airports.single.latitude, 49.0097);
+    expect(result.landmarks.single.nearestAirport?.code, 'CDG');
+    expect(result.landmarks.single.nearestAirport?.distanceKm, 26.4);
+    expect(result.landmarks.single.category, 'Architecture');
+  });
 }

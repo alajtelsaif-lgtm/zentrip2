@@ -2367,6 +2367,7 @@ class _PartnerListingDialogState extends State<_PartnerListingDialog> {
     required String label,
   }) {
     var query = '';
+    var searchVersion = 0;
     final field = Autocomplete<AirportOption>(
       displayStringForOption: (airport) => airport.label,
       initialValue: TextEditingValue(
@@ -2374,8 +2375,22 @@ class _PartnerListingDialogState extends State<_PartnerListingDialog> {
             ? ''
             : '${controller.text} [${codeController.text}]',
       ),
-      optionsBuilder: (value) => AirportOption.supported
-          .where((airport) => airport.matches(value.text)),
+      optionsBuilder: (value) async {
+        final version = ++searchVersion;
+        final text = value.text.trim();
+        if (text.length < 2) {
+          return AirportOption.supported
+              .where((airport) => airport.matches(text));
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+        if (version != searchVersion) return const <AirportOption>[];
+        try {
+          return await ApiService.instance.searchAirports(text);
+        } catch (_) {
+          return AirportOption.supported
+              .where((airport) => airport.matches(text));
+        }
+      },
       onSelected: (airport) {
         controller.text = airport.city;
         codeController.text = airport.code;

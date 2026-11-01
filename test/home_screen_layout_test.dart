@@ -78,7 +78,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'MRA');
     await tester.pump();
-    await tester.tap(find.text('Misrata [MRA]'));
+    await tester.tap(find.text('Misrata · Libya [MRA]'));
     await tester.pumpAndSettle();
     expect(find.text('MRA').first, findsOneWidget);
 

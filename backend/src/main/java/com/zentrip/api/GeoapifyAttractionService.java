@@ -132,6 +132,27 @@ public class GeoapifyAttractionService {
         }
     }
 
+    public List<Map<String, Object>> searchAtCoordinates(
+            double latitude, double longitude, String city, String country, String language) {
+        if (apiKey.isBlank() || !Double.isFinite(latitude) || !Double.isFinite(longitude)
+                || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return List.of();
+        String cacheKey = "coordinates|" + latitude + "|" + longitude + "|" + language;
+        Instant now = Instant.now();
+        CacheEntry previous = cache.get(cacheKey);
+        if (previous != null && now.isBefore(previous.expiresAt())) return previous.places();
+        try {
+            GeoPoint center = new GeoPoint(latitude, longitude);
+            List<Map<?, ?>> features = fetchPlaces(center, language);
+            List<Map<String, Object>> places = List.copyOf(normalize(features,
+                    fetchWikidataEnrichment(features), city, country, language, center));
+            cache.put(cacheKey, new CacheEntry(places, now.plus(CACHE_TTL)));
+            return places;
+        } catch (RestClientException exception) {
+            LOG.warn("Geoapify coordinate landmark lookup unavailable.");
+            return previous == null ? List.of() : previous.places();
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private GeoPoint geocode(String city, String country) {
         Map<?, ?> response = geoapify.get()

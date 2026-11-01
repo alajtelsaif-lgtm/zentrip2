@@ -5217,6 +5217,30 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'أدخل قيمة صحيحة لهذا الحقل.'**
   String get partnerInvalidServiceField;
+
+  /// No description provided for @airportMajorLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'مطار رئيسي'**
+  String get airportMajorLabel;
+
+  /// No description provided for @airportMinorLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'مطار إقليمي'**
+  String get airportMinorLabel;
+
+  /// No description provided for @airportNearestLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'أقرب مطار'**
+  String get airportNearestLabel;
+
+  /// No description provided for @airportCategoryAddLocation.
+  ///
+  /// In ar, this message translates to:
+  /// **'أضف مدينة أو مكاناً، مثل الطبيعة في بالي، إندونيسيا.'**
+  String get airportCategoryAddLocation;
 }
 
 class _AppLocalizationsDelegate

@@ -2724,4 +2724,17 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get partnerInvalidServiceField =>
       'Enter a valid value for this field.';
+
+  @override
+  String get airportMajorLabel => 'Major hub';
+
+  @override
+  String get airportMinorLabel => 'Regional airport';
+
+  @override
+  String get airportNearestLabel => 'Nearest airport';
+
+  @override
+  String get airportCategoryAddLocation =>
+      'Add a city or place, for example Nature in Bali, Indonesia.';
 }

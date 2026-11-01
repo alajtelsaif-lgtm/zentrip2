@@ -153,22 +153,25 @@ public class AirportDirectoryService {
             return decorate(jdbc.queryForList("""
                     SELECT %s
                     FROM airports
-                    WHERE scheduled_service = TRUE AND LOWER(city) = LOWER(?)
+                    WHERE scheduled_service = TRUE
+                      AND (LOWER(city) = LOWER(?)
+                           OR LOWER(airport_name) LIKE LOWER(?) || ' %%')
                     %s
                     LIMIT ?
-                    """.formatted(AIRPORT_COLUMNS, AIRPORT_ORDER), city, limit));
+                    """.formatted(AIRPORT_COLUMNS, AIRPORT_ORDER), city, city, limit));
         }
         return decorate(jdbc.queryForList("""
                 SELECT %s
                 FROM airports
                 WHERE scheduled_service = TRUE
-                  AND LOWER(city) = LOWER(?)
+                  AND (LOWER(city) = LOWER(?)
+                       OR LOWER(airport_name) LIKE LOWER(?) || ' %%')
                   AND (LOWER(country) = LOWER(?) OR UPPER(TRIM(iso_country)) = UPPER(?)
                        OR POSITION(LOWER(?) IN LOWER(country)) > 0)
                 %s
                 LIMIT ?
                 """.formatted(AIRPORT_COLUMNS, AIRPORT_ORDER),
-                city, country, countryCode, country, limit));
+                city, city, country, countryCode, country, limit));
     }
 
     private List<Map<String, Object>> fuzzyAirports(String query, int limit) {
@@ -196,8 +199,8 @@ public class AirportDirectoryService {
                     WHEN LOWER(TRIM(icao_code)) = LOWER(?) THEN 1
                     WHEN LOWER(city) = LOWER(?) THEN 2
                     WHEN LOWER(airport_name) = LOWER(?) THEN 3
-                    WHEN LOWER(airport_name) LIKE LOWER(?) || '%' THEN 4
-                    WHEN LOWER(city) LIKE LOWER(?) || '%' THEN 5
+                    WHEN LOWER(airport_name) LIKE LOWER(?) || '%%' THEN 4
+                    WHEN LOWER(city) LIKE LOWER(?) || '%%' THEN 5
                     ELSE 6
                   END,
                   is_major DESC,
@@ -265,7 +268,7 @@ public class AirportDirectoryService {
 
     private Map<String, Object> landmarkSearch(String originalQuery, String searchText) {
         GeoapifyAirportService.GeocodedPlace location =
-                geoapifyAirportService.resolveLocation(searchText);
+                resolvePlace(searchText);
         if (location == null) {
             return response(originalQuery, "no_match", List.of(), List.of(),
                     "No matching airport, city, country, or landmark was found.", 0);
@@ -275,7 +278,8 @@ public class AirportDirectoryService {
                 nearestAirports(location.latitude(), location.longitude(), NEAREST_LIMIT);
         List<Map<String, Object>> landmarks = new ArrayList<>();
         if (hasText(location.city()) && hasText(location.country())) {
-            List<Map<String, Object>> places = geoapifyAttractionService.searchAttractions(
+            List<Map<String, Object>> places = geoapifyAttractionService.searchAtCoordinates(
+                    location.latitude(), location.longitude(),
                     location.city(), location.country(), "en");
             String normalizedSearch = normalize(originalQuery);
             places.stream()
@@ -310,14 +314,16 @@ public class AirportDirectoryService {
             List<Map<String, Object>> cityAirports,
             String originalType) {
         GeoapifyAirportService.GeocodedPlace location =
-                geoapifyAirportService.resolveLocation(searchText);
-        if (location == null || !hasText(location.city()) || !hasText(location.country())) {
+                resolvePlace(searchText);
+        if (location == null || !hasText(location.country())) {
             return response(originalQuery, "category", List.of(), List.of(),
                     "Add a city or place after the category.", 0);
         }
 
-        List<Map<String, Object>> places = geoapifyAttractionService.searchAttractions(
-                location.city(), location.country(), "en");
+        List<Map<String, Object>> places = geoapifyAttractionService.searchAtCoordinates(
+                location.latitude(), location.longitude(),
+                hasText(location.city()) ? location.city()
+                        : splitCityCountry(searchText)[0], location.country(), "en");
         List<Map<String, Object>> landmarks = places.stream()
                 .filter(place -> matchesHighlightCategory(place, category))
                 .filter(AirportDirectoryService::hasVerifiedImage)
@@ -352,7 +358,7 @@ public class AirportDirectoryService {
                 landmarks.isEmpty()
                         ? "No photo-verified landmarks matched that category in this location."
                         : null,
-                landmarks.size());
+                uniqueAirports.size());
     }
 
     private List<Map<String, Object>> cityLandmarks(
@@ -426,8 +432,10 @@ public class AirportDirectoryService {
 
     private static boolean matchesHighlightCategory(
             Map<String, Object> place, String category) {
-        String requested = normalize(category);
-        String actual = normalize(String.valueOf(place.get("highlight_category")));
+        String requested = normalize(category).replace("&", "")
+                .replace(" and ", " ").replaceAll("\\s+", " ");
+        String actual = normalize(String.valueOf(place.get("highlight_category")))
+                .replace("&", "").replace(" and ", " ").replaceAll("\\s+", " ");
         return switch (requested) {
             case "historical", "history" -> actual.equals("historical");
             case "nature", "natural" -> actual.equals("nature");
@@ -494,13 +502,31 @@ public class AirportDirectoryService {
         return value != null && !value.isBlank();
     }
 
+    private GeoapifyAirportService.GeocodedPlace resolvePlace(String requestedText) {
+        String text = switch (normalize(requestedText)) {
+            case "pyramids", "the pyramids", "pyramids of giza" ->
+                    "Giza Pyramids, Egypt";
+            default -> requestedText;
+        };
+        String[] parts = splitCityCountry(text);
+        if (parts[1].isBlank()) return geoapifyAirportService.resolveLocation(text);
+        List<Map<String, Object>> countries = jdbc.queryForList("""
+                SELECT TRIM(iso_country) AS iso_country FROM airports
+                WHERE LOWER(country) = LOWER(?) OR UPPER(iso_country) = ?
+                LIMIT 1
+                """, parts[1], countryCodeAlias(parts[1]));
+        if (countries.isEmpty()) return null;
+        String iso = String.valueOf(countries.getFirst().get("iso_country"));
+        return geoapifyAirportService.resolveLocation(parts[0], iso);
+    }
+
     private static Double number(Object value) {
         if (value instanceof Number number) return number.doubleValue();
         if (value instanceof String string) {
             try {
                 return Double.parseDouble(string);
             } catch (NumberFormatException ignored) {
-                return null;
+                return Double.NaN;
             }
         }
         return Double.NaN;

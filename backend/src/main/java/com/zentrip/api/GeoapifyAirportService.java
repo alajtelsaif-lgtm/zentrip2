@@ -163,10 +163,17 @@ public class GeoapifyAirportService {
     }
 
     public GeocodedPlace resolveLocation(String requestedQuery) {
+        return resolveLocation(requestedQuery, "");
+    }
+
+    public GeocodedPlace resolveLocation(String requestedQuery, String countryCode) {
         String query = requestedQuery == null ? "" : requestedQuery.trim();
         if (apiKey.isBlank() || query.length() < 2) return null;
 
-        String cacheKey = query.toLowerCase(Locale.ROOT);
+        String filterCountry = countryCode == null ? ""
+                : countryCode.trim().toLowerCase(Locale.ROOT);
+        if (!filterCountry.isEmpty() && !filterCountry.matches("[a-z]{2}")) return null;
+        String cacheKey = query.toLowerCase(Locale.ROOT) + "|" + filterCountry;
         LocationCacheEntry previous = locationCache.get(cacheKey);
         Instant now = Instant.now();
         if (previous != null && now.isBefore(previous.expiresAt())) {
@@ -175,12 +182,17 @@ public class GeoapifyAirportService {
 
         try {
             Map<?, ?> response = geoapify.get()
-                    .uri(uri -> uri.path("/v1/geocode/search")
+                    .uri(uri -> {
+                        var builder = uri.path("/v1/geocode/search")
                             .queryParam("text", query)
                             .queryParam("format", "json")
                             .queryParam("limit", 1)
-                            .queryParam("apiKey", apiKey)
-                            .build())
+                            .queryParam("apiKey", apiKey);
+                        if (!filterCountry.isBlank()) {
+                            builder.queryParam("filter", "countrycode:" + filterCountry);
+                        }
+                        return builder.build();
+                    })
                     .retrieve()
                     .body(Map.class);
             List<?> results = list(map(response).get("results"));

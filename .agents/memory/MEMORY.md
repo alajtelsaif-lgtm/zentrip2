@@ -5,3 +5,4 @@
 - [Backend test database isolation](backend-test-database-isolation.md) — keep real database settings out of Maven test processes; use the loopback-only PostgreSQL integration harness.
 - [Anonymous visit abuse limits](anonymous-visit-abuse-limits.md) — protect popularity counts with aggregate ephemeral limits, not IP, account, or location tracking.
 - [Wikidata SPARQL URI encoding](wikidata-sparql-uri-encoding.md) — encode SPARQL text before passing it as a Spring RestClient URI parameter.
+- [Geocoding ambiguity](geocoding-ambiguity.md) — country-filter explicit hints and reuse coordinates; free-text homonyms can resolve to the wrong destination.

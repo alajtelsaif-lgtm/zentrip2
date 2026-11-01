@@ -2705,4 +2705,17 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get partnerInvalidServiceField => 'أدخل قيمة صحيحة لهذا الحقل.';
+
+  @override
+  String get airportMajorLabel => 'مطار رئيسي';
+
+  @override
+  String get airportMinorLabel => 'مطار إقليمي';
+
+  @override
+  String get airportNearestLabel => 'أقرب مطار';
+
+  @override
+  String get airportCategoryAddLocation =>
+      'أضف مدينة أو مكاناً، مثل الطبيعة في بالي، إندونيسيا.';
 }
