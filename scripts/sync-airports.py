@@ -243,7 +243,7 @@ def apply_import(airports: list[dict[str, str]]) -> None:
             check=False,
         )
         if result.returncode != 0:
-            error = result.stderr.lower()
+            error = f"{result.stderr}\n{result.stdout}".lower()
             if "password authentication failed" in error:
                 reason = "database authentication was rejected"
             elif "no password supplied" in error:
@@ -268,6 +268,12 @@ def apply_import(airports: list[dict[str, str]]) -> None:
                 reason = "an airport source row could not be imported"
             elif "08001:" in error or "08006:" in error:
                 reason = "the database connection could not be established"
+            elif "psql: error:" in error:
+                reason = "the psql client could not open the database session"
+            elif "fatal:" in error:
+                reason = "the database rejected the session before import"
+            elif "error:" in error:
+                reason = "PostgreSQL rejected an import command or source row"
             else:
                 reason = "PostgreSQL rejected the import; sensitive diagnostics were suppressed"
             raise RuntimeError(
