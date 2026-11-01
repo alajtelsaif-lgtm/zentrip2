@@ -67,6 +67,7 @@ public class PartnerController {
     private final AirportDirectoryService airportDirectoryService;
     private final DuffelFlightService duffelFlightService;
     private final DuffelStayService duffelStayService;
+    private final UnifiedInventoryService unifiedInventoryService;
 
     public PartnerController(
             JdbcTemplate jdbc,
@@ -74,13 +75,15 @@ public class PartnerController {
             GooglePlacesRatingSync googlePlacesRatingSync,
             AirportDirectoryService airportDirectoryService,
             DuffelFlightService duffelFlightService,
-            DuffelStayService duffelStayService) {
+            DuffelStayService duffelStayService,
+            ExchangeRateService exchangeRateService) {
         this.jdbc = jdbc;
         this.imageStorage = imageStorage;
         this.googlePlacesRatingSync = googlePlacesRatingSync;
         this.airportDirectoryService = airportDirectoryService;
         this.duffelFlightService = duffelFlightService;
         this.duffelStayService = duffelStayService;
+        this.unifiedInventoryService = new UnifiedInventoryService(exchangeRateService);
     }
 
     @PostMapping("/partner/hotel-images")
@@ -665,42 +668,38 @@ public class PartnerController {
                     "sources", Map.of("partner", 0L, "duffel", 0L));
         }
 
-        List<String> warnings = new ArrayList<>();
-        List<Map<String, Object>> flights = new ArrayList<>();
-        try {
-            flights.addAll(partnerFlightListings(
-                    originCode,
-                    destinationCode,
-                    Set.copyOf(departureDates),
-                    adults,
-                    normalizedClass));
-        } catch (org.springframework.dao.DataAccessException exception) {
-            LOG.warn("Partner flight inventory is unavailable for flexible search.");
-            warnings.add("Partner flight inventory is temporarily unavailable.");
-        }
-        if (duffelFlightService.isConfigured()) {
-            try {
-                DuffelFlightService.SearchOutcome outcome =
-                        duffelFlightService.searchFlightsForDatesWithWarnings(
+        UnifiedInventoryService.SearchOutcome merged = unifiedInventoryService.merge(
+                "flight",
+                () -> partnerFlightListings(
                         originCode,
                         destinationCode,
-                        departureDates,
-                        roundTrip ? tripDurationDays : null,
+                        Set.copyOf(departureDates),
                         adults,
-                        normalizedClass);
-                flights.addAll(outcome.flights());
-                warnings.addAll(outcome.warnings());
-            } catch (RuntimeException exception) {
-                LOG.warn("Duffel flexible flight search failed; returning {} matching partner flights",
-                        flights.size());
-                warnings.add("Duffel flight results are temporarily unavailable.");
-            }
-        }
+                        normalizedClass),
+                () -> {
+                    if (!duffelFlightService.isConfigured()) {
+                        return new UnifiedInventoryService.SourceOutcome(
+                                List.of(), List.of("Duffel flight search is not configured."));
+                    }
+                    DuffelFlightService.SearchOutcome provider =
+                            duffelFlightService.searchFlightsForDatesWithWarnings(
+                                    originCode,
+                                    destinationCode,
+                                    departureDates,
+                                    roundTrip ? tripDurationDays : null,
+                                    adults,
+                                    normalizedClass);
+                    return new UnifiedInventoryService.SourceOutcome(
+                            provider.flights(), provider.warnings());
+                },
+                "Partner flight inventory is temporarily unavailable.",
+                "Duffel flight results are temporarily unavailable.");
+        List<Map<String, Object>> flights = new ArrayList<>(merged.items());
         flights.sort(Comparator.comparing(flight -> text(flight.get("departure_time"))));
         return Map.of(
                 "flights", flights,
                 "months", selectedMonths.stream().map(YearMonth::toString).toList(),
-                "warnings", List.copyOf(warnings),
+                "warnings", merged.warnings(),
                 "sources", flightSourceCounts(flights));
     }
 
@@ -733,41 +732,34 @@ public class PartnerController {
         if (!Set.of("economy", "business", "first").contains(normalizedClass)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported seat_class");
         }
-        List<String> warnings = new ArrayList<>();
-        List<Map<String, Object>> flights = new ArrayList<>();
-        try {
-            flights.addAll(partnerFlightListings(
-                    originCode,
-                    destinationCode,
-                    Set.of(requestedDeparture),
-                    adults,
-                    normalizedClass));
-        } catch (org.springframework.dao.DataAccessException exception) {
-            LOG.warn("Partner flight inventory is unavailable for search.");
-            warnings.add("Partner flight inventory is temporarily unavailable.");
-        }
-        if (duffelFlightService.isConfigured()) {
-            try {
-                flights.addAll(duffelFlightService.searchFlights(
+        UnifiedInventoryService.SearchOutcome merged = unifiedInventoryService.merge(
+                "flight",
+                () -> partnerFlightListings(
                         originCode,
                         destinationCode,
-                        requestedDeparture,
-                        requestedReturn,
+                        Set.of(requestedDeparture),
                         adults,
-                        normalizedClass));
-            } catch (ResponseStatusException exception) {
-                LOG.warn("Duffel unavailable; returning {} matching partner flights",
-                        flights.size());
-                warnings.add("Duffel flight results are temporarily unavailable.");
-            } catch (RuntimeException exception) {
-                LOG.warn("Duffel flight search failed; returning {} matching partner flights",
-                        flights.size());
-                warnings.add("Duffel flight results are temporarily unavailable.");
-            }
-        }
+                        normalizedClass),
+                () -> {
+                    if (!duffelFlightService.isConfigured()) {
+                        return new UnifiedInventoryService.SourceOutcome(
+                                List.of(), List.of("Duffel flight search is not configured."));
+                    }
+                    return UnifiedInventoryService.SourceOutcome.of(
+                            duffelFlightService.searchFlights(
+                                    originCode,
+                                    destinationCode,
+                                    requestedDeparture,
+                                    requestedReturn,
+                                    adults,
+                                    normalizedClass));
+                },
+                "Partner flight inventory is temporarily unavailable.",
+                "Duffel flight results are temporarily unavailable.");
+        List<Map<String, Object>> flights = merged.items();
         return Map.of(
                 "flights", flights,
-                "warnings", List.copyOf(warnings),
+                "warnings", merged.warnings(),
                 "sources", flightSourceCounts(flights));
     }
 
@@ -919,24 +911,20 @@ public class PartnerController {
             @RequestParam(name = "check_in", required = false) String checkIn,
             @RequestParam(name = "check_out", required = false) String checkOut,
             @RequestParam(defaultValue = "1") int rooms,
-            @RequestParam(defaultValue = "2") int guests) {
+            @RequestParam(defaultValue = "2") int guests,
+            @RequestParam(defaultValue = "USD") String currency,
+            @RequestParam(name = "price_min", required = false) BigDecimal priceMin,
+            @RequestParam(name = "price_max", required = false) BigDecimal priceMax,
+            @RequestParam(name = "rating_min", required = false) BigDecimal ratingMin,
+            @RequestParam(required = false) String amenities,
+            @RequestParam(name = "room_type", required = false) String roomType,
+            @RequestParam(required = false) String preferences) {
         if (rooms < 1 || rooms > 10 || guests < 1 || guests > 20) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Invalid room or guest count");
         }
+        String normalizedCurrency = UnifiedInventoryService.validateCurrency(currency);
         String normalizedCity = city.trim();
-        List<String> warnings = new ArrayList<>();
-        List<Map<String, Object>> rows = new ArrayList<>();
-        try {
-            rows.addAll(hotelSearchRows(normalizedCity));
-        } catch (org.springframework.dao.DataAccessException exception) {
-            LOG.warn("Partner hotel inventory is unavailable for search.");
-            warnings.add("Partner hotel inventory is temporarily unavailable.");
-        }
-        List<Map<String, Object>> hotels = rows.stream()
-                .map(row -> publicListing(row, "hotel"))
-                .collect(java.util.stream.Collectors.toCollection(
-                        java.util.ArrayList::new));
         LocalDate parsedCheckIn = checkIn == null || checkIn.isBlank()
                 ? null
                 : parseFlightDate(checkIn, "check_in");
@@ -955,31 +943,63 @@ public class PartnerController {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "Invalid hotel stay dates");
             }
-            HotelCoordinates center = hotelSearchCoordinates(normalizedCity, rows);
-            if (center != null && duffelStayService.isConfigured()) {
-                DuffelStayService.SearchOutcome outcome =
-                        duffelStayService.searchHotelsWithWarnings(
-                        normalizedCity,
-                        center.latitude(),
-                        center.longitude(),
-                        parsedCheckIn,
-                        parsedCheckOut,
-                        rooms,
-                        guests);
-                hotels.addAll(outcome.hotels());
-                warnings.addAll(outcome.warnings());
-            } else if (duffelStayService.isConfigured()) {
-                warnings.add("Duffel hotel search needs a resolved city location.");
-            }
         }
-        long partnerCount = hotels.stream()
-                .filter(hotel -> "partner".equals(hotel.get("source")))
-                .count();
-        long duffelCount = hotels.size() - partnerCount;
+        HotelCoordinates center = parsedCheckIn == null
+                ? null
+                : hotelSearchCoordinates(normalizedCity, List.of());
+        UnifiedInventoryService.SearchOutcome merged = unifiedInventoryService.merge(
+                "hotel",
+                () -> hotelSearchRows(normalizedCity).stream()
+                        .map(row -> publicListing(row, "hotel"))
+                        .toList(),
+                () -> {
+                    if (parsedCheckIn == null) {
+                        return UnifiedInventoryService.SourceOutcome.of(List.of());
+                    }
+                    if (!duffelStayService.isConfigured()) {
+                        return new UnifiedInventoryService.SourceOutcome(
+                                List.of(), List.of("Duffel hotel search is not configured."));
+                    }
+                    if (center == null) {
+                        return new UnifiedInventoryService.SourceOutcome(
+                                List.of(),
+                                List.of("Duffel hotel search needs a resolved city location."));
+                    }
+                    DuffelStayService.SearchOutcome provider =
+                            duffelStayService.searchHotelsWithAllRatesWithWarnings(
+                                    normalizedCity,
+                                    center.latitude(),
+                                    center.longitude(),
+                                    parsedCheckIn,
+                                    parsedCheckOut,
+                                    rooms,
+                                    guests);
+                    return new UnifiedInventoryService.SourceOutcome(
+                            provider.hotels(), provider.warnings());
+                },
+                "Partner hotel inventory is temporarily unavailable.",
+                "Duffel hotel results are temporarily unavailable.");
+        UnifiedInventoryService.FilterOutcome filtered =
+                unifiedInventoryService.filterHotels(
+                        merged.items(),
+                        new UnifiedInventoryService.HotelFilters(
+                                normalizedCurrency,
+                                priceMin,
+                                priceMax,
+                                ratingMin,
+                                amenities,
+                                roomType,
+                                preferences));
+        List<String> warnings = new ArrayList<>(merged.warnings());
+        warnings.addAll(filtered.warnings());
+        long partnerCount = filtered.hotels().stream()
+                .filter(hotel -> "partner".equals(hotel.get("source"))).count();
+        long duffelCount = filtered.hotels().stream()
+                .filter(hotel -> "duffel".equals(hotel.get("source"))).count();
         return Map.of(
-                "hotels", List.copyOf(hotels),
+                "hotels", filtered.hotels(),
                 "sources", Map.of("partner", partnerCount, "duffel", duffelCount),
-                "warnings", List.copyOf(warnings));
+                "warnings", warnings.stream().distinct().toList());
     }
 
     @PostMapping("/hotels/search-results/{searchResultId}/rates")

@@ -37,7 +37,8 @@ class PartnerControllerTest {
             mock(GooglePlacesRatingSync.class),
             airportDirectoryService,
             duffelFlightService,
-            duffelStayService);
+            duffelStayService,
+            mock(ExchangeRateService.class));
 
     @Test
     void airportSearchDelegatesTheUniversalSearchQuery() {
@@ -642,7 +643,7 @@ class PartnerControllerTest {
                 "source", "duffel",
                 "name", "Duffel Test Hotel",
                 "price_currency", "GBP");
-        when(duffelStayService.searchHotelsWithWarnings(
+        when(duffelStayService.searchHotelsWithAllRatesWithWarnings(
                 eq("London"),
                 eq(51.5072),
                 eq(-0.1276),
@@ -654,7 +655,18 @@ class PartnerControllerTest {
                         List.of(duffelHotel), List.of()));
 
         Map<String, Object> response = controller.searchHotels(
-                "London", "2026-12-01", "2026-12-03", 1, 2);
+                "London",
+                "2026-12-01",
+                "2026-12-03",
+                1,
+                2,
+                "USD",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
 
         List<?> hotels = (List<?>) response.get("hotels");
         assertEquals(1, hotels.size());

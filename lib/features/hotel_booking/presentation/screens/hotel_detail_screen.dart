@@ -63,6 +63,13 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
         _ratesRequestId == searchResultId) {
       return;
     }
+    if (hotel.offers.isNotEmpty) {
+      _hotelWithRates = hotel;
+      _ratesLoading = false;
+      _ratesUnavailable = false;
+      _ratesRequestId = searchResultId;
+      return;
+    }
     _ratesRequestId = searchResultId;
     _ratesLoading = true;
     _fetchDuffelRates(hotel, searchResultId);

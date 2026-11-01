@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/money_format.dart';
 import '../../../../global_widgets/app_network_image.dart';
+import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../global_widgets/price_comparison_controls.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/hotel_model.dart';
@@ -18,6 +19,7 @@ class HotelResultsScreen extends StatefulWidget {
 
 class _HotelResultsScreenState extends State<HotelResultsScreen> {
   HotelController? _ctrl;
+  String? _lastWarningMessage;
 
   @override
   void didChangeDependencies() {
@@ -33,6 +35,7 @@ class _HotelResultsScreenState extends State<HotelResultsScreen> {
     if (ctrl == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    _showSearchWarnings(ctrl.searchWarnings);
 
     return Scaffold(
       appBar: AppBar(
@@ -150,6 +153,15 @@ class _HotelResultsScreenState extends State<HotelResultsScreen> {
         ),
       ),
     );
+  }
+
+  void _showSearchWarnings(List<String> warnings) {
+    final message = warnings.join(' ').trim();
+    if (message.isEmpty || message == _lastWarningMessage) return;
+    _lastWarningMessage = message;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AppSnackbar.warning(context, message);
+    });
   }
 
   String _filterLabel(HotelFilter f, AppLocalizations l10n, String currency) =>

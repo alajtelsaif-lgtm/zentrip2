@@ -1289,7 +1289,20 @@ class ApiService {
     DateTime? checkOut,
     int rooms = 1,
     int guests = 2,
+    String currency = 'USD',
+    double? priceMin,
+    double? priceMax,
+    double? ratingMin,
+    List<String> amenities = const [],
+    String? roomType,
+    List<String> preferences = const [],
+    void Function(List<String> warnings)? onWarnings,
   }) async {
+    final normalizedCurrency = currency.trim().toUpperCase();
+    if (!const {'USD', 'EUR', 'GBP'}.contains(normalizedCurrency)) {
+      throw ArgumentError.value(
+          currency, 'currency', 'Only USD, EUR, and GBP are supported');
+    }
     if (useMockMode) {
       await Future.delayed(_mockDelay);
       return MockDataService.hotels(city: city);
@@ -1302,12 +1315,27 @@ class ApiService {
         if (checkOut != null) 'check_out': _formatDate(checkOut),
         'rooms': rooms,
         'guests': guests,
+        'currency': normalizedCurrency,
+        if (priceMin != null) 'price_min': priceMin,
+        if (priceMax != null) 'price_max': priceMax,
+        if (ratingMin != null) 'rating_min': ratingMin,
+        if (amenities.isNotEmpty) 'amenities': amenities.join(','),
+        if (roomType != null && roomType.trim().isNotEmpty)
+          'room_type': roomType.trim(),
+        if (preferences.isNotEmpty) 'preferences': preferences.join(','),
       },
     );
     final payload = res.data;
     if (payload is! Map || payload['hotels'] is! List) {
       throw const FormatException('Invalid hotel search response');
     }
+    final rawWarnings = payload['warnings'];
+    onWarnings?.call(rawWarnings is List
+        ? rawWarnings
+            .map((warning) => warning.toString().trim())
+            .where((warning) => warning.isNotEmpty)
+            .toList(growable: false)
+        : const []);
     final byId = <String, HotelModel>{};
     for (final value in payload['hotels'] as List) {
       if (value is! Map) continue;

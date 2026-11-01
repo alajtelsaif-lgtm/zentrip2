@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/price_comparison.dart';
@@ -9,6 +11,10 @@ class HotelSearchParams {
   final DateTime checkOut;
   final int rooms;
   final int guests;
+  final double? ratingMin;
+  final List<String> amenities;
+  final String? roomType;
+  final List<String> preferences;
 
   const HotelSearchParams({
     required this.city,
@@ -16,6 +22,10 @@ class HotelSearchParams {
     required this.checkOut,
     this.rooms = 1,
     this.guests = 2,
+    this.ratingMin,
+    this.amenities = const [],
+    this.roomType,
+    this.preferences = const [],
   });
 
   int get nights => checkOut.difference(checkIn).inDays;
@@ -37,6 +47,11 @@ class HotelController extends ChangeNotifier {
 
   void _comparisonChanged() {
     _applyFilter();
+    final currencyChanged = _lastServerFilterCurrency != comparison.currency;
+    _lastServerFilterCurrency = comparison.currency;
+    if (currencyChanged && filter != HotelFilter.all) {
+      _scheduleFilteredSearch();
+    }
     notifyListeners();
   }
 
@@ -52,6 +67,7 @@ class HotelController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _filterSearchDebounce?.cancel();
     comparison.removeListener(_comparisonChanged);
     comparison.dispose();
     super.dispose();
@@ -68,12 +84,18 @@ class HotelController extends ChangeNotifier {
   HotelFilter filter = HotelFilter.all;
   HotelModel? selectedHotel;
   int _searchRevision = 0;
+  String _lastServerFilterCurrency = 'USD';
+  Timer? _filterSearchDebounce;
+  bool _isNearbySearch = false;
+  List<String> searchWarnings = const [];
 
   Future<void> search(HotelSearchParams params) async {
     final revision = ++_searchRevision;
+    _isNearbySearch = false;
     searchParams = params;
     isLoading = true;
     hasSearchError = false;
+    searchWarnings = const [];
     notifyListeners();
     comparison.refresh();
     try {
@@ -85,15 +107,27 @@ class HotelController extends ChangeNotifier {
               checkOut: params.checkOut,
               rooms: params.rooms,
               guests: params.guests,
+              currency: comparison.currency,
+              priceMin: _serverPriceBounds.$1,
+              priceMax: _serverPriceBounds.$2,
+              ratingMin: params.ratingMin,
+              amenities: params.amenities,
+              roomType: params.roomType,
+              preferences: params.preferences,
+              onWarnings: (warnings) {
+                if (revision != _searchRevision) return;
+                searchWarnings = List.unmodifiable(warnings);
+                notifyListeners();
+              },
             );
       if (revision != _searchRevision) return;
       _all = hotels;
       _applyFilter();
     } catch (_) {
       if (revision != _searchRevision) return;
-      _all = [];
-      results = [];
+      if (_all.isEmpty) results = [];
       hasSearchError = true;
+      searchWarnings = const ['Some hotel results could not be refreshed.'];
     } finally {
       if (revision == _searchRevision) {
         isLoading = false;
@@ -109,12 +143,17 @@ class HotelController extends ChangeNotifier {
     double radiusMeters = defaultNearbyRadiusMeters,
   }) async {
     final revision = ++_searchRevision;
+    _isNearbySearch = true;
     searchParams = HotelSearchParams(
       city: params.city,
       checkIn: params.checkIn,
       checkOut: params.checkOut,
       rooms: params.rooms,
       guests: params.guests,
+      ratingMin: params.ratingMin,
+      amenities: params.amenities,
+      roomType: params.roomType,
+      preferences: params.preferences,
     );
     isLoading = true;
     hasSearchError = false;
@@ -153,6 +192,23 @@ class HotelController extends ChangeNotifier {
     filter = f;
     _applyFilter();
     notifyListeners();
+    _scheduleFilteredSearch();
+  }
+
+  (double?, double?) get _serverPriceBounds => switch (filter) {
+        HotelFilter.budget => (null, 99.999999),
+        HotelFilter.midRange => (100, 249.999999),
+        HotelFilter.luxury => (250, null),
+        HotelFilter.all => (null, null),
+      };
+
+  void _scheduleFilteredSearch() {
+    if (searchHotels != null || _isNearbySearch || searchParams == null) return;
+    _filterSearchDebounce?.cancel();
+    _filterSearchDebounce = Timer(const Duration(milliseconds: 250), () {
+      final params = searchParams;
+      if (params != null) unawaited(search(params));
+    });
   }
 
   void selectHotel(HotelModel hotel) {

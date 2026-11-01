@@ -20,6 +20,12 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class DuffelStayService {
@@ -28,6 +34,18 @@ public class DuffelStayService {
     private static final String SEARCH_PATH = "/stays/search";
     private static final String FETCH_RATES_PATH =
             "/stays/search_results/%s/actions/fetch_all_rates";
+    private static final Executor RATE_EXECUTOR = new ThreadPoolExecutor(
+            2,
+            2,
+            30,
+            TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(24),
+            runnable -> {
+                Thread thread = new Thread(runnable, "zentrip-duffel-stay-rates");
+                thread.setDaemon(true);
+                return thread;
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy());
 
     private final boolean enabled;
     private final String accessToken;
@@ -127,6 +145,119 @@ public class DuffelStayService {
                     List.of(), List.of("Duffel hotel results are temporarily unavailable."));
         }
     }
+
+    /**
+     * Loads each search result's complete rates before returning it to the results
+     * page. The provider's best-effort search estimate is never used as the final
+     * displayed Duffel price.
+     */
+    public SearchOutcome searchHotelsWithAllRatesWithWarnings(
+            String city,
+            double latitude,
+            double longitude,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            int rooms,
+            int guests) {
+        SearchOutcome search = searchHotelsWithWarnings(
+                city, latitude, longitude, checkIn, checkOut, rooms, guests);
+        if (search.hotels().isEmpty()) return search;
+
+        List<CompletableFuture<HotelRatesOutcome>> pending = search.hotels().stream()
+                .map(hotel -> CompletableFuture.supplyAsync(
+                        () -> hotelWithRates(hotel), RATE_EXECUTOR))
+                .toList();
+        List<Map<String, Object>> hotels = new ArrayList<>();
+        List<String> warnings = new ArrayList<>(search.warnings());
+        for (CompletableFuture<HotelRatesOutcome> request : pending) {
+            try {
+                HotelRatesOutcome outcome = request.join();
+                hotels.add(outcome.hotel());
+                if (!outcome.warning().isBlank()) warnings.add(outcome.warning());
+            } catch (CompletionException exception) {
+                // A single rate lookup must not remove results from the other sources.
+                LOG.warn("Duffel stay rates could not be loaded for one result");
+                warnings.add("Some Duffel room rates are temporarily unavailable.");
+            }
+        }
+        return new SearchOutcome(hotels, warnings.stream().distinct().toList());
+    }
+
+    private HotelRatesOutcome hotelWithRates(Map<String, Object> source) {
+        Map<String, Object> hotel = new LinkedHashMap<>(source);
+        String searchResultId = text(source.get("provider_search_result_id"));
+        if (searchResultId.isBlank()) {
+            hotel.put("price_per_night", null);
+            hotel.put("offers", List.of());
+            hotel.put("room_types", List.of());
+            return new HotelRatesOutcome(
+                    hotel, "Some Duffel room rates are temporarily unavailable.");
+        }
+        try {
+            Map<String, Object> details = fetchAllRates(searchResultId);
+            Object rawOffers = details.get("offers");
+            List<Map<String, Object>> offers = new ArrayList<>();
+            if (rawOffers instanceof List<?> values) {
+                for (Object value : values) {
+                    if (value instanceof Map<?, ?> raw) {
+                        Map<String, Object> offer = new LinkedHashMap<>();
+                        raw.forEach((key, entry) -> {
+                            if (key != null) offer.put(key.toString(), entry);
+                        });
+                        offers.add(offer);
+                    }
+                }
+            }
+            Object rawRoomTypes = details.get("room_types");
+            hotel.put("offers", List.copyOf(offers));
+            hotel.put(
+                    "room_types",
+                    rawRoomTypes instanceof List<?> list ? List.copyOf(list) : List.of());
+            Map<String, Object> selectedRate = cheapestRateForCard(
+                    offers, text(source.get("price_currency")));
+            if (selectedRate == null) {
+                hotel.put("price_per_night", null);
+                return new HotelRatesOutcome(
+                        hotel, "Some Duffel room rates are temporarily unavailable.");
+            }
+            hotel.put("price_per_night", selectedRate.get("price_per_night"));
+            hotel.put("price_currency", selectedRate.get("price_currency"));
+            hotel.put("currency", selectedRate.get("price_currency"));
+            return new HotelRatesOutcome(hotel, "");
+        } catch (RuntimeException exception) {
+            LOG.warn("Duffel stay rates could not be loaded for one result");
+            hotel.put("price_per_night", null);
+            hotel.put("offers", List.of());
+            hotel.put("room_types", List.of());
+            return new HotelRatesOutcome(
+                    hotel, "Some Duffel room rates are temporarily unavailable.");
+        }
+    }
+
+    private static Map<String, Object> cheapestRateForCard(
+            List<Map<String, Object>> offers,
+            String preferredCurrency) {
+        String selectedCurrency = preferredCurrency.trim().toUpperCase(java.util.Locale.ROOT);
+        if (selectedCurrency.isBlank()) {
+            selectedCurrency = offers.stream()
+                    .map(offer -> text(offer.get("price_currency")))
+                    .filter(value -> !value.isBlank())
+                    .findFirst()
+                    .orElse("");
+        }
+        final String currency = selectedCurrency;
+        return offers.stream()
+                .filter(offer -> currency.equalsIgnoreCase(
+                        text(offer.get("price_currency"))))
+                .filter(offer -> decimalValue(offer.get("price_per_night")) != null)
+                .min(java.util.Comparator.comparing(offer ->
+                        decimalValue(offer.get("price_per_night"))))
+                .orElse(null);
+    }
+
+    private record HotelRatesOutcome(
+            Map<String, Object> hotel,
+            String warning) {}
 
     public record SearchOutcome(
             List<Map<String, Object>> hotels,
@@ -305,6 +436,17 @@ public class DuffelStayService {
         }
     }
 
+    private static BigDecimal decimalValue(Object value) {
+        if (value instanceof BigDecimal decimal) return decimal;
+        if (value instanceof Number number) return BigDecimal.valueOf(number.doubleValue());
+        if (value == null) return null;
+        try {
+            return new BigDecimal(value.toString().trim());
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
     private static Map<String, Object> normalizeResult(
             JsonNode result, String requestedCity, long nights, int rooms) {
         String searchResultId = text(result, "id");
@@ -317,18 +459,19 @@ public class DuffelStayService {
         String currency = firstNonBlank(
                 text(result, "cheapest_rate_currency"),
                 text(result, "cheapest_rate_public_currency"));
-        if (searchResultId.isBlank() || name.isBlank()
-                || totalAmountText.isBlank() || currency.isBlank()) {
+        if (searchResultId.isBlank() || name.isBlank()) {
             return null;
         }
 
-        BigDecimal totalAmount;
-        try {
-            totalAmount = new BigDecimal(totalAmountText);
-        } catch (NumberFormatException exception) {
-            return null;
+        BigDecimal totalAmount = null;
+        if (!totalAmountText.isBlank()) {
+            try {
+                totalAmount = new BigDecimal(totalAmountText);
+            } catch (NumberFormatException ignored) {
+                // The complete rate lookup below is authoritative for the displayed price.
+            }
         }
-        if (totalAmount.signum() < 0) return null;
+        if (totalAmount != null && totalAmount.signum() < 0) totalAmount = null;
 
         JsonNode address = accommodation.path("location").path("address");
         JsonNode coordinates = accommodation.path("location")
@@ -355,8 +498,10 @@ public class DuffelStayService {
         int reviewCount = integerOrZero(accommodation.path("review_count"));
         int hotelStars = Math.max(0, Math.min(5,
                 integerOrZero(accommodation.path("rating"))));
-        BigDecimal nightlyAmount = totalAmount.divide(
-                BigDecimal.valueOf(nights * rooms), 6, RoundingMode.HALF_UP);
+        BigDecimal nightlyAmount = totalAmount == null
+                ? null
+                : totalAmount.divide(
+                        BigDecimal.valueOf(nights * rooms), 6, RoundingMode.HALF_UP);
         Map<String, Object> hotel = new LinkedHashMap<>();
         hotel.put("id", "duffel-" + searchResultId);
         hotel.put("source", "duffel");
@@ -379,7 +524,8 @@ public class DuffelStayService {
         hotel.put("rating_source", "duffel");
         hotel.put("review_count", reviewCount);
         hotel.put("price_per_night", nightlyAmount);
-        hotel.put("price_currency", currency.toUpperCase(java.util.Locale.ROOT));
+        hotel.put("price_currency", currency.isBlank()
+                ? "USD" : currency.toUpperCase(java.util.Locale.ROOT));
         hotel.put("tax_and_fees_percentage", 0);
         hotel.put("available_rooms", null);
         hotel.put("availability_known", false);
