@@ -29,6 +29,8 @@ public class RapidApiHotelService {
     private static final String API_BASE_URL = "https://" + API_HOST;
     private static final String DESTINATION_PATH = "/api/v1/hotels/searchDestination";
     private static final String SEARCH_PATH = "/api/v1/hotels/searchHotels";
+    private static final String COORDINATE_SEARCH_PATH =
+            "/api/v1/hotels/searchHotelsByCoordinates";
     private static final ObjectMapper ERROR_JSON = new ObjectMapper();
 
     private final String apiKey;
@@ -53,6 +55,19 @@ public class RapidApiHotelService {
             int rooms,
             int guests,
             String currency) {
+        return searchHotelsWithWarnings(
+                city, checkIn, checkOut, rooms, guests, currency, null, null);
+    }
+
+    public SearchOutcome searchHotelsWithWarnings(
+            String city,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            int rooms,
+            int guests,
+            String currency,
+            Double latitude,
+            Double longitude) {
         String normalizedCity = city == null ? "" : city.trim();
         long nights = checkIn == null || checkOut == null
                 ? 0
@@ -94,31 +109,36 @@ public class RapidApiHotelService {
             params.put("units", "metric");
 
             JsonNode searchResponse = get(SEARCH_PATH, params);
-            List<JsonNode> results = arrayAt(
-                    searchResponse,
-                    "data.hotels",
-                    "data.results",
-                    "data.result.hotels",
-                    "data.results.hotels",
-                    "data.result",
-                    "data",
-                    "hotels",
-                    "results",
-                    "result.hotels",
-                    "result.results",
-                    "result",
-                    "properties");
+            JsonNode resultResponse = searchResponse;
+            List<JsonNode> results = hotelResults(searchResponse);
+            boolean providerSearchFailed = isProviderFailure(searchResponse);
+            if (results.isEmpty() && providerSearchFailed) {
+                if (hasCoordinates(latitude, longitude)) {
+                    LOG.info(
+                            "Booking.com RapidAPI city hotel search returned status=false; trying coordinates");
+                    operation = "coordinate hotel search";
+                    resultResponse = get(
+                            COORDINATE_SEARCH_PATH,
+                            coordinateSearchParams(
+                                    checkIn,
+                                    checkOut,
+                                    rooms,
+                                    guests,
+                                    currency,
+                                    latitude,
+                                    longitude));
+                    results = hotelResults(resultResponse);
+                }
+                if (results.isEmpty()) {
+                    logEmptySearch(operation, resultResponse);
+                    return new SearchOutcome(
+                            List.of(),
+                            List.of(
+                                    "Booking.com RapidAPI did not return hotel data for this search."));
+                }
+            }
             if (results.isEmpty()) {
-                String providerStatus = firstText(searchResponse, "status", "success");
-                String providerMessage = sanitizeProviderMessage(
-                        firstText(searchResponse, "message", "error.message", "error"),
-                        apiKey);
-                LOG.info(
-                        "Booking.com RapidAPI hotel search returned no parsed results: status={}, message={}, responseFields={}, dataShape={}",
-                        providerStatus.isBlank() ? "unavailable" : providerStatus,
-                        providerMessage.isBlank() ? "none" : providerMessage,
-                        objectFields(searchResponse),
-                        nodeShape(nodeAt(searchResponse, "data")));
+                logEmptySearch(operation, resultResponse);
             }
             List<Map<String, Object>> hotels = new ArrayList<>();
             for (JsonNode result : results) {
@@ -162,6 +182,76 @@ public class RapidApiHotelService {
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .body(JsonNode.class);
+    }
+
+    private static List<JsonNode> hotelResults(JsonNode response) {
+        return arrayAt(
+                response,
+                "data.hotels",
+                "data.results",
+                "data.result.hotels",
+                "data.results.hotels",
+                "data.result",
+                "data",
+                "hotels",
+                "results",
+                "result.hotels",
+                "result.results",
+                "result",
+                "properties");
+    }
+
+    private static boolean isProviderFailure(JsonNode response) {
+        String status = firstText(response, "status", "success");
+        return "false".equalsIgnoreCase(status) || "error".equalsIgnoreCase(status);
+    }
+
+    private static boolean hasCoordinates(Double latitude, Double longitude) {
+        return latitude != null
+                && longitude != null
+                && Double.isFinite(latitude)
+                && Double.isFinite(longitude)
+                && latitude >= -90
+                && latitude <= 90
+                && longitude >= -180
+                && longitude <= 180;
+    }
+
+    private static Map<String, String> coordinateSearchParams(
+            LocalDate checkIn,
+            LocalDate checkOut,
+            int rooms,
+            int guests,
+            String currency,
+            double latitude,
+            double longitude) {
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("arrival_date", checkIn.toString());
+        params.put("departure_date", checkOut.toString());
+        params.put("latitude", BigDecimal.valueOf(latitude).stripTrailingZeros().toPlainString());
+        params.put("longitude", BigDecimal.valueOf(longitude).stripTrailingZeros().toPlainString());
+        params.put("radius", "50");
+        params.put("room_qty", Integer.toString(rooms));
+        params.put("adults", Integer.toString(guests));
+        params.put("temperature_unit", "c");
+        params.put("languagecode", "en");
+        params.put("currency_code", normalizeCurrency(currency));
+        params.put("units", "metric");
+        return params;
+    }
+
+    private void logEmptySearch(String operation, JsonNode response) {
+        String providerStatus = firstText(response, "status", "success");
+        String providerMessage = sanitizeProviderMessage(
+                firstText(response, "message", "error.message", "error"),
+                apiKey);
+        LOG.info(
+                "Booking.com RapidAPI {} returned no parsed results: status={}, message={}, responseFields={}, dataShape={}",
+                operation,
+                providerStatus.isBlank() ? "unavailable" : providerStatus,
+                providerMessage.isBlank() ? "none" : providerMessage,
+                objectFields(response),
+                nodeShape(nodeAt(response, "data")));
     }
 
     private static JsonNode selectDestination(JsonNode response, String city) {

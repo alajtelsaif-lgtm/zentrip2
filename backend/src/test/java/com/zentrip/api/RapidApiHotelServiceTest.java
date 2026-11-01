@@ -136,6 +136,62 @@ class RapidApiHotelServiceTest {
     }
 
     @Test
+    void failedCitySearchFallsBackToDocumentedCoordinateSearch() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(containsString("/api/v1/hotels/searchDestination")))
+                .andRespond(withSuccess(
+                        """
+                        {"data":[{"dest_id":"-1234","dest_type":"city","name":"London","country":"UK"}]}
+                        """,
+                        MediaType.APPLICATION_JSON));
+        server.expect(requestTo(containsString("/api/v1/hotels/searchHotels?")))
+                .andExpect(queryParam("dest_id", "-1234"))
+                .andRespond(withSuccess(
+                        "{\"status\":false,\"message\":\"\"}",
+                        MediaType.APPLICATION_JSON));
+        server.expect(requestTo(containsString(
+                        "/api/v1/hotels/searchHotelsByCoordinates?")))
+                .andExpect(queryParam("arrival_date", "2026-12-01"))
+                .andExpect(queryParam("departure_date", "2026-12-03"))
+                .andExpect(queryParam("latitude", "51.5072"))
+                .andExpect(queryParam("longitude", "-0.1276"))
+                .andExpect(queryParam("radius", "50"))
+                .andExpect(queryParam("room_qty", "1"))
+                .andExpect(queryParam("adults", "2"))
+                .andExpect(queryParam("languagecode", "en"))
+                .andRespond(withSuccess(
+                        """
+                        {"status":true,"data":{"hotels":[{
+                          "hotel_id":456,
+                          "hotel_name":"Coordinate Test Hotel",
+                          "price_per_night":95,
+                          "price_currency":"USD"
+                        }]}}
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        RapidApiHotelService service =
+                new RapidApiHotelService("test-rapidapi-key", true, builder);
+        RapidApiHotelService.SearchOutcome outcome = service.searchHotelsWithWarnings(
+                "London",
+                LocalDate.parse("2026-12-01"),
+                LocalDate.parse("2026-12-03"),
+                1,
+                2,
+                "USD",
+                51.5072,
+                -0.1276);
+
+        assertTrue(outcome.warnings().isEmpty());
+        assertEquals(1, outcome.hotels().size());
+        assertEquals("Coordinate Test Hotel", outcome.hotels().getFirst().get("name"));
+        assertEquals("rapidapi", outcome.hotels().getFirst().get("source"));
+        assertEquals(new BigDecimal("95"), outcome.hotels().getFirst().get("price_per_night"));
+        server.verify();
+    }
+
+    @Test
     void missingKeySkipsNetworkCallsAndReturnsConfigurationWarning() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

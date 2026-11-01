@@ -1005,7 +1005,9 @@ public class PartnerController {
                                             parsedCheckOut,
                                             rooms,
                                             guests,
-                                            normalizedCurrency);
+                                            normalizedCurrency,
+                                            center == null ? null : center.latitude(),
+                                            center == null ? null : center.longitude());
                             return new UnifiedInventoryService.SourceOutcome(
                                     provider.hotels(), provider.warnings());
                         }));

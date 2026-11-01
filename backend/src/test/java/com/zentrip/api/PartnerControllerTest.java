@@ -666,7 +666,9 @@ class PartnerControllerTest {
                 eq(java.time.LocalDate.parse("2026-12-03")),
                 eq(1),
                 eq(2),
-                eq("USD")))
+                eq("USD"),
+                eq(51.5072),
+                eq(-0.1276)))
                 .thenReturn(new RapidApiHotelService.SearchOutcome(
                         List.of(rapidApiHotel), List.of()));
 
