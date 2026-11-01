@@ -71,7 +71,7 @@ CREATE TEMP TABLE airport_import_stage (
     airport_type TEXT NOT NULL,
     is_major BOOLEAN NOT NULL,
     iso_country CHAR(2) NOT NULL,
-    keywords TEXT NOT NULL,
+    keywords TEXT,
     wikipedia_link TEXT
 ) ON COMMIT DROP;
 \\copy airport_import_stage ({copy_fields}) FROM '{csv_path}' WITH (FORMAT csv, HEADER true)
@@ -82,7 +82,7 @@ INSERT INTO public.airports (
 )
 SELECT
     code, icao_code, city, airport_name, country, region, latitude, longitude,
-    airport_type, is_major, TRUE, iso_country, keywords, wikipedia_link,
+    airport_type, is_major, TRUE, iso_country, COALESCE(keywords, ''), wikipedia_link,
     source_id, 'OurAirports', NOW()
 FROM airport_import_stage
 ON CONFLICT (code) DO UPDATE SET
