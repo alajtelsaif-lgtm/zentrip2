@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -34,9 +35,15 @@ public class RlsContextFilter extends OncePerRequestFilter {
 
     public RlsContextFilter(
             JdbcTemplate jdbc,
-            PlatformTransactionManager transactionManager) {
+            ObjectProvider<PlatformTransactionManager> transactionManagers) {
         this.jdbc = jdbc;
-        this.transaction = new TransactionTemplate(transactionManager);
+        PlatformTransactionManager transactionManager = transactionManagers.getIfAvailable();
+        if (transactionManager == null && jdbc.getDataSource() != null) {
+            throw new IllegalStateException(
+                    "Database-backed API requests require an RLS transaction manager");
+        }
+        this.transaction = transactionManager == null
+                ? null : new TransactionTemplate(transactionManager);
     }
 
     @Override
@@ -55,6 +62,11 @@ public class RlsContextFilter extends OncePerRequestFilter {
                 && SUPPORTED_ROLES.contains(candidate) ? candidate : "anonymous";
         String userId = numericAttribute(request, "authUserId");
         String partnerId = numericAttribute(request, "authPartnerId");
+
+        if (transaction == null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         try {
             transaction.executeWithoutResult(status -> {

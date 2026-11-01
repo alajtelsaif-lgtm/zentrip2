@@ -20,6 +20,10 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
@@ -27,8 +31,22 @@ import org.springframework.web.server.ResponseStatusException;
 
 class AiChatControllerTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-        private final RequestyChatService requesty = mock(RequestyChatService.class);
-        private final AiChatController controller = new AiChatController(jdbc, requesty);
+    private final RequestyChatService requesty = mock(RequestyChatService.class);
+    private final PlatformTransactionManager transactionManager =
+            new PlatformTransactionManager() {
+                @Override
+                public TransactionStatus getTransaction(TransactionDefinition definition) {
+                    return new SimpleTransactionStatus();
+                }
+
+                @Override
+                public void commit(TransactionStatus status) {}
+
+                @Override
+                public void rollback(TransactionStatus status) {}
+            };
+    private final AiChatController controller =
+            new AiChatController(jdbc, requesty, transactionManager);
 
     @Test
         void rejectsUnauthenticatedRequestsBeforeCallingRequesty() {

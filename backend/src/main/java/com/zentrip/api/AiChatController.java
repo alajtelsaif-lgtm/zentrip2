@@ -16,6 +16,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.dao.DataAccessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,11 +44,28 @@ public class AiChatController {
 
     private final JdbcTemplate jdbc;
     private final RequestyChatService requesty;
+    private final TransactionTemplate transaction;
     private final Map<String, Long> cancelledRequests = new ConcurrentHashMap<>();
 
-    public AiChatController(JdbcTemplate jdbc, RequestyChatService requesty) {
+    @Autowired
+    public AiChatController(
+            JdbcTemplate jdbc,
+            RequestyChatService requesty,
+            ObjectProvider<PlatformTransactionManager> transactionManagers) {
         this.jdbc = jdbc;
         this.requesty = requesty;
+        PlatformTransactionManager transactionManager = transactionManagers.getIfAvailable();
+        this.transaction = transactionManager == null
+                ? null : new TransactionTemplate(transactionManager);
+    }
+
+    AiChatController(
+            JdbcTemplate jdbc,
+            RequestyChatService requesty,
+            PlatformTransactionManager transactionManager) {
+        this.jdbc = jdbc;
+        this.requesty = requesty;
+        this.transaction = new TransactionTemplate(transactionManager);
     }
 
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -185,11 +206,7 @@ public class AiChatController {
             });
             if (consumeCancellation(cancellationKey)) return;
             try {
-                jdbc.update("""
-                        INSERT INTO ai_chat_messages (user_id, session_id, role, content)
-                        VALUES (?, ?, 'user', ?), (?, ?, 'model', ?)
-                        """, userId, sessionId, message, userId, sessionId, reply.toString());
-                trimHistory(userId, sessionId);
+                persistConversation(userId, sessionId, message, reply.toString());
             } catch (DataAccessException exception) {
                 LOG.warn("Zen chat response could not be persisted for user {}.", userId,
                         exception);
@@ -211,6 +228,32 @@ public class AiChatController {
         output.write(("event: " + event + "\ndata: " + payload + "\n\n")
                 .getBytes(StandardCharsets.UTF_8));
         output.flush();
+    }
+
+    private void setLocal(String name, String value) {
+        jdbc.queryForObject("SELECT set_config(?, ?, true)", String.class, name, value);
+    }
+
+    private void persistConversation(
+            long userId, String sessionId, String message, String reply) {
+        Runnable persist = () -> {
+            jdbc.update("""
+                    INSERT INTO ai_chat_messages (user_id, session_id, role, content)
+                    VALUES (?, ?, 'user', ?), (?, ?, 'model', ?)
+                    """, userId, sessionId, message, userId, sessionId, reply);
+            trimHistory(userId, sessionId);
+        };
+        if (transaction == null) {
+            persist.run();
+            return;
+        }
+        transaction.executeWithoutResult(status -> {
+            jdbc.execute("SET LOCAL ROLE zentrip_api_runtime");
+            setLocal("app.auth_role", "customer");
+            setLocal("app.user_id", Long.toString(userId));
+            setLocal("app.partner_id", "");
+            persist.run();
+        });
     }
 
     @PostMapping("/chat/cancel")

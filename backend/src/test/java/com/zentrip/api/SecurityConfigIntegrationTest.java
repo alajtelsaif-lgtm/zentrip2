@@ -90,6 +90,23 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
+    void partnerTokenCannotUseCustomerBookingEndpoints() throws Exception {
+        String token = "partner-role-test-token";
+        when(jdbcTemplate.queryForList(
+                contains("FROM api_tokens t"),
+                eq(TokenAuthFilter.sha256(token)),
+                any(Timestamp.class)))
+                .thenReturn(List.of(Map.of(
+                        "user_id", 29L,
+                        "role", "partner",
+                        "partner_id", 4L)));
+
+        mockMvc.perform(get("/api/bookings")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void customerTokenCanReachCustomerBookingEndpoints() throws Exception {
         String token = "customer-booking-test-token";
         when(jdbcTemplate.queryForList(

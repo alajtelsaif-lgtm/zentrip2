@@ -1,5 +1,6 @@
 - [Imported database safety](imported-database-safety.md) — preserve existing account roles and database schema during environment setup.
 - [PostgreSQL verification](postgresql-verification.md) — SQL mocks can pass while PostgreSQL rejects queries; validate migrations on a disposable real database.
+- [Supabase RLS runtime](supabase-rls-runtime.md) — run backend requests under a transaction-local, non-bypass role; the managed postgres connection can bypass policies.
 - [Seat inventory fidelity](seat-inventory-fidelity.md) — reference-image cabin and class counts are not real allocations; never invent them.
 - [Flutter cache restoration](flutter-cache-restoration.md) — retained SDK/build files do not guarantee the global Pub cache survived; restore locked packages rather than changing dependencies.
 - [Backend test database isolation](backend-test-database-isolation.md) — keep real database settings out of Maven test processes; use the loopback-only PostgreSQL integration harness.
