@@ -136,7 +136,8 @@ class RapidApiHotelServiceTest {
     }
 
     @Test
-    void failedCitySearchFallsBackToDocumentedCoordinateSearch() {
+    void failedCitySearchLogsProviderRequestIdAndFallsBackToCoordinateSearch(
+            CapturedOutput output) {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo(containsString("/api/v1/hotels/searchDestination")))
@@ -149,7 +150,8 @@ class RapidApiHotelServiceTest {
                 .andExpect(queryParam("dest_id", "-1234"))
                 .andRespond(withSuccess(
                         "{\"status\":false,\"message\":\"\"}",
-                        MediaType.APPLICATION_JSON));
+                        MediaType.APPLICATION_JSON)
+                        .header("x-rapidapi-request-id", "city-search-request-123"));
         server.expect(requestTo(containsString(
                         "/api/v1/hotels/searchHotelsByCoordinates?")))
                 .andExpect(queryParam("arrival_date", "2026-12-01"))
@@ -188,6 +190,8 @@ class RapidApiHotelServiceTest {
         assertEquals("Coordinate Test Hotel", outcome.hotels().getFirst().get("name"));
         assertEquals("rapidapi", outcome.hotels().getFirst().get("source"));
         assertEquals(new BigDecimal("95"), outcome.hotels().getFirst().get("price_per_night"));
+        assertTrue(output.getOut().contains("requestId=city-search-request-123"));
+        assertTrue(output.getOut().contains("x-rapidapi-key=[MASKED]"));
         server.verify();
     }
 

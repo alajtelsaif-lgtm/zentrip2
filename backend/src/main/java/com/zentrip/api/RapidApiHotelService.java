@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -171,7 +172,7 @@ public class RapidApiHotelService {
     }
 
     private JsonNode get(String path, Map<String, String> params) {
-        return restClient.get()
+        ResponseEntity<JsonNode> providerResponse = restClient.get()
                 .uri(builder -> {
                     var uri = builder.path(path);
                     params.forEach((name, value) -> uri.queryParam(name, value));
@@ -181,7 +182,29 @@ public class RapidApiHotelService {
                 .header("x-rapidapi-key", apiKey)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .body(JsonNode.class);
+                .toEntity(JsonNode.class);
+        JsonNode body = providerResponse.getBody();
+        if (isProviderFailure(body)) {
+            String requestId = providerResponse.getHeaders().getFirst("x-rapidapi-request-id");
+            if (requestId == null || requestId.isBlank()) {
+                requestId = providerResponse.getHeaders().getFirst("x-request-id");
+            }
+            String errorCode = sanitizeProviderMessage(
+                    firstText(body, "error_code", "errorCode", "code", "error.code"),
+                    apiKey);
+            String message = sanitizeProviderMessage(
+                    firstText(body, "message", "error.message", "error"),
+                    apiKey);
+            LOG.warn(
+                    "Booking.com RapidAPI provider failure: operation={}, httpStatus={}, status={}, errorCode={}, message={}, requestId={}, x-rapidapi-key=[MASKED]",
+                    path.substring(path.lastIndexOf('/') + 1),
+                    providerResponse.getStatusCode().value(),
+                    firstText(body, "status", "success"),
+                    errorCode.isBlank() ? "none" : errorCode,
+                    message.isBlank() ? "none" : message,
+                    requestId == null || requestId.isBlank() ? "none" : requestId);
+        }
+        return body;
     }
 
     private static List<JsonNode> hotelResults(JsonNode response) {
