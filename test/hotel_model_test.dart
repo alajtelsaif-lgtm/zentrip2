@@ -103,15 +103,21 @@ void main() {
 
     expect(hotel.ratingSource, 'duffel');
     expect(hotel.reviewScore, 8.6);
+    expect(hotel.hasComparisonPrice, isFalse);
     expect(hotel.roomTypes.single['rates'], hasLength(1));
     expect(hotel.offers.single['total_currency'], 'GBP');
 
     final updated = hotel.withRoomOffers(
       roomTypes: hotel.roomTypes,
       offers: hotel.offers,
+      pricePerNight: 130,
+      priceCurrencyCode: 'GBP',
     );
     expect(updated.providerSearchResultId, 'srr_example');
     expect(updated.offers, hasLength(1));
+    expect(updated.pricePerNight, 130);
+    expect(updated.priceCurrencyCode, 'GBP');
+    expect(updated.hasComparisonPrice, isTrue);
   });
 
   test('hotel location coordinates parse from a Google Maps query URL', () {

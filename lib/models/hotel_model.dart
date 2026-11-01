@@ -280,6 +280,8 @@ class HotelModel {
   HotelModel withRoomOffers({
     required List<Map<String, dynamic>> roomTypes,
     required List<Map<String, dynamic>> offers,
+    double? pricePerNight,
+    String? priceCurrencyCode,
   }) =>
       HotelModel(
         id: id,
@@ -291,8 +293,10 @@ class HotelModel {
         placeId: placeId,
         googleRating: googleRating,
         googleReviewCount: googleReviewCount,
-        pricePerNight: pricePerNight,
-        hasComparisonPrice: hasComparisonPrice,
+        pricePerNight: pricePerNight ?? this.pricePerNight,
+        hasComparisonPrice: pricePerNight == null
+            ? hasComparisonPrice
+            : pricePerNight.isFinite && pricePerNight >= 0,
         taxAndFeesPercentage: taxAndFeesPercentage,
         availableRooms: availableRooms,
         imageUrl: imageUrl,
@@ -312,7 +316,7 @@ class HotelModel {
         locationInput: locationInput,
         googlePlaceId: googlePlaceId,
         source: source,
-        priceCurrencyCode: priceCurrencyCode,
+        priceCurrencyCode: priceCurrencyCode ?? this.priceCurrencyCode,
         providerSearchResultId: providerSearchResultId,
         providerAccommodationId: providerAccommodationId,
         availabilityKnown: availabilityKnown,

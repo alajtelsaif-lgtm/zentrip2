@@ -13,6 +13,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
@@ -233,6 +234,21 @@ class DuffelStayServiceTest {
         assertEquals(0, new BigDecimal("100.00").compareTo(
                 (BigDecimal) offers.getFirst().get("price_per_night")));
         assertTrue(offers.getFirst().containsKey("cancellation_timeline"));
+        server.verify();
+    }
+
+    @Test
+    void rateLookupRejectsMalformedSearchResultIdsBeforeCallingDuffel() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        DuffelStayService service =
+                new DuffelStayService("unit-test-token", true, builder);
+
+        org.springframework.web.server.ResponseStatusException error = assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> service.fetchAllRates("../stays/search"));
+
+        assertEquals(400, error.getStatusCode().value());
         server.verify();
     }
 

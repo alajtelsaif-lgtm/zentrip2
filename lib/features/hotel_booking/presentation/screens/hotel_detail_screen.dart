@@ -37,6 +37,56 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
   String _formatPrice(HotelModel hotel, double amount, {int decimals = 0}) =>
       '${hotel.priceCurrencyCode} ${amount.toStringAsFixed(decimals)}';
 
+  String _formatAvailablePrice(
+    HotelModel hotel,
+    double amount,
+    AppLocalizations l10n, {
+    int decimals = 0,
+  }) =>
+      hotel.comparisonNightlyPrice == null
+          ? l10n.priceUnavailable
+          : _formatPrice(hotel, amount, decimals: decimals);
+
+  Map<String, Object>? _bestDisplayRate(
+    List<Map<String, dynamic>> offers,
+    String preferredCurrency,
+  ) {
+    final candidates = <Map<String, Object>>[];
+    for (final offer in offers) {
+      final rawPrice = offer['price_per_night'] ?? offer['price'];
+      final price = rawPrice is num
+          ? rawPrice.toDouble()
+          : double.tryParse(rawPrice?.toString() ?? '');
+      final currency = (offer['price_currency'] ?? offer['currency'] ?? '')
+          .toString()
+          .trim()
+          .toUpperCase();
+      if (price == null ||
+          !price.isFinite ||
+          price < 0 ||
+          !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
+        continue;
+      }
+      candidates.add({'price': price, 'currency': currency});
+    }
+    if (candidates.isEmpty) return null;
+
+    final preferred = preferredCurrency.trim().toUpperCase();
+    var eligible = candidates
+        .where((candidate) => candidate['currency'] == preferred)
+        .toList();
+    if (eligible.isEmpty) {
+      final fallbackCurrency = candidates.first['currency'];
+      eligible = candidates
+          .where((candidate) => candidate['currency'] == fallbackCurrency)
+          .toList();
+    }
+    eligible.sort(
+      (a, b) => (a['price'] as double).compareTo(b['price'] as double),
+    );
+    return eligible.first;
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -95,6 +145,7 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
             .map((value) => Map<String, dynamic>.from(value))
             .toList(growable: false)
         : const <Map<String, dynamic>>[];
+    final displayRate = _bestDisplayRate(offers, hotel.priceCurrencyCode);
     setState(() {
       _ratesLoading = false;
       _ratesUnavailable = result.isFailure || offers.isEmpty;
@@ -102,6 +153,8 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
         _hotelWithRates = hotel.withRoomOffers(
           roomTypes: roomTypes,
           offers: offers,
+          pricePerNight: displayRate?['price'] as double?,
+          priceCurrencyCode: displayRate?['currency'] as String?,
         );
       }
     });
@@ -244,7 +297,15 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context);
     final ctrl = _ctrl;
-    final hotel = ctrl?.selectedHotel;
+    final selectedHotel = ctrl?.selectedHotel;
+    final loadedRatesHotel = _hotelWithRates;
+    final hotel = selectedHotel != null &&
+            loadedRatesHotel != null &&
+            selectedHotel.providerSearchResultId != null &&
+            loadedRatesHotel.providerSearchResultId ==
+                selectedHotel.providerSearchResultId
+        ? loadedRatesHotel
+        : selectedHotel;
     final nights = ctrl?.searchParams?.nights ?? 1;
     final rooms = ctrl?.searchParams?.rooms ?? 1;
     if (hotel == null) return const BookingLoadError();
@@ -416,7 +477,7 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                   child: Column(children: [
                     _Row(
                       l10n.hotelNightPrice,
-                      _formatPrice(hotel, hotel.pricePerNight),
+                      _formatAvailablePrice(hotel, hotel.pricePerNight, l10n),
                     ),
                     if (hotel.isDuffelOffer && hotel.offers.isNotEmpty) ...[
                       const Divider(height: 20),
@@ -448,16 +509,16 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                     _Row(l10n.hotelNightsCount, l10n.hotelNightsValue(nights)),
                     _Row(
                       l10n.hotelSubtotal,
-                      _formatPrice(hotel, pricing.subtotal),
+                      _formatAvailablePrice(hotel, pricing.subtotal, l10n),
                     ),
                     _Row(
                       '${l10n.hotelTaxesFees} '
                       '(${hotel.taxAndFeesPercentage.toStringAsFixed(0)}%)',
-                      _formatPrice(hotel, pricing.taxAndFees),
+                      _formatAvailablePrice(hotel, pricing.taxAndFees, l10n),
                     ),
                     const Divider(height: 20),
                     _Row(l10n.hotelTotal,
-                        _formatPrice(hotel, pricing.totalPrice),
+                        _formatAvailablePrice(hotel, pricing.totalPrice, l10n),
                         isBold: true, color: AppColors.primary),
                   ]),
                 ).animate().fade(delay: 200.ms),

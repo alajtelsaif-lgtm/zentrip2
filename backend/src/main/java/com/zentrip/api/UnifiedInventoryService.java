@@ -49,8 +49,14 @@ public class UnifiedInventoryService {
             List<Map<String, Object>> items,
             List<String> warnings) {
         public SourceOutcome {
-            items = items == null ? List.of() : List.copyOf(items);
-            warnings = warnings == null ? List.of() : List.copyOf(warnings);
+            items = items == null
+                    ? List.of()
+                    : items.stream().filter(item -> item != null).toList();
+            warnings = warnings == null
+                    ? List.of()
+                    : warnings.stream()
+                            .filter(warning -> warning != null && !warning.isBlank())
+                            .toList();
         }
 
         public static SourceOutcome of(List<Map<String, Object>> items) {
@@ -61,7 +67,19 @@ public class UnifiedInventoryService {
     public record SearchOutcome(
             List<Map<String, Object>> items,
             List<String> warnings,
-            Map<String, Long> sources) {}
+            Map<String, Long> sources) {
+        public SearchOutcome {
+            items = items == null
+                    ? List.of()
+                    : items.stream().filter(item -> item != null).toList();
+            warnings = warnings == null
+                    ? List.of()
+                    : warnings.stream()
+                            .filter(warning -> warning != null && !warning.isBlank())
+                            .toList();
+            sources = sources == null ? Map.of() : Map.copyOf(sources);
+        }
+    }
 
     public record HotelFilters(
             String currency,
@@ -117,6 +135,8 @@ public class UnifiedInventoryService {
                     .map(item -> normalize(item, type))
                     .forEach(results::add);
             warnings.addAll(providerItems.warnings());
+        } else {
+            warnings.add(providerWarning);
         }
 
         long partnerCount = results.stream()
@@ -135,11 +155,13 @@ public class UnifiedInventoryService {
             List<Map<String, Object>> hotels,
             HotelFilters requestedFilters) {
         HotelFilters filters = validateFilters(requestedFilters);
+        List<Map<String, Object>> candidates =
+                hotels == null ? List.of() : hotels;
         List<String> warnings = new ArrayList<>();
         Map<String, BigDecimal> usdRates = Map.of("USD", BigDecimal.ONE);
 
         boolean needsConversion = (filters.priceMin() != null || filters.priceMax() != null)
-                && hotels.stream().anyMatch(hotel ->
+                && candidates.stream().filter(hotel -> hotel != null).anyMatch(hotel ->
                         !filters.currency().equals(currencyOf(hotel)));
         if (needsConversion) {
             try {
@@ -152,7 +174,7 @@ public class UnifiedInventoryService {
 
         List<Map<String, Object>> filtered = new ArrayList<>();
         boolean omittedUnconvertiblePrice = false;
-        for (Map<String, Object> hotel : hotels) {
+        for (Map<String, Object> hotel : candidates) {
             if (hotel == null) continue;
             if (filters.ratingMin() != null
                     && ratingOf(hotel).compareTo(filters.ratingMin()) < 0) {
@@ -262,6 +284,7 @@ public class UnifiedInventoryService {
         }
         return requested.stream().map(token ->
                 token.replaceAll("[^\\p{L}\\p{N}]", ""))
+                .filter(token -> !token.isBlank())
                 .allMatch(token -> amenities.stream().anyMatch(value -> value.contains(token)));
     }
 
@@ -427,7 +450,9 @@ public class UnifiedInventoryService {
 
         List<Map<String, Object>> offers = normalizeOffers(item.get("offers"), item, title);
         item.put("offers", offers);
-        item.putIfAbsent("booking_ref", null);
+        // Search inventory is not a booking record; never propagate private refs
+        // from partner attributes or provider payloads into a public search result.
+        item.put("booking_ref", null);
         return item;
     }
 
@@ -452,6 +477,10 @@ public class UnifiedInventoryService {
                 offer.put("price", offerPrice);
                 offer.put("currency", offerCurrency.toUpperCase(Locale.ROOT));
                 offer.putIfAbsent("source", item.get("source"));
+                offer.putIfAbsent(
+                        "name", firstNonBlank(
+                                offer.get("room_name"), offer.get("name"), title));
+                offer.putIfAbsent("conditions", null);
                 offers.add(offer);
             }
         }
@@ -465,6 +494,7 @@ public class UnifiedInventoryService {
         offer.put("price", price);
         offer.put("currency", item.get("currency"));
         offer.put("source", item.get("source"));
+        offer.put("conditions", null);
         offers.add(offer);
         return List.copyOf(offers);
     }

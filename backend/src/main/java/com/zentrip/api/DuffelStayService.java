@@ -304,6 +304,12 @@ public class DuffelStayService {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE, "Hotel provider is not configured");
         }
+        if (searchResultId == null
+                || searchResultId.length() > 200
+                || !searchResultId.matches("srr[-_][A-Za-z0-9_-]{1,190}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid hotel search result ID");
+        }
 
         try {
             JsonNode response = restClient.post()

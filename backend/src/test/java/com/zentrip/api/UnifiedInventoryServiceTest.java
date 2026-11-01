@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +29,7 @@ class UnifiedInventoryServiceTest {
                 "city", "Tripoli",
                 "price_per_night", new BigDecimal("84.50"),
                 "price_currency", "USD",
+                "booking_ref", "must-not-leak",
                 "amenities", List.of("Wi-Fi"),
                 "image_url", "https://example.com/partner.jpg");
         Map<String, Object> duffelHotel = Map.of(
@@ -66,6 +68,8 @@ class UnifiedInventoryServiceTest {
         assertEquals(2, ((List<?>) duffel.get("offers")).size());
         assertEquals("GBP", duffel.get("currency"));
         assertEquals(List.of("https://example.com/duffel.jpg"), duffel.get("images"));
+        assertTrue(((Map<?, ?>) ((List<?>) duffel.get("offers")).getFirst())
+                .containsKey("conditions"));
     }
 
     @Test
@@ -162,5 +166,22 @@ class UnifiedInventoryServiceTest {
 
         assertEquals(400, error.getStatusCode().value());
         assertFalse(error.getReason().isBlank());
+    }
+
+    @Test
+    void nullProviderRowsAndNullFilterInputAreHandledSafely() {
+        UnifiedInventoryService.SourceOutcome source =
+                new UnifiedInventoryService.SourceOutcome(
+                        Arrays.asList(null, Map.of("id", "hotel-1")),
+                        Arrays.asList(null, " "));
+        UnifiedInventoryService.FilterOutcome filtered = service.filterHotels(
+                null,
+                new UnifiedInventoryService.HotelFilters(
+                        "USD", null, null, null, null, null, null));
+
+        assertEquals(1, source.items().size());
+        assertTrue(source.warnings().isEmpty());
+        assertTrue(filtered.hotels().isEmpty());
+        assertTrue(filtered.warnings().isEmpty());
     }
 }
