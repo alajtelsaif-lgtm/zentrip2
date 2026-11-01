@@ -87,11 +87,32 @@ class DuffelStayServiceTest {
         assertEquals("duffel-srr-test-result", hotel.get("id"));
         assertEquals("duffel", hotel.get("source"));
         assertEquals("acc-test-hotel", hotel.get("provider_accommodation_id"));
-        assertEquals(new BigDecimal("200.00"), hotel.get("price_per_night"));
+        assertEquals(new BigDecimal("200.000000"), hotel.get("price_per_night"));
         assertEquals("GBP", hotel.get("price_currency"));
         assertEquals(0, hotel.get("tax_and_fees_percentage"));
         assertEquals(false, hotel.get("availability_known"));
         assertEquals(List.of("Wi-Fi"), hotel.get("amenities"));
+        server.verify();
+    }
+
+    @Test
+    void multipleRoomsDoNotMultiplyAnAlreadyInclusiveProviderTotalAgain() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(SEARCH_URL))
+                .andExpect(jsonPath("$.data.rooms").value(2))
+                .andRespond(withSuccess(STAY_RESPONSE, MediaType.APPLICATION_JSON));
+        DuffelStayService service =
+                new DuffelStayService("unit-test-token", true, builder);
+
+        Map<String, Object> hotel = service.searchHotels(
+                "London", 51.5071, -0.1416,
+                LocalDate.parse("2026-12-01"), LocalDate.parse("2026-12-03"),
+                2, 4).getFirst();
+
+        BigDecimal nightlyPerRoom = (BigDecimal) hotel.get("price_per_night");
+        assertEquals(0, new BigDecimal("400.00").compareTo(
+                nightlyPerRoom.multiply(BigDecimal.valueOf(2 * 2))));
         server.verify();
     }
 

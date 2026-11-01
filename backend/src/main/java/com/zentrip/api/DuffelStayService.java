@@ -92,7 +92,7 @@ public class DuffelStayService {
 
             List<Map<String, Object>> hotels = new ArrayList<>();
             for (JsonNode result : results) {
-                Map<String, Object> hotel = normalizeResult(result, city, nights);
+                Map<String, Object> hotel = normalizeResult(result, city, nights, rooms);
                 if (hotel != null) hotels.add(hotel);
             }
             return List.copyOf(hotels);
@@ -107,7 +107,7 @@ public class DuffelStayService {
     }
 
     private static Map<String, Object> normalizeResult(
-            JsonNode result, String requestedCity, long nights) {
+            JsonNode result, String requestedCity, long nights, int rooms) {
         String searchResultId = text(result, "id");
         JsonNode accommodation = result.path("accommodation");
         String accommodationId = text(accommodation, "id");
@@ -157,7 +157,7 @@ public class DuffelStayService {
         int hotelStars = Math.max(0, Math.min(5,
                 integerOrZero(accommodation.path("rating"))));
         BigDecimal nightlyAmount = totalAmount.divide(
-                BigDecimal.valueOf(nights), 2, RoundingMode.HALF_UP);
+                BigDecimal.valueOf(nights * rooms), 6, RoundingMode.HALF_UP);
         Map<String, Object> hotel = new LinkedHashMap<>();
         hotel.put("id", "duffel-" + searchResultId);
         hotel.put("source", "duffel");

@@ -148,8 +148,8 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
       );
       return;
     }
-    setState(() => _isBooking = false);
     if (!mounted) return;
+    setState(() => _isBooking = false);
     AppSnackbar.success(context, l10n.hotelBookingSuccess);
     await NotificationsStore.instance.add(
         kind: NotifKind.booking,

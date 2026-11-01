@@ -6,3 +6,4 @@
 - [Anonymous visit abuse limits](anonymous-visit-abuse-limits.md) — protect popularity counts with aggregate ephemeral limits, not IP, account, or location tracking.
 - [Wikidata SPARQL URI encoding](wikidata-sparql-uri-encoding.md) — encode SPARQL text before passing it as a Spring RestClient URI parameter.
 - [Geocoding ambiguity](geocoding-ambiguity.md) — country-filter explicit hints and reuse coordinates; free-text homonyms can resolve to the wrong destination.
+- [Packaged runtime verification](packaged-runtime-verification.md) — passing source tests do not prove the running JAR and web bundle contain current changes.
