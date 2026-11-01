@@ -25,6 +25,7 @@ import '../../models/travel_preferences.dart';
 import '../utils/hotel_geo.dart';
 import '../utils/car_geo.dart';
 import 'api_result.dart';
+import '../../models/exchange_rates.dart';
 import '../../models/map_search_result.dart';
 import '../../models/admin_dashboard_model.dart';
 import '../../models/partner_dashboard_model.dart';
@@ -47,6 +48,11 @@ import '../../models/legacy_attraction_review_model.dart';
 ///  2. غيّر قيمة [baseUrl] للعنوان الحقيقي.
 ///  3. تأكد من أن مسارات الـ endpoints مطابقة لما في Laravel routes/api.php.
 class ApiService {
+  Future<ExchangeRates> exchangeRates() async {
+    final response = await _dio.get('/exchange-rates');
+    return ExchangeRates.fromJson(Map<String, dynamic>.from(response.data));
+  }
+
   static final ApiService instance = ApiService._();
   ApiService._();
 

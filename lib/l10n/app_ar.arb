@@ -933,5 +933,61 @@
   "airportMajorLabel": "مطار رئيسي",
   "airportMinorLabel": "مطار إقليمي",
   "airportNearestLabel": "أقرب مطار",
-  "airportCategoryAddLocation": "أضف مدينة أو مكاناً، مثل الطبيعة في بالي، إندونيسيا."
+  "airportCategoryAddLocation": "أضف مدينة أو مكاناً، مثل الطبيعة في بالي، إندونيسيا.",
+  "compareIn": "قارن بعملة",
+  "refreshRates": "تحديث الأسعار",
+  "retryRates": "إعادة محاولة الأسعار",
+  "frankfurterRatesUnavailable": "أسعار فرانكفورتر المرجعية اليومية · لا يتوفر تاريخ للأسعار",
+  "frankfurterRatesDate": "أسعار فرانكفورتر المرجعية اليومية · حتى {date}",
+  "@frankfurterRatesDate": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "rateRefreshFailed": "تعذر تحديث أسعار الصرف. قد لا تتوفر الأسعار المحوّلة.",
+  "ratesMayBeStale": "قد تكون الأسعار المرجعية قديمة. حدّث للتحقق من وجود تحديثات.",
+  "unpricedOffers": "{count} من العروض بلا سعر قابل للمقارنة، وتُستثنى من تصفية الأسعار.",
+  "@unpricedOffers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "priceEstimateDisclaimer": "المبالغ المحوّلة تقديرية وليست أسعار حجز. قد تختلف الرسوم وأسعار التسوية.",
+  "providerPrice": "سعر المزوّد",
+  "comparisonEstimate": "تقدير للمقارنة",
+  "priceUnavailable": "غير متاح",
+  "providerTotal": "إجمالي المزوّد",
+  "providerPerPerson": "للفرد",
+  "flightAllTravelersEstimate": "إجمالي تقديري لجميع المسافرين",
+  "flightPartnerOutboundOnly": "للذهاب فقط",
+  "flightPartnerRoundTripWarning": "تغطي أسعار الشركاء رحلة الذهاب فقط، ولا يمكن مقارنتها بإجمالي رحلات الذهاب والعودة.",
+  "flightMaxBudget": "الحد الأقصى لإجمالي المسافرين",
+  "clearBudget": "مسح الميزانية",
+  "hotelPerRoomNight": "سعر المزوّد للغرفة / الليلة",
+  "hotelEstimatePerRoomNight": "تقدير للغرفة / الليلة",
+  "hotelBudgetThreshold": "اقتصادي أقل من 100 {currency} / الليلة",
+  "@hotelBudgetThreshold": {
+    "placeholders": {
+      "currency": {}
+    }
+  },
+  "hotelMidThreshold": "متوسط من 100 إلى أقل من 250 {currency} / الليلة",
+  "@hotelMidThreshold": {
+    "placeholders": {
+      "currency": {}
+    }
+  },
+  "hotelLuxuryThreshold": "فاخر 250 {currency} أو أكثر / الليلة",
+  "@hotelLuxuryThreshold": {
+    "placeholders": {
+      "currency": {}
+    }
+  },
+  "offerSourcePartner": "شريك",
+  "offerSourceDuffel": "دافل",
+  "tryAgain": "حاول مرة أخرى",
+  "invalidComparisonBudget": "أدخل مبلغاً صحيحاً لا يقل عن صفر",
+  "referenceRatePolicy": "تُميّز الأسعار الأقدم من 4 أيام؛ ولا تُستخدم أسعار الصرف الأقدم من 7 أيام."
 }

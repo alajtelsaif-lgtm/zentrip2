@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/money_format.dart';
 import '../../../../global_widgets/app_network_image.dart';
+import '../../../../global_widgets/price_comparison_controls.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/hotel_model.dart';
 import '../../../../routes/app_routes.dart';
@@ -50,7 +52,7 @@ class _HotelResultsScreenState extends State<HotelResultsScreen> {
                 children: [
                   for (final f in HotelFilter.values)
                     _FilterChip(
-                        label: _filterLabel(f, l10n),
+                        label: _filterLabel(f, l10n, ctrl.comparison.currency),
                         selected: ctrl.filter == f,
                         onTap: () => ctrl.setFilter(f)),
                   const SizedBox(width: 8),
@@ -70,53 +72,92 @@ class _HotelResultsScreenState extends State<HotelResultsScreen> {
       ),
       body: ListenableBuilder(
         listenable: ctrl,
-        builder: (_, __) {
-          if (ctrl.isLoading) {
-            return const Center(
-                child: CircularProgressIndicator(color: AppColors.primary));
-          }
-          if (ctrl.results.isEmpty) {
-            return Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.hotel_rounded,
-                  size: 64, color: AppColors.textHint),
-              const SizedBox(height: 12),
-              Text(
-                  ctrl.hasSearchError ? l10n.genericError : l10n.hotelNoResults,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w600))
-            ]));
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-            itemCount: ctrl.results.length,
-            itemBuilder: (_, i) => _HotelCard(
-              hotel: ctrl.results[i],
-              nights: ctrl.searchParams?.nights ?? 1,
-              rooms: ctrl.searchParams?.rooms ?? 1,
-              isDark: isDark,
-              l10n: l10n,
-              onTap: () {
-                ctrl.selectHotel(ctrl.results[i]);
-                Navigator.pushNamed(context, AppRoutes.hotelDetail,
-                    arguments: ctrl);
-              },
-            )
-                .animate(delay: Duration(milliseconds: 80 * i))
-                .fade()
-                .slideY(begin: 0.05, end: 0),
-          );
-        },
+        builder: (_, __) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: PriceComparisonControls(
+                comparison: ctrl.comparison,
+                sourceCurrencies: ctrl.sourceCurrencies,
+                unpricedCount: ctrl.unpricedCount,
+              ),
+            ),
+            Expanded(
+              child: ctrl.isLoading
+                  ? const Center(
+                      child:
+                          CircularProgressIndicator(color: AppColors.primary))
+                  : ctrl.results.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                      ctrl.hasSearchError
+                                          ? Icons.cloud_off_rounded
+                                          : Icons.hotel_rounded,
+                                      size: 56,
+                                      color: AppColors.textHint),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                      ctrl.hasSearchError
+                                          ? l10n.genericError
+                                          : l10n.hotelNoResults,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.w600)),
+                                  if (ctrl.hasSearchError &&
+                                      ctrl.searchParams != null) ...[
+                                    const SizedBox(height: 12),
+                                    OutlinedButton.icon(
+                                      onPressed: () =>
+                                          ctrl.search(ctrl.searchParams!),
+                                      icon: const Icon(Icons.refresh_rounded),
+                                      label: Text(l10n.tryAgain),
+                                    ),
+                                  ],
+                                ]),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                          itemCount: ctrl.results.length,
+                          itemBuilder: (_, i) => _HotelCard(
+                            hotel: ctrl.results[i],
+                            nights: ctrl.searchParams?.nights ?? 1,
+                            rooms: ctrl.searchParams?.rooms ?? 1,
+                            comparisonPrice:
+                                ctrl.comparisonPrice(ctrl.results[i]),
+                            comparisonCurrency: ctrl.comparison.currency,
+                            isDark: isDark,
+                            l10n: l10n,
+                            onTap: () {
+                              ctrl.selectHotel(ctrl.results[i]);
+                              Navigator.pushNamed(
+                                  context, AppRoutes.hotelDetail,
+                                  arguments: ctrl);
+                            },
+                          )
+                              .animate(delay: Duration(milliseconds: 80 * i))
+                              .fade()
+                              .slideY(begin: 0.05, end: 0),
+                        ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  String _filterLabel(HotelFilter f, AppLocalizations l10n) => switch (f) {
+  String _filterLabel(HotelFilter f, AppLocalizations l10n, String currency) =>
+      switch (f) {
         HotelFilter.all => l10n.hotelFilterAll,
-        HotelFilter.budget => l10n.hotelFilterBudget,
-        HotelFilter.midRange => l10n.hotelFilterMidRange,
-        HotelFilter.luxury => l10n.hotelFilterLuxury,
+        HotelFilter.budget => l10n.hotelBudgetThreshold(currency),
+        HotelFilter.midRange => l10n.hotelMidThreshold(currency),
+        HotelFilter.luxury => l10n.hotelLuxuryThreshold(currency),
       };
   String _sortLabel(HotelSort s, AppLocalizations l10n) => switch (s) {
         HotelSort.rating => l10n.hotelSortRating,
@@ -172,12 +213,16 @@ class _HotelCard extends StatelessWidget {
   final bool isDark;
   final VoidCallback onTap;
   final AppLocalizations l10n;
+  final double? comparisonPrice;
+  final String comparisonCurrency;
   const _HotelCard(
       {required this.hotel,
       required this.nights,
       required this.rooms,
       required this.isDark,
       required this.onTap,
+      required this.comparisonPrice,
+      required this.comparisonCurrency,
       required this.l10n});
 
   @override
@@ -254,13 +299,12 @@ class _HotelCard extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Expanded(
-                    child: Text(hotel.name,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis)),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(hotel.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 15),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 if (hotel.hasGoogleRating)
                   Row(children: [
                     const Icon(Icons.star_rounded,
@@ -297,11 +341,12 @@ class _HotelCard extends StatelessWidget {
                 const Icon(Icons.place_outlined,
                     size: 13, color: AppColors.textSecondary),
                 const SizedBox(width: 4),
-                Text(hotel.address,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                Expanded(
+                    child: Text(hotel.address,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis)),
               ]),
               if (hotel.distanceMeters != null) ...[
                 const SizedBox(height: 4),
@@ -332,33 +377,54 @@ class _HotelCard extends StatelessWidget {
                           ))
                       .toList()),
               const SizedBox(height: 12),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(l10n.hotelTotalLabel,
-                      style: const TextStyle(
-                          fontSize: 11, color: AppColors.textSecondary)),
-                  RichText(
-                      text: TextSpan(children: [
-                    TextSpan(
-                        text:
-                            '${hotel.priceCurrencyCode} ${hotel.pricingFor(nights, rooms: rooms).totalPrice.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primary)),
-                    TextSpan(
-                        text: ' ${l10n.hotelNightsSuffix(nights)}',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textSecondary)),
-                  ])),
-                ]),
-                ElevatedButton(
-                    onPressed: isSoldOut ? null : onTap,
-                    style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(100, 40)),
-                    child: Text(
-                        isSoldOut ? l10n.hotelSoldOut : l10n.hotelViewBtn)),
-              ]),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${l10n.providerPrice} · ${hotel.isDuffelOffer ? l10n.offerSourceDuffel : l10n.offerSourcePartner}: ${hotel.comparisonNightlyPrice == null ? l10n.priceUnavailable : formatProviderMoney(hotel.pricePerNight, hotel.priceCurrencyCode)}',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w600),
+                        ),
+                        Text(l10n.hotelPerRoomNight,
+                            style: const TextStyle(
+                                fontSize: 10, color: AppColors.textSecondary)),
+                        const SizedBox(height: 4),
+                        Text(
+                          comparisonPrice == null
+                              ? '${l10n.comparisonEstimate}: ${l10n.priceUnavailable}'
+                              : '${l10n.comparisonEstimate}: ${formatProviderMoney(comparisonPrice!, comparisonCurrency)}',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.accentTeal,
+                              fontWeight: FontWeight.w700),
+                        ),
+                        Text(l10n.hotelEstimatePerRoomNight,
+                            style: const TextStyle(
+                                fontSize: 10, color: AppColors.textSecondary)),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${l10n.hotelTotalLabel}: ${hotel.comparisonNightlyPrice == null ? l10n.priceUnavailable : formatProviderMoney(hotel.pricingFor(nights, rooms: rooms).totalPrice, hotel.priceCurrencyCode)} ${l10n.hotelNightsSuffix(nights)}',
+                          style: const TextStyle(
+                              fontSize: 11, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                      onPressed: isSoldOut ? null : onTap,
+                      style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(92, 40)),
+                      child: Text(
+                          isSoldOut ? l10n.hotelSoldOut : l10n.hotelViewBtn)),
+                ],
+              ),
             ]),
           ),
         ]),

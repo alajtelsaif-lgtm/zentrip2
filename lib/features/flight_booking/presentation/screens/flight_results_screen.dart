@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/money_format.dart';
 import '../../../../features/price_alerts/logic/price_alerts_store.dart';
+import '../../../../global_widgets/price_comparison_controls.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
 import '../../../../routes/app_routes.dart';
@@ -67,61 +69,147 @@ class _FlightResultsScreenState extends State<FlightResultsScreen> {
       ),
       body: ListenableBuilder(
         listenable: ctrl,
-        builder: (_, __) {
-          if (ctrl.isLoading) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(color: AppColors.primary),
-                  if (ctrl.searchParams?.isFlexible == true) ...[
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(
-                        l10n.flightFlexibleSearchLoading,
-                        textAlign: TextAlign.center,
-                      ),
+        builder: (_, __) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: PriceComparisonControls(
+                comparison: ctrl.comparison,
+                sourceCurrencies: ctrl.sourceCurrencies,
+                unpricedCount: ctrl.unpricedCount,
+                showBudget: true,
+                budget: ctrl.maxBudget,
+                onBudgetChanged: ctrl.setMaxBudget,
+              ),
+            ),
+            if (ctrl.searchParams?.isRoundTrip == true)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentOrange.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: AppColors.accentOrange.withValues(alpha: 0.35)),
+                  ),
+                  child: Text(
+                    l10n.flightPartnerRoundTripWarning,
+                    style: const TextStyle(
+                      color: AppColors.accentOrange,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
-                ],
+                  ),
+                ),
               ),
-            );
-          }
-          if (ctrl.results.isEmpty) {
-            return Center(
-              child: Text(
-                ctrl.hasSearchError ? l10n.genericError : l10n.flightNoResults,
-              ),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-            itemCount: ctrl.results.length + 1,
-            itemBuilder: (_, i) {
-              if (i == 0) {
-                return _FlightResultsHeader(controller: ctrl, l10n: l10n);
-              }
-              final flight = ctrl.results[i - 1];
-              return _FlightCard(
-                flight: flight,
-                isDark: isDark,
-                l10n: l10n,
-                onSelect: () {
-                  ctrl.selectFlight(flight);
-                  Navigator.pushNamed(context, AppRoutes.flightBooking,
-                      arguments: ctrl);
-                },
-              )
-                  .animate(delay: Duration(milliseconds: 80 * i))
-                  .fade()
-                  .slideY(begin: 0.05, end: 0);
-            },
-          );
-        },
+            Expanded(
+              child: ctrl.isLoading
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(
+                              color: AppColors.primary),
+                          if (ctrl.searchParams?.isFlexible == true) ...[
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 32),
+                              child: Text(
+                                l10n.flightFlexibleSearchLoading,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    )
+                  : ctrl.results.isEmpty
+                      ? _FlightEmptyState(
+                          hasError: ctrl.hasSearchError,
+                          onRetry: ctrl.searchParams == null
+                              ? null
+                              : () => ctrl.search(ctrl.searchParams!),
+                          l10n: l10n,
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                          itemCount: ctrl.results.length + 1,
+                          itemBuilder: (_, i) {
+                            if (i == 0) {
+                              return _FlightResultsHeader(
+                                  controller: ctrl, l10n: l10n);
+                            }
+                            final flight = ctrl.results[i - 1];
+                            return _FlightCard(
+                              flight: flight,
+                              isDark: isDark,
+                              l10n: l10n,
+                              comparisonPrice: ctrl.comparisonPrice(flight),
+                              comparisonCurrency: ctrl.comparison.currency,
+                              requestedCabin:
+                                  ctrl.searchParams?.seatClass ?? 'economy',
+                              isRoundTrip:
+                                  ctrl.searchParams?.isRoundTrip ?? false,
+                              onSelect: () {
+                                ctrl.selectFlight(flight);
+                                Navigator.pushNamed(
+                                    context, AppRoutes.flightBooking,
+                                    arguments: ctrl);
+                              },
+                            )
+                                .animate(delay: Duration(milliseconds: 80 * i))
+                                .fade()
+                                .slideY(begin: 0.05, end: 0);
+                          },
+                        ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _FlightEmptyState extends StatelessWidget {
+  final bool hasError;
+  final VoidCallback? onRetry;
+  final AppLocalizations l10n;
+
+  const _FlightEmptyState({
+    required this.hasError,
+    required this.onRetry,
+    required this.l10n,
+  });
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(hasError ? Icons.cloud_off_rounded : Icons.flight_rounded,
+                size: 48, color: AppColors.textHint),
+            const SizedBox(height: 12),
+            Text(
+              hasError ? l10n.genericError : l10n.flightNoResults,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+            ),
+            if (hasError && onRetry != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(l10n.tryAgain),
+              ),
+            ],
+          ]),
+        ),
+      );
 }
 
 class _FlightResultsHeader extends StatelessWidget {
@@ -329,11 +417,19 @@ class _FlightCard extends StatefulWidget {
   final bool isDark;
   final VoidCallback onSelect;
   final AppLocalizations l10n;
+  final double? comparisonPrice;
+  final String comparisonCurrency;
+  final String requestedCabin;
+  final bool isRoundTrip;
   const _FlightCard(
       {required this.flight,
       required this.isDark,
       required this.onSelect,
-      required this.l10n});
+      required this.l10n,
+      required this.comparisonPrice,
+      required this.comparisonCurrency,
+      required this.requestedCabin,
+      required this.isRoundTrip});
 
   @override
   State<_FlightCard> createState() => _FlightCardState();
@@ -344,6 +440,27 @@ class _FlightCardState extends State<_FlightCard> {
   bool get isDark => widget.isDark;
   AppLocalizations get l10n => widget.l10n;
   VoidCallback get onSelect => widget.onSelect;
+
+  double? get originalAmount {
+    if (flight.priceIsTotal) return flight.economyPrice;
+    return switch (widget.requestedCabin) {
+      'business' => flight.businessPrice,
+      'first' => flight.firstPrice,
+      _ => flight.economyPrice,
+    };
+  }
+
+  String get originalUnit =>
+      flight.priceIsTotal ? l10n.providerTotal : l10n.providerPerPerson;
+
+  String get sourcePriceLabel {
+    final source =
+        flight.isDuffelOffer ? l10n.offerSourceDuffel : l10n.offerSourcePartner;
+    final outbound = widget.isRoundTrip && !flight.isDuffelOffer
+        ? ' · ${l10n.flightPartnerOutboundOnly}'
+        : '';
+    return '${l10n.providerPrice} · $source$outbound · $originalUnit';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -469,32 +586,57 @@ class _FlightCardState extends State<_FlightCard> {
           ),
           const SizedBox(height: 14),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (flight.seatsAvailable >= 0)
-                Text(l10n.seatsLeft(flight.seatsAvailable),
-                    style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.accentRed,
-                        fontWeight: FontWeight.w600)),
-              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(
-                    flight.priceCurrencyCode == 'USD'
-                        ? '\$'
-                        : '${flight.priceCurrencyCode} ',
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary)),
-                Text(flight.economyPrice.toStringAsFixed(0),
-                    style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary)),
-                Text(l10n.perPerson,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
-              ]),
+                Expanded(
+                  child: Text(l10n.seatsLeft(flight.seatsAvailable),
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.accentRed,
+                          fontWeight: FontWeight.w600)),
+                ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      originalAmount == null
+                          ? l10n.priceUnavailable
+                          : formatProviderMoney(
+                              originalAmount!, flight.priceCurrencyCode),
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary),
+                    ),
+                    Text(
+                      sourcePriceLabel,
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                          fontSize: 10, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.comparisonPrice == null
+                          ? '${l10n.comparisonEstimate}: ${l10n.priceUnavailable}'
+                          : '${l10n.comparisonEstimate}: ${formatProviderMoney(widget.comparisonPrice!, widget.comparisonCurrency)}',
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.accentTeal,
+                          fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      l10n.flightAllTravelersEstimate,
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                          fontSize: 10, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),

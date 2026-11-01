@@ -2774,4 +2774,107 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get airportCategoryAddLocation =>
       'أضف مدينة أو مكاناً، مثل الطبيعة في بالي، إندونيسيا.';
+
+  @override
+  String get compareIn => 'قارن بعملة';
+
+  @override
+  String get refreshRates => 'تحديث الأسعار';
+
+  @override
+  String get retryRates => 'إعادة محاولة الأسعار';
+
+  @override
+  String get frankfurterRatesUnavailable =>
+      'أسعار فرانكفورتر المرجعية اليومية · لا يتوفر تاريخ للأسعار';
+
+  @override
+  String frankfurterRatesDate(Object date) {
+    return 'أسعار فرانكفورتر المرجعية اليومية · حتى $date';
+  }
+
+  @override
+  String get rateRefreshFailed =>
+      'تعذر تحديث أسعار الصرف. قد لا تتوفر الأسعار المحوّلة.';
+
+  @override
+  String get ratesMayBeStale =>
+      'قد تكون الأسعار المرجعية قديمة. حدّث للتحقق من وجود تحديثات.';
+
+  @override
+  String unpricedOffers(int count) {
+    return '$count من العروض بلا سعر قابل للمقارنة، وتُستثنى من تصفية الأسعار.';
+  }
+
+  @override
+  String get priceEstimateDisclaimer =>
+      'المبالغ المحوّلة تقديرية وليست أسعار حجز. قد تختلف الرسوم وأسعار التسوية.';
+
+  @override
+  String get providerPrice => 'سعر المزوّد';
+
+  @override
+  String get comparisonEstimate => 'تقدير للمقارنة';
+
+  @override
+  String get priceUnavailable => 'غير متاح';
+
+  @override
+  String get providerTotal => 'إجمالي المزوّد';
+
+  @override
+  String get providerPerPerson => 'للفرد';
+
+  @override
+  String get flightAllTravelersEstimate => 'إجمالي تقديري لجميع المسافرين';
+
+  @override
+  String get flightPartnerOutboundOnly => 'للذهاب فقط';
+
+  @override
+  String get flightPartnerRoundTripWarning =>
+      'تغطي أسعار الشركاء رحلة الذهاب فقط، ولا يمكن مقارنتها بإجمالي رحلات الذهاب والعودة.';
+
+  @override
+  String get flightMaxBudget => 'الحد الأقصى لإجمالي المسافرين';
+
+  @override
+  String get clearBudget => 'مسح الميزانية';
+
+  @override
+  String get hotelPerRoomNight => 'سعر المزوّد للغرفة / الليلة';
+
+  @override
+  String get hotelEstimatePerRoomNight => 'تقدير للغرفة / الليلة';
+
+  @override
+  String hotelBudgetThreshold(Object currency) {
+    return 'اقتصادي أقل من 100 $currency / الليلة';
+  }
+
+  @override
+  String hotelMidThreshold(Object currency) {
+    return 'متوسط من 100 إلى أقل من 250 $currency / الليلة';
+  }
+
+  @override
+  String hotelLuxuryThreshold(Object currency) {
+    return 'فاخر 250 $currency أو أكثر / الليلة';
+  }
+
+  @override
+  String get offerSourcePartner => 'شريك';
+
+  @override
+  String get offerSourceDuffel => 'دافل';
+
+  @override
+  String get tryAgain => 'حاول مرة أخرى';
+
+  @override
+  String get invalidComparisonBudget => 'أدخل مبلغاً صحيحاً لا يقل عن صفر';
+
+  @override
+  String get referenceRatePolicy =>
+      'تُميّز الأسعار الأقدم من 4 أيام؛ ولا تُستخدم أسعار الصرف الأقدم من 7 أيام.';
 }

@@ -62,6 +62,26 @@ explicitly, not replaced with invented credentials or simulated success.
 Payments in the imported project are mock payments, not real charges.
 Profile photos use `backend/uploads`; durable production storage needs a separate review.
 
+### Comparison exchange rates
+
+`GET /api/exchange-rates` fetches Frankfurter v2 daily reference rates using a USD
+pivot. No API key is needed. Each quote retains its publication date; successful
+responses are cached in memory for six hours, and failed refreshes have a
+five-minute retry cooldown. Restarting a server discards its rate cache. A cold
+failure returns HTTP 503; a failed refresh can retain the last dated snapshot.
+
+Flight and hotel result screens default to USD and allow another comparison
+currency. Rates over four days old are flagged, and rates over seven days old
+are not used. Unsupported/expired conversions are shown as unavailable, sort
+after comparable prices, and are excluded by price filters. Same-currency
+comparisons need no exchange rate. Comparisons retain full precision before
+display rounding.
+
+Flight comparisons use the requested cabin's traveler total. Partner outbound
+prices are not comparable with Duffel round-trip totals. Hotel comparisons and
+category thresholds use per-room, per-night prices in the selected currency;
+these are not a guarantee of equivalent taxes or fees.
+
 ## Checks
 
 ```sh

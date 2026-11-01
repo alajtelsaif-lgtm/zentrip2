@@ -5343,6 +5343,180 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'أضف مدينة أو مكاناً، مثل الطبيعة في بالي، إندونيسيا.'**
   String get airportCategoryAddLocation;
+
+  /// No description provided for @compareIn.
+  ///
+  /// In ar, this message translates to:
+  /// **'قارن بعملة'**
+  String get compareIn;
+
+  /// No description provided for @refreshRates.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحديث الأسعار'**
+  String get refreshRates;
+
+  /// No description provided for @retryRates.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة محاولة الأسعار'**
+  String get retryRates;
+
+  /// No description provided for @frankfurterRatesUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'أسعار فرانكفورتر المرجعية اليومية · لا يتوفر تاريخ للأسعار'**
+  String get frankfurterRatesUnavailable;
+
+  /// No description provided for @frankfurterRatesDate.
+  ///
+  /// In ar, this message translates to:
+  /// **'أسعار فرانكفورتر المرجعية اليومية · حتى {date}'**
+  String frankfurterRatesDate(Object date);
+
+  /// No description provided for @rateRefreshFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذر تحديث أسعار الصرف. قد لا تتوفر الأسعار المحوّلة.'**
+  String get rateRefreshFailed;
+
+  /// No description provided for @ratesMayBeStale.
+  ///
+  /// In ar, this message translates to:
+  /// **'قد تكون الأسعار المرجعية قديمة. حدّث للتحقق من وجود تحديثات.'**
+  String get ratesMayBeStale;
+
+  /// No description provided for @unpricedOffers.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count} من العروض بلا سعر قابل للمقارنة، وتُستثنى من تصفية الأسعار.'**
+  String unpricedOffers(int count);
+
+  /// No description provided for @priceEstimateDisclaimer.
+  ///
+  /// In ar, this message translates to:
+  /// **'المبالغ المحوّلة تقديرية وليست أسعار حجز. قد تختلف الرسوم وأسعار التسوية.'**
+  String get priceEstimateDisclaimer;
+
+  /// No description provided for @providerPrice.
+  ///
+  /// In ar, this message translates to:
+  /// **'سعر المزوّد'**
+  String get providerPrice;
+
+  /// No description provided for @comparisonEstimate.
+  ///
+  /// In ar, this message translates to:
+  /// **'تقدير للمقارنة'**
+  String get comparisonEstimate;
+
+  /// No description provided for @priceUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'غير متاح'**
+  String get priceUnavailable;
+
+  /// No description provided for @providerTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'إجمالي المزوّد'**
+  String get providerTotal;
+
+  /// No description provided for @providerPerPerson.
+  ///
+  /// In ar, this message translates to:
+  /// **'للفرد'**
+  String get providerPerPerson;
+
+  /// No description provided for @flightAllTravelersEstimate.
+  ///
+  /// In ar, this message translates to:
+  /// **'إجمالي تقديري لجميع المسافرين'**
+  String get flightAllTravelersEstimate;
+
+  /// No description provided for @flightPartnerOutboundOnly.
+  ///
+  /// In ar, this message translates to:
+  /// **'للذهاب فقط'**
+  String get flightPartnerOutboundOnly;
+
+  /// No description provided for @flightPartnerRoundTripWarning.
+  ///
+  /// In ar, this message translates to:
+  /// **'تغطي أسعار الشركاء رحلة الذهاب فقط، ولا يمكن مقارنتها بإجمالي رحلات الذهاب والعودة.'**
+  String get flightPartnerRoundTripWarning;
+
+  /// No description provided for @flightMaxBudget.
+  ///
+  /// In ar, this message translates to:
+  /// **'الحد الأقصى لإجمالي المسافرين'**
+  String get flightMaxBudget;
+
+  /// No description provided for @clearBudget.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح الميزانية'**
+  String get clearBudget;
+
+  /// No description provided for @hotelPerRoomNight.
+  ///
+  /// In ar, this message translates to:
+  /// **'سعر المزوّد للغرفة / الليلة'**
+  String get hotelPerRoomNight;
+
+  /// No description provided for @hotelEstimatePerRoomNight.
+  ///
+  /// In ar, this message translates to:
+  /// **'تقدير للغرفة / الليلة'**
+  String get hotelEstimatePerRoomNight;
+
+  /// No description provided for @hotelBudgetThreshold.
+  ///
+  /// In ar, this message translates to:
+  /// **'اقتصادي أقل من 100 {currency} / الليلة'**
+  String hotelBudgetThreshold(Object currency);
+
+  /// No description provided for @hotelMidThreshold.
+  ///
+  /// In ar, this message translates to:
+  /// **'متوسط من 100 إلى أقل من 250 {currency} / الليلة'**
+  String hotelMidThreshold(Object currency);
+
+  /// No description provided for @hotelLuxuryThreshold.
+  ///
+  /// In ar, this message translates to:
+  /// **'فاخر 250 {currency} أو أكثر / الليلة'**
+  String hotelLuxuryThreshold(Object currency);
+
+  /// No description provided for @offerSourcePartner.
+  ///
+  /// In ar, this message translates to:
+  /// **'شريك'**
+  String get offerSourcePartner;
+
+  /// No description provided for @offerSourceDuffel.
+  ///
+  /// In ar, this message translates to:
+  /// **'دافل'**
+  String get offerSourceDuffel;
+
+  /// No description provided for @tryAgain.
+  ///
+  /// In ar, this message translates to:
+  /// **'حاول مرة أخرى'**
+  String get tryAgain;
+
+  /// No description provided for @invalidComparisonBudget.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل مبلغاً صحيحاً لا يقل عن صفر'**
+  String get invalidComparisonBudget;
+
+  /// No description provided for @referenceRatePolicy.
+  ///
+  /// In ar, this message translates to:
+  /// **'تُميّز الأسعار الأقدم من 4 أيام؛ ولا تُستخدم أسعار الصرف الأقدم من 7 أيام.'**
+  String get referenceRatePolicy;
 }
 
 class _AppLocalizationsDelegate

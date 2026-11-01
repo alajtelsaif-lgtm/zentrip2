@@ -8,3 +8,4 @@
 - [Geocoding ambiguity](geocoding-ambiguity.md) — country-filter explicit hints and reuse coordinates; free-text homonyms can resolve to the wrong destination.
 - [Packaged runtime verification](packaged-runtime-verification.md) — passing source tests do not prove the running JAR and web bundle contain current changes.
 - [Nonblocking startup](startup-initialization.md) — optional preferences and plugin initialization must not prevent the first screen from rendering.
+- [Currency comparison scope](currency-comparison-scope.md) — comparison estimates do not authorize booking-table or settlement changes.

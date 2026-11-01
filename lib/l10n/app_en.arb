@@ -962,5 +962,61 @@
   "airportMajorLabel": "Major hub",
   "airportMinorLabel": "Regional airport",
   "airportNearestLabel": "Nearest airport",
-  "airportCategoryAddLocation": "Add a city or place, for example Nature in Bali, Indonesia."
+  "airportCategoryAddLocation": "Add a city or place, for example Nature in Bali, Indonesia.",
+  "compareIn": "Compare in",
+  "refreshRates": "Refresh rates",
+  "retryRates": "Retry rates",
+  "frankfurterRatesUnavailable": "Frankfurter daily reference rates · no rate date available",
+  "frankfurterRatesDate": "Frankfurter daily reference rates · through {date}",
+  "@frankfurterRatesDate": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "rateRefreshFailed": "Rates could not be refreshed. Converted prices may be unavailable.",
+  "ratesMayBeStale": "Reference rates may be stale. Refresh to check for updates.",
+  "unpricedOffers": "{count} offer(s) have no comparable price and are excluded from price filters.",
+  "@unpricedOffers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "priceEstimateDisclaimer": "Converted amounts are estimates only—not booking prices. Fees and settlement rates may differ.",
+  "providerPrice": "Provider price",
+  "comparisonEstimate": "Estimated comparison",
+  "priceUnavailable": "Unavailable",
+  "providerTotal": "provider total",
+  "providerPerPerson": "per person",
+  "flightAllTravelersEstimate": "Estimated total for all travelers",
+  "flightPartnerOutboundOnly": "outbound only",
+  "flightPartnerRoundTripWarning": "Partner prices cover the outbound flight only and cannot be compared with round-trip totals.",
+  "flightMaxBudget": "Max traveler total",
+  "clearBudget": "Clear budget",
+  "hotelPerRoomNight": "Provider amount per room / night",
+  "hotelEstimatePerRoomNight": "Estimate per room / night",
+  "hotelBudgetThreshold": "Budget <100 {currency}/night",
+  "@hotelBudgetThreshold": {
+    "placeholders": {
+      "currency": {}
+    }
+  },
+  "hotelMidThreshold": "Mid-range 100–<250 {currency}/night",
+  "@hotelMidThreshold": {
+    "placeholders": {
+      "currency": {}
+    }
+  },
+  "hotelLuxuryThreshold": "Luxury ≥250 {currency}/night",
+  "@hotelLuxuryThreshold": {
+    "placeholders": {
+      "currency": {}
+    }
+  },
+  "offerSourcePartner": "Partner",
+  "offerSourceDuffel": "Duffel",
+  "tryAgain": "Try again",
+  "invalidComparisonBudget": "Enter a valid amount ≥0",
+  "referenceRatePolicy": "Rates older than 4 days are flagged; rates older than 7 days are not used."
 }

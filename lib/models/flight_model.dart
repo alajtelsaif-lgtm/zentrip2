@@ -395,6 +395,23 @@ class FlightModel {
 
   bool get isDuffelOffer => source == 'duffel';
 
+  /// Requested-cabin traveler total, without changing the provider quote.
+  /// Duffel already returns a total for the requested travelers and cabin.
+  double? comparisonTotal(
+      {required int passengers, required String seatClass}) {
+    final amount = priceIsTotal
+        ? economyPrice
+        : switch (seatClass) {
+            'business' => businessPrice,
+            'first' => firstPrice,
+            _ => economyPrice,
+          };
+    if (amount == null || !amount.isFinite || amount < 0 || passengers < 1) {
+      return null;
+    }
+    return priceIsTotal ? amount : amount * passengers;
+  }
+
   const FlightModel({
     required this.id,
     required this.airline,
@@ -546,9 +563,8 @@ class FlightModel {
             !_isInactiveStatus(json['status']),
           ) &&
           !_isInactiveStatus(json['status']),
-      aircraftName: isDuffelOffer && json['aircraft_name'] == null
-          ? ''
-          : aircraftName,
+      aircraftName:
+          isDuffelOffer && json['aircraft_name'] == null ? '' : aircraftName,
       seatLayout: seatLayout,
       seatRows: _intFromDynamic(
         json['seat_rows'] ?? json['row_count'],

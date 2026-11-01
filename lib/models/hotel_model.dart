@@ -16,6 +16,7 @@ class HotelModel {
   final double googleRating;
   final int googleReviewCount;
   final double pricePerNight;
+  final bool hasComparisonPrice;
   final double taxAndFeesPercentage;
   final int availableRooms;
   final String? imageUrl;
@@ -51,6 +52,7 @@ class HotelModel {
     required this.googleRating,
     required this.googleReviewCount,
     required this.pricePerNight,
+    this.hasComparisonPrice = true,
     this.taxAndFeesPercentage = 12,
     this.availableRooms = 0,
     this.imageUrl,
@@ -77,6 +79,12 @@ class HotelModel {
   });
 
   bool get isDuffelOffer => source == 'duffel';
+
+  /// The search contract supplies a per-room, per-night provider amount.
+  double? get comparisonNightlyPrice =>
+      hasComparisonPrice && pricePerNight.isFinite && pricePerNight >= 0
+          ? pricePerNight
+          : null;
 
   static String _stringFromDynamic(dynamic value, [String fallback = '']) {
     if (value == null) return fallback;
@@ -234,6 +242,7 @@ class HotelModel {
         googleRating: googleRating,
         googleReviewCount: googleReviewCount,
         pricePerNight: pricePerNight,
+        hasComparisonPrice: hasComparisonPrice,
         taxAndFeesPercentage: taxAndFeesPercentage,
         availableRooms: availableRooms,
         imageUrl: imageUrl,
@@ -329,6 +338,9 @@ class HotelModel {
       pricePerNight: _doubleFromDynamic(
         json['price_per_night'] ?? json['price'],
       ),
+      hasComparisonPrice: _validComparisonPrice(
+        json['price_per_night'] ?? json['price'],
+      ),
       taxAndFeesPercentage: _doubleFromDynamic(
         json['tax_and_fees_percentage'] ??
             attributes['tax_and_fees_percentage'],
@@ -387,6 +399,11 @@ class HotelModel {
   static String? _nullableString(Object? value) {
     final text = value?.toString().trim() ?? '';
     return text.isEmpty ? null : text;
+  }
+
+  static bool _validComparisonPrice(Object? value) {
+    final parsed = double.tryParse(value?.toString() ?? '');
+    return parsed != null && parsed.isFinite && parsed >= 0;
   }
 }
 

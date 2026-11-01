@@ -2795,4 +2795,107 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get airportCategoryAddLocation =>
       'Add a city or place, for example Nature in Bali, Indonesia.';
+
+  @override
+  String get compareIn => 'Compare in';
+
+  @override
+  String get refreshRates => 'Refresh rates';
+
+  @override
+  String get retryRates => 'Retry rates';
+
+  @override
+  String get frankfurterRatesUnavailable =>
+      'Frankfurter daily reference rates · no rate date available';
+
+  @override
+  String frankfurterRatesDate(Object date) {
+    return 'Frankfurter daily reference rates · through $date';
+  }
+
+  @override
+  String get rateRefreshFailed =>
+      'Rates could not be refreshed. Converted prices may be unavailable.';
+
+  @override
+  String get ratesMayBeStale =>
+      'Reference rates may be stale. Refresh to check for updates.';
+
+  @override
+  String unpricedOffers(int count) {
+    return '$count offer(s) have no comparable price and are excluded from price filters.';
+  }
+
+  @override
+  String get priceEstimateDisclaimer =>
+      'Converted amounts are estimates only—not booking prices. Fees and settlement rates may differ.';
+
+  @override
+  String get providerPrice => 'Provider price';
+
+  @override
+  String get comparisonEstimate => 'Estimated comparison';
+
+  @override
+  String get priceUnavailable => 'Unavailable';
+
+  @override
+  String get providerTotal => 'provider total';
+
+  @override
+  String get providerPerPerson => 'per person';
+
+  @override
+  String get flightAllTravelersEstimate => 'Estimated total for all travelers';
+
+  @override
+  String get flightPartnerOutboundOnly => 'outbound only';
+
+  @override
+  String get flightPartnerRoundTripWarning =>
+      'Partner prices cover the outbound flight only and cannot be compared with round-trip totals.';
+
+  @override
+  String get flightMaxBudget => 'Max traveler total';
+
+  @override
+  String get clearBudget => 'Clear budget';
+
+  @override
+  String get hotelPerRoomNight => 'Provider amount per room / night';
+
+  @override
+  String get hotelEstimatePerRoomNight => 'Estimate per room / night';
+
+  @override
+  String hotelBudgetThreshold(Object currency) {
+    return 'Budget <100 $currency/night';
+  }
+
+  @override
+  String hotelMidThreshold(Object currency) {
+    return 'Mid-range 100–<250 $currency/night';
+  }
+
+  @override
+  String hotelLuxuryThreshold(Object currency) {
+    return 'Luxury ≥250 $currency/night';
+  }
+
+  @override
+  String get offerSourcePartner => 'Partner';
+
+  @override
+  String get offerSourceDuffel => 'Duffel';
+
+  @override
+  String get tryAgain => 'Try again';
+
+  @override
+  String get invalidComparisonBudget => 'Enter a valid amount ≥0';
+
+  @override
+  String get referenceRatePolicy =>
+      'Rates older than 4 days are flagged; rates older than 7 days are not used.';
 }
