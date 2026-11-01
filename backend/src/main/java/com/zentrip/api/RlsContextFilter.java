@@ -6,8 +6,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.ObjectProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -21,6 +24,7 @@ import java.util.Set;
  */
 @Component
 public class RlsContextFilter extends OncePerRequestFilter {
+    private static final Logger LOG = LoggerFactory.getLogger(RlsContextFilter.class);
     private static final String RUNTIME_ROLE = "zentrip_api_runtime";
     private static final Set<String> PUBLIC_AUTH_PATHS = Set.of(
             "/api/auth/register",
@@ -88,6 +92,14 @@ public class RlsContextFilter extends OncePerRequestFilter {
                 throw servletException;
             }
             throw failure;
+        } catch (UnexpectedRollbackException exception) {
+            if (response.getStatus() >= HttpServletResponse.SC_BAD_REQUEST) {
+                LOG.debug(
+                        "Request transaction rolled back after HTTP error status {}",
+                        response.getStatus());
+                return;
+            }
+            throw exception;
         }
     }
 

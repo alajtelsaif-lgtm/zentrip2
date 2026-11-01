@@ -55,13 +55,14 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin", "/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/partner", "/api/partner/**").hasRole("PARTNER")
                 .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/attractions/*/visits")
+                    .permitAll()
                 .requestMatchers(
                     "/api/trips", "/api/trips/**",
                     "/api/bookings", "/api/bookings/**",
                     "/api/transfers", "/api/transfers/**",
                     "/api/payments", "/api/payments/**",
                     "/api/flights/*/seats", "/api/flights/*/seats/**",
-                    "/api/attractions/*/visits",
                     "/api/maps/**",
                     "/api/ai", "/api/ai/**",
                     "/api/preferences/travel", "/api/preferences/travel/**",

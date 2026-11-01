@@ -1,10 +1,12 @@
 package com.zentrip.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -31,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class DuffelStayService {
     private static final Logger LOG = LoggerFactory.getLogger(DuffelStayService.class);
+    private static final ObjectMapper ERROR_JSON = new ObjectMapper();
     private static final String API_BASE_URL = "https://api.duffel.com";
     private static final String SEARCH_PATH = "/stays/search";
     private static final String FETCH_RATES_PATH =
@@ -136,7 +139,7 @@ public class DuffelStayService {
             return new SearchOutcome(List.copyOf(hotels), List.of());
         } catch (RestClientResponseException exception) {
             int statusCode = exception.getStatusCode().value();
-            LOG.warn("Duffel stays search failed with HTTP status {}", statusCode);
+            logProviderFailure("search", exception);
             String warning = switch (statusCode) {
                 case 401, 403 ->
                         "Duffel Stays access was denied. Verify that the configured token has Stays API access.";
@@ -372,8 +375,7 @@ public class DuffelStayService {
         } catch (ResponseStatusException exception) {
             throw exception;
         } catch (RestClientResponseException exception) {
-            LOG.warn("Duffel stay rate retrieval failed with HTTP status {}",
-                    exception.getStatusCode().value());
+            logProviderFailure("rate retrieval", exception);
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY, "The hotel provider could not load room rates");
         } catch (RestClientException exception) {
@@ -581,6 +583,75 @@ public class DuffelStayService {
 
     private static String firstNonBlank(String first, String second) {
         return first == null || first.isBlank() ? second : first;
+    }
+
+    private void logProviderFailure(
+            String operation,
+            RestClientResponseException exception) {
+        JsonNode body;
+        try {
+            body = ERROR_JSON.readTree(exception.getResponseBodyAsString());
+        } catch (Exception ignored) {
+            body = null;
+        }
+        JsonNode errors = body == null ? null : body.path("errors");
+        JsonNode error = errors != null && errors.isArray() && !errors.isEmpty()
+                ? errors.get(0)
+                : body;
+        String code = firstNonBlank(
+                text(error, "code"),
+                text(error, "type"),
+                "unavailable");
+        String message = firstNonBlank(
+                text(error, "message"),
+                text(error, "detail"),
+                text(error, "title"),
+                "No provider error message was returned");
+        HttpHeaders headers = exception.getResponseHeaders();
+        String requestId = firstNonBlank(
+                header(headers, "Duffel-Request-Id"),
+                header(headers, "X-Request-Id"),
+                header(headers, "Request-Id"),
+                body == null ? "" : text(body.path("meta"), "request_id"),
+                error == null ? "" : text(error.path("meta"), "request_id"),
+                "unavailable");
+        code = safeLogField(code);
+        message = safeLogField(message);
+        requestId = safeLogField(requestId);
+        int status = exception.getStatusCode().value();
+        if (status == 403) {
+            LOG.warn(
+                    "Duffel Stays access denied (403): operation={}, errorCode={}, "
+                            + "message={}, requestId={}, authorization=Bearer [MASKED]",
+                    operation, code, message, requestId);
+        } else {
+            LOG.warn(
+                    "Duffel Stays provider error: operation={}, status={}, errorCode={}, "
+                            + "message={}, requestId={}, authorization=Bearer [MASKED]",
+                    operation, status, code, message, requestId);
+        }
+    }
+
+    private String safeLogField(String value) {
+        String masked = value == null ? "" : value;
+        if (!accessToken.isBlank()) masked = masked.replace(accessToken, "[MASKED]");
+        return masked
+                .replaceAll("(?i)Bearer\\s+[^\\s,;\"']+", "Bearer [MASKED]")
+                .replaceAll("[\\r\\n\\t]", " ")
+                .trim();
+    }
+
+    private static String header(HttpHeaders headers, String name) {
+        if (headers == null) return "";
+        String value = headers.getFirst(name);
+        return value == null ? "" : value.trim();
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) return value;
+        }
+        return "";
     }
 
     private static Double decimalOrNull(JsonNode node) {

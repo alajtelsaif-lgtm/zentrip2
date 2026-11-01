@@ -18,7 +18,16 @@ import '../../../../models/review_model.dart';
 import '../../logic/hotel_controller.dart';
 
 class HotelDetailScreen extends StatefulWidget {
-  const HotelDetailScreen({super.key});
+  const HotelDetailScreen({
+    super.key,
+    this.loadReviews,
+    this.loadDuffelRates,
+  });
+
+  final Future<ApiResult<List<ReviewModel>>> Function(String itemId)?
+      loadReviews;
+  final Future<ApiResult<Map<String, dynamic>>> Function(String searchResultId)?
+      loadDuffelRates;
 
   @override
   State<HotelDetailScreen> createState() => _HotelDetailScreenState();
@@ -99,7 +108,10 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
       _ratesUnavailable = false;
       final hotel = controller?.selectedHotel;
       if (hotel != null) {
-        _hotelReviewsFuture = ApiService.instance.getReviews(itemId: hotel.id);
+        final loadReviews = widget.loadReviews;
+        _hotelReviewsFuture = loadReviews == null
+            ? ApiService.instance.getReviews(itemId: hotel.id)
+            : loadReviews(hotel.id);
         _loadDuffelRates(hotel);
       }
     }
@@ -129,8 +141,10 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
     HotelModel hotel,
     String searchResultId,
   ) async {
-    final result =
-        await ApiService.instance.fetchDuffelHotelRates(searchResultId);
+    final loadDuffelRates = widget.loadDuffelRates;
+    final result = loadDuffelRates == null
+        ? await ApiService.instance.fetchDuffelHotelRates(searchResultId)
+        : await loadDuffelRates(searchResultId);
     if (!mounted) return;
     final payload = result.data;
     final offers = payload?['offers'] is List
@@ -381,42 +395,60 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
               delegate: SliverChildListDelegate([
                 // Location + rating
                 Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(children: [
-                        const Icon(Icons.place_rounded,
-                            color: AppColors.primary, size: 16),
-                        const SizedBox(width: 4),
-                        Text(hotel.address,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.textSecondary)),
-                      ]),
-                      Row(children: [
-                        ...List.generate(
-                            hotel.starRating,
-                            (_) => const Icon(Icons.star_rounded,
-                                color: Colors.amber, size: 14)),
-                        const SizedBox(width: 6),
-                        if (hotel.hasGoogleRating)
-                          Text(
-                            '(${hotel.reviewCount}) '
-                            '${hotel.rating.toStringAsFixed(1)}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          )
-                        else
-                          Text(
-                            l10n.hotelRatingUnavailable,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.place_rounded,
+                              color: AppColors.primary, size: 16),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              hotel.address,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           ),
-                      ]),
-                    ]).animate().fade(duration: 300.ms),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ...List.generate(
+                            hotel.starRating,
+                            (_) => const Icon(Icons.star_rounded,
+                                color: Colors.amber, size: 14),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              hotel.hasGoogleRating
+                                  ? '(${hotel.reviewCount}) '
+                                      '${hotel.rating.toStringAsFixed(1)}'
+                                  : l10n.hotelRatingUnavailable,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: hotel.hasGoogleRating
+                                    ? AppColors.textPrimary
+                                    : AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ).animate().fade(duration: 300.ms),
                 const SizedBox(height: 16),
                 // Amenities
                 Text(l10n.hotelAmenities,
@@ -658,16 +690,30 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label,
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 13)),
-            Text(value,
+                    color: AppColors.textSecondary, fontSize: 13),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
                 style: TextStyle(
-                    fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
-                    fontSize: isBold ? 16 : 14,
-                    color: color)),
+                  fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: isBold ? 16 : 14,
+                  color: color,
+                ),
+              ),
+            ),
           ],
         ),
       );

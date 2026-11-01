@@ -1,6 +1,9 @@
 package com.zentrip.api;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -164,13 +167,17 @@ class DuffelStayServiceTest {
     }
 
     @Test
-    void providerPermissionFailureLeavesPartnerFallbackAvailable() {
+    @ExtendWith(OutputCaptureExtension.class)
+    void providerPermissionFailureLeavesPartnerFallbackAvailable(
+            CapturedOutput output) {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo(SEARCH_URL))
                 .andRespond(withStatus(org.springframework.http.HttpStatus.FORBIDDEN)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"errors\":[{\"message\":\"private provider detail\"}]}"));
+                        .body("{\"errors\":[{\"code\":\"stays_access_denied\","
+                                + "\"message\":\"No Stays access for unit-test-token\"}]}")
+                        .header("Duffel-Request-Id", "request-403-test"));
 
         DuffelStayService service =
                 new DuffelStayService("unit-test-token", true, builder);
@@ -184,7 +191,29 @@ class DuffelStayServiceTest {
                 2);
         assertTrue(outcome.hotels().isEmpty());
         assertTrue(outcome.warnings().getFirst().contains("access was denied"));
-        assertFalse(outcome.warnings().getFirst().contains("private provider detail"));
+        Map<String, Object> partnerHotel = Map.of(
+                "id", "partner-hotel-1",
+                "source", "partner",
+                "name", "Fallback hotel");
+        UnifiedInventoryService.SearchOutcome merged =
+                new UnifiedInventoryService(
+                        org.mockito.Mockito.mock(ExchangeRateService.class))
+                        .merge(
+                                "hotel",
+                                () -> List.of(partnerHotel),
+                                () -> new UnifiedInventoryService.SourceOutcome(
+                                        outcome.hotels(), outcome.warnings()),
+                                "Partner unavailable",
+                                "Duffel unavailable");
+        assertEquals(1, merged.items().size());
+        assertEquals("partner", merged.items().getFirst().get("source"));
+        assertTrue(merged.warnings().stream()
+                .anyMatch(warning -> warning.contains("access was denied")));
+        assertTrue(output.getAll().contains("access denied (403)"));
+        assertTrue(output.getAll().contains("errorCode=stays_access_denied"));
+        assertTrue(output.getAll().contains("requestId=request-403-test"));
+        assertTrue(output.getAll().contains("authorization=Bearer [MASKED]"));
+        assertFalse(output.getAll().contains("unit-test-token"));
         server.verify();
     }
 

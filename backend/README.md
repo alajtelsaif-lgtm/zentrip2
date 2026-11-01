@@ -86,6 +86,16 @@ mvn spring-boot:run
 
 The API runs at `http://127.0.0.1:8080/api`. Start the copied Flutter app from the `zentrip_java` root using `flutter run`.
 
+## Backend tests
+
+The normal `scripts/test-backend.sh` run does not set `ZENTRIP_POSTGRES_TEST_URL`, so the 21 tests in `PostgresMigrationIntegrationTest` are skipped by their loopback-only environment guard. Run the full suite, including those real PostgreSQL migration and HTTP/JDBC checks, with:
+
+```bash
+bash scripts/test-postgres.sh
+```
+
+The script creates a fresh disposable PostgreSQL cluster on loopback, loads `schema.sql`, creates the non-login `zentrip_api_runtime` role used by request tests, runs all backend tests, and removes the cluster on exit. It unsets the configured Supabase connection variables and never connects to the application database. The GitHub Actions workflow `.github/workflows/backend-postgres.yml` runs this same script for pushes and pull requests.
+
 Zen AI uses the authenticated `POST /api/ai/chat` endpoint. The Java backend streams Requesty's OpenAI-compatible chat-completions response to the app as server-sent events, so text appears as soon as the provider generates it. The app sends up to 10 recent messages per user and chat session and allows up to 512 generated tokens. Replies follow the latest user message's language, with the app language as a fallback. Set `REQUESTY_API_KEY` and `REQUESTY_MODEL` in `backend/.env`; a lower-latency model available to your Requesty account may improve the time to the first token and total response time. Restart the backend after changing these settings. Never place the key in Flutter code or commit it to Git.
 
 For example, if this model is available in your Requesty account:
