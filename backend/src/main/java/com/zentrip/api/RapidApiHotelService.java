@@ -98,12 +98,28 @@ public class RapidApiHotelService {
                     searchResponse,
                     "data.hotels",
                     "data.results",
+                    "data.result.hotels",
+                    "data.results.hotels",
                     "data.result",
                     "data",
                     "hotels",
                     "results",
                     "result.hotels",
+                    "result.results",
+                    "result",
                     "properties");
+            if (results.isEmpty()) {
+                String providerStatus = firstText(searchResponse, "status", "success");
+                String providerMessage = sanitizeProviderMessage(
+                        firstText(searchResponse, "message", "error.message", "error"),
+                        apiKey);
+                LOG.info(
+                        "Booking.com RapidAPI hotel search returned no parsed results: status={}, message={}, responseFields={}, dataShape={}",
+                        providerStatus.isBlank() ? "unavailable" : providerStatus,
+                        providerMessage.isBlank() ? "none" : providerMessage,
+                        objectFields(searchResponse),
+                        nodeShape(nodeAt(searchResponse, "data")));
+            }
             List<Map<String, Object>> hotels = new ArrayList<>();
             for (JsonNode result : results) {
                 Map<String, Object> hotel = normalizeHotel(
@@ -441,6 +457,21 @@ public class RapidApiHotelService {
             if (value != null && !value.isBlank()) return value.trim();
         }
         return "";
+    }
+
+    private static String objectFields(JsonNode node) {
+        if (node == null || !node.isObject()) return "";
+        List<String> fields = new ArrayList<>();
+        node.fieldNames().forEachRemaining(fields::add);
+        return String.join(",", fields.stream().limit(30).toList());
+    }
+
+    private static String nodeShape(JsonNode node) {
+        if (node == null || node.isMissingNode()) return "missing";
+        if (node.isNull()) return "null";
+        if (node.isObject()) return "object[" + objectFields(node) + "]";
+        if (node.isArray()) return "array[" + node.size() + "]";
+        return node.getNodeType().name().toLowerCase(Locale.ROOT);
     }
 
     public record SearchOutcome(
