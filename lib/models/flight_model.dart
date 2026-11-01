@@ -389,6 +389,11 @@ class FlightModel {
   final String aircraftName;
   final String seatLayout;
   final int seatRows;
+  final String source;
+  final String priceCurrencyCode;
+  final bool priceIsTotal;
+
+  bool get isDuffelOffer => source == 'duffel';
 
   const FlightModel({
     required this.id,
@@ -414,6 +419,9 @@ class FlightModel {
     this.aircraftName = '',
     this.seatLayout = '3-3',
     this.seatRows = 30,
+    this.source = 'partner',
+    this.priceCurrencyCode = 'USD',
+    this.priceIsTotal = false,
   });
 
   bool get usesTwoByTwoSeatLayout =>
@@ -478,6 +486,8 @@ class FlightModel {
   }
 
   factory FlightModel.fromJson(Map<String, dynamic> json) {
+    final source = _stringFromDynamic(json['source'], 'partner');
+    final isDuffelOffer = source == 'duffel';
     final seatLayout = _stringFromDynamic(
       json['seat_layout'] ??
           json['seat_configuration'] ??
@@ -521,7 +531,10 @@ class FlightModel {
       firstPrice: json['first_price'] == null
           ? null
           : _doubleFromDynamic(json['first_price']),
-      seatsAvailable: _intFromDynamic(json['seats_available'], 0),
+      seatsAvailable: _intFromDynamic(
+        json['seats_available'],
+        isDuffelOffer ? -1 : 0,
+      ),
       airlineLogoUrl: json['airline_logo_url'] == null
           ? null
           : _stringFromDynamic(json['airline_logo_url']),
@@ -533,12 +546,18 @@ class FlightModel {
             !_isInactiveStatus(json['status']),
           ) &&
           !_isInactiveStatus(json['status']),
-      aircraftName: aircraftName,
+      aircraftName: isDuffelOffer && json['aircraft_name'] == null
+          ? ''
+          : aircraftName,
       seatLayout: seatLayout,
       seatRows: _intFromDynamic(
         json['seat_rows'] ?? json['row_count'],
-        defaultSeatRows,
+        isDuffelOffer ? 0 : defaultSeatRows,
       ),
+      source: source,
+      priceCurrencyCode:
+          _stringFromDynamic(json['price_currency'], 'USD').toUpperCase(),
+      priceIsTotal: _boolFromDynamic(json['price_is_total']),
     );
   }
 
@@ -574,7 +593,7 @@ class FlightModel {
         departureTime.year == departureDate.year &&
         departureTime.month == departureDate.month &&
         departureTime.day == departureDate.day &&
-        seatsAvailable >= passengers;
+        (isDuffelOffer || seatsAvailable >= passengers);
   }
 
   static bool _matchesAirport(

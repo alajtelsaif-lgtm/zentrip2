@@ -72,7 +72,13 @@ class FlightController extends ChangeNotifier {
 
   void _applySort() {
     if (sort == FlightSort.cheapest) {
-      results.sort((a, b) => a.economyPrice.compareTo(b.economyPrice));
+      results.sort((a, b) {
+        // Amounts in different currencies are not directly comparable.
+        final currencyOrder =
+            a.priceCurrencyCode.compareTo(b.priceCurrencyCode);
+        if (currencyOrder != 0) return currencyOrder;
+        return a.economyPrice.compareTo(b.economyPrice);
+      });
     } else {
       results.sort((a, b) => a.durationMinutes.compareTo(b.durationMinutes));
     }

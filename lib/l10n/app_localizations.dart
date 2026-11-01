@@ -3004,6 +3004,30 @@ abstract class AppLocalizations {
   /// **'الإجمالي'**
   String get flightTotal;
 
+  /// No description provided for @flightDuffelOffer.
+  ///
+  /// In ar, this message translates to:
+  /// **'عرض Duffel'**
+  String get flightDuffelOffer;
+
+  /// No description provided for @flightDuffelBookingUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'الحجز عبر Duffel غير متصل بعد'**
+  String get flightDuffelBookingUnavailable;
+
+  /// No description provided for @flightProviderUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'البحث المباشر عن الرحلات غير متاح مؤقتًا. حاول مرة أخرى.'**
+  String get flightProviderUnavailable;
+
+  /// No description provided for @flightDuffelTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'إجمالي Duffel لعدد {count} من المسافرين'**
+  String flightDuffelTotal(int count);
+
   /// No description provided for @flightTermsNotice.
   ///
   /// In ar, this message translates to:

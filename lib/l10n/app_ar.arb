@@ -531,6 +531,17 @@
   "flightTaxesFees": "الضرائب والرسوم",
   "flightServiceFee": "رسوم الخدمة",
   "flightTotal": "الإجمالي",
+  "flightDuffelOffer": "عرض Duffel",
+  "flightDuffelBookingUnavailable": "الحجز عبر Duffel غير متصل بعد",
+  "flightProviderUnavailable": "البحث المباشر عن الرحلات غير متاح مؤقتًا. حاول مرة أخرى.",
+  "flightDuffelTotal": "إجمالي Duffel لعدد {count} من المسافرين",
+  "@flightDuffelTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "flightTermsNotice": "بالنقر على تأكيد توافق على شروط الخدمة وسياسة الاسترداد",
   "flightDemoUser": "مستخدم تجريبي",
   "hotelSearching": "جارٍ البحث...",

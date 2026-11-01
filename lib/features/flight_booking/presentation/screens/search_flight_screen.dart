@@ -70,7 +70,10 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
       _checkPriceAlerts();
     } catch (error, stackTrace) {
       debugPrint('Flight search failed: $error\n$stackTrace');
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() => _error =
+            AppLocalizations.of(context).flightProviderUnavailable);
+      }
     }
   }
 
@@ -150,6 +153,14 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
     final controller = _controller;
     final params = _params ?? controller?.searchParams;
     if (controller == null || params == null) return;
+    if (flight.isDuffelOffer) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).flightDuffelBookingUnavailable),
+        ),
+      );
+      return;
+    }
 
     controller.selectFlight(flight);
     final seatScreen = flight.usesTwoByTwoSeatLayout
@@ -206,7 +217,7 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
                 }
                 if (_error != null) {
                   return _SearchError(
-                    message: l10n.flightSearchError,
+                    message: _error ?? l10n.flightSearchError,
                     retryLabel: l10n.retry,
                     onRetry: _retry,
                     onEdit: _editSearch,
@@ -755,11 +766,13 @@ class _FlightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseFare = _fare * params.passengers;
-    final taxes = baseFare * 0.12;
-    const serviceFee = 12.0;
+    final baseFare =
+        flight.priceIsTotal ? _fare : _fare * params.passengers;
+    final taxes = flight.priceIsTotal ? 0.0 : baseFare * 0.12;
+    final serviceFee = flight.priceIsTotal ? 0.0 : 12.0;
     final total = baseFare + taxes + serviceFee;
-    final available = flight.seatsAvailable >= params.passengers;
+    final available =
+        flight.isDuffelOffer || flight.seatsAvailable >= params.passengers;
     final surface = isDark ? AppColors.darkSurface : AppColors.surface;
     final border = isDark ? AppColors.darkBorder : AppColors.border;
 
@@ -798,7 +811,9 @@ class _FlightCard extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     Text(
-                      flight.flightNumber,
+                      flight.isDuffelOffer
+                          ? '${l10n.flightDuffelOffer} · ${flight.flightNumber}'
+                          : flight.flightNumber,
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
@@ -807,15 +822,17 @@ class _FlightCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                l10n.seatsLeft(flight.seatsAvailable),
-                style: TextStyle(
-                  color:
-                      available ? AppColors.textSecondary : AppColors.accentRed,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+              if (!flight.isDuffelOffer && flight.seatsAvailable >= 0)
+                Text(
+                  l10n.seatsLeft(flight.seatsAvailable),
+                  style: TextStyle(
+                    color: available
+                        ? AppColors.textSecondary
+                        : AppColors.accentRed,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -887,15 +904,23 @@ class _FlightCard extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 14),
             child: Divider(height: 1),
           ),
-          _PriceLine(
-            label:
-                '${l10n.flightTicketPrice} · ${params.passengers} × \$${_fare.toStringAsFixed(2)}',
-            amount: baseFare,
-          ),
-          const SizedBox(height: 5),
-          _PriceLine(label: l10n.flightTaxesFees, amount: taxes),
-          const SizedBox(height: 5),
-          _PriceLine(label: l10n.flightServiceFee, amount: serviceFee),
+          if (flight.priceIsTotal)
+            _PriceLine(
+              label: l10n.flightDuffelTotal(params.passengers),
+              amount: total,
+              currencyCode: flight.priceCurrencyCode,
+            )
+          else ...[
+            _PriceLine(
+              label:
+                  '${l10n.flightTicketPrice} · ${params.passengers} × \$${_fare.toStringAsFixed(2)}',
+              amount: baseFare,
+            ),
+            const SizedBox(height: 5),
+            _PriceLine(label: l10n.flightTaxesFees, amount: taxes),
+            const SizedBox(height: 5),
+            _PriceLine(label: l10n.flightServiceFee, amount: serviceFee),
+          ],
           const SizedBox(height: 9),
           Row(
             children: [
@@ -906,7 +931,9 @@ class _FlightCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '\$${total.toStringAsFixed(2)}',
+                flight.priceCurrencyCode == 'USD'
+                    ? '\$${total.toStringAsFixed(2)}'
+                    : '${total.toStringAsFixed(2)} ${flight.priceCurrencyCode}',
                 style: const TextStyle(
                   color: AppColors.primary,
                   fontSize: 20,
@@ -917,9 +944,13 @@ class _FlightCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           FlightPrimaryButton(
-            label: l10n.flightSelectThis,
-            onPressed: available ? onSelect : null,
-            icon: Icons.event_seat_rounded,
+            label: flight.isDuffelOffer
+                ? l10n.flightDuffelBookingUnavailable
+                : l10n.flightSelectThis,
+            onPressed: available && !flight.isDuffelOffer ? onSelect : null,
+            icon: flight.isDuffelOffer
+                ? Icons.info_outline_rounded
+                : Icons.event_seat_rounded,
           ),
         ],
       ),
@@ -1011,8 +1042,13 @@ class _AirlineLogo extends StatelessWidget {
 class _PriceLine extends StatelessWidget {
   final String label;
   final double amount;
+  final String currencyCode;
 
-  const _PriceLine({required this.label, required this.amount});
+  const _PriceLine({
+    required this.label,
+    required this.amount,
+    this.currencyCode = 'USD',
+  });
 
   @override
   Widget build(BuildContext context) => Row(
@@ -1027,7 +1063,9 @@ class _PriceLine extends StatelessWidget {
             ),
           ),
           Text(
-            '\$${amount.toStringAsFixed(2)}',
+            currencyCode == 'USD'
+                ? '\$${amount.toStringAsFixed(2)}'
+                : '${amount.toStringAsFixed(2)} $currencyCode',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 11,

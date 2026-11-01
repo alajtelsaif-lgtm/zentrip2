@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -28,8 +29,13 @@ class PartnerControllerTest {
     private final ProfilePhotoStorage imageStorage = mock(ProfilePhotoStorage.class);
     private final AirportDirectoryService airportDirectoryService =
             mock(AirportDirectoryService.class);
+    private final DuffelFlightService duffelFlightService = mock(DuffelFlightService.class);
     private final PartnerController controller = new PartnerController(
-            jdbc, imageStorage, mock(GooglePlacesRatingSync.class), airportDirectoryService);
+            jdbc,
+            imageStorage,
+            mock(GooglePlacesRatingSync.class),
+            airportDirectoryService,
+            duffelFlightService);
 
     @Test
     void airportSearchDelegatesTheUniversalSearchQuery() {
@@ -499,6 +505,31 @@ class PartnerControllerTest {
         assertEquals(1, flights.size());
         assertEquals("MRA", ((Map<?, ?>) flights.getFirst()).get("origin_code"));
         assertEquals("MJI", ((Map<?, ?>) flights.getFirst()).get("destination_code"));
+    }
+
+    @Test
+    void flightSearchKeepsPartnerResultsWhenDuffelIsUnavailable() {
+        when(jdbc.queryForList(contains("WHERE l.type = 'flight'")))
+                .thenReturn(List.of(partnerFlight(
+                        25L, "MRA", "MJI", "2026-11-10T08:00:00", 3)));
+        when(duffelFlightService.isConfigured()).thenReturn(true);
+        when(duffelFlightService.searchFlights(
+                eq("MRA"),
+                eq("MJI"),
+                eq(java.time.LocalDate.parse("2026-11-10")),
+                isNull(),
+                eq(2),
+                eq("economy")))
+                .thenThrow(new ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_GATEWAY,
+                        "provider unavailable"));
+
+        Map<String, Object> response = controller.searchFlights(
+                "MRA", "MJI", "2026-11-10", null, 2, "economy");
+
+        List<?> flights = (List<?>) response.get("flights");
+        assertEquals(1, flights.size());
+        assertEquals("partner-25", ((Map<?, ?>) flights.getFirst()).get("id"));
     }
 
     @Test

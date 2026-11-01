@@ -348,7 +348,8 @@ class _FlightCardState extends State<_FlightCard> {
                       fontSize: 14,
                       color: AppColors.primary)),
               Row(children: [
-                ListenableBuilder(
+                if (!flight.priceIsTotal && flight.priceCurrencyCode == 'USD')
+                  ListenableBuilder(
                   listenable: PriceAlertsStore.instance,
                   builder: (_, __) {
                     final tracking = PriceAlertsStore.instance.isTracking(
@@ -429,14 +430,17 @@ class _FlightCardState extends State<_FlightCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(l10n.seatsLeft(flight.seatsAvailable),
-                  style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.accentRed,
-                      fontWeight: FontWeight.w600)),
+              if (flight.seatsAvailable >= 0)
+                Text(l10n.seatsLeft(flight.seatsAvailable),
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.accentRed,
+                        fontWeight: FontWeight.w600)),
               Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                const Text('\$',
-                    style: TextStyle(
+                Text(flight.priceCurrencyCode == 'USD'
+                    ? '\$'
+                    : '${flight.priceCurrencyCode} ',
+                    style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primary)),
@@ -452,10 +456,22 @@ class _FlightCardState extends State<_FlightCard> {
             ],
           ),
           const SizedBox(height: 12),
+          if (flight.isDuffelOffer)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                l10n.flightDuffelBookingUnavailable,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: onSelect,
+          onPressed: flight.isDuffelOffer ? null : onSelect,
               style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
               child: Text(l10n.flightSelectThis),
             ),

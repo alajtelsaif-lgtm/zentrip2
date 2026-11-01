@@ -545,6 +545,17 @@
   "flightTaxesFees": "Taxes & Fees",
   "flightServiceFee": "Service Fee",
   "flightTotal": "Total",
+  "flightDuffelOffer": "Duffel offer",
+  "flightDuffelBookingUnavailable": "Duffel booking is not connected yet",
+  "flightProviderUnavailable": "Live flight search is temporarily unavailable. Please try again.",
+  "flightDuffelTotal": "Duffel total for {count} passengers",
+  "@flightDuffelTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "flightTermsNotice": "By tapping confirm you agree to the terms of service and refund policy",
   "flightDemoUser": "Demo User",
   "hotelSearching": "Searching...",

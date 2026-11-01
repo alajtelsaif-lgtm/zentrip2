@@ -1555,6 +1555,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get flightTotal => 'Total';
 
   @override
+  String get flightDuffelOffer => 'Duffel offer';
+
+  @override
+  String get flightDuffelBookingUnavailable =>
+      'Duffel booking is not connected yet';
+
+  @override
+  String get flightProviderUnavailable =>
+      'Live flight search is temporarily unavailable. Please try again.';
+
+  @override
+  String flightDuffelTotal(int count) {
+    return 'Duffel total for $count passengers';
+  }
+
+  @override
   String get flightTermsNotice =>
       'By tapping confirm you agree to the terms of service and refund policy';
 

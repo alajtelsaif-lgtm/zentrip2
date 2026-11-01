@@ -62,16 +62,19 @@ public class PartnerController {
     private final ProfilePhotoStorage imageStorage;
     private final GooglePlacesRatingSync googlePlacesRatingSync;
     private final AirportDirectoryService airportDirectoryService;
+    private final DuffelFlightService duffelFlightService;
 
     public PartnerController(
             JdbcTemplate jdbc,
             ProfilePhotoStorage imageStorage,
             GooglePlacesRatingSync googlePlacesRatingSync,
-            AirportDirectoryService airportDirectoryService) {
+            AirportDirectoryService airportDirectoryService,
+            DuffelFlightService duffelFlightService) {
         this.jdbc = jdbc;
         this.imageStorage = imageStorage;
         this.googlePlacesRatingSync = googlePlacesRatingSync;
         this.airportDirectoryService = airportDirectoryService;
+        this.duffelFlightService = duffelFlightService;
     }
 
     @PostMapping("/partner/hotel-images")
@@ -617,8 +620,10 @@ public class PartnerController {
                     HttpStatus.BAD_REQUEST, "Invalid flight search parameters");
         }
         LocalDate requestedDeparture = parseFlightDate(departureDate, "departure_date");
-        if (returnDate != null && !returnDate.isBlank()
-                && parseFlightDate(returnDate, "return_date").isBefore(requestedDeparture)) {
+        LocalDate requestedReturn = returnDate == null || returnDate.isBlank()
+                ? null
+                : parseFlightDate(returnDate, "return_date");
+        if (requestedReturn != null && requestedReturn.isBefore(requestedDeparture)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "return_date must not precede departure_date");
         }
@@ -658,6 +663,21 @@ public class PartnerController {
             Map<String, Object> flight = publicListing(row, "flight");
             if (priceKey != null) flight.put("economy_price", details.get(priceKey));
             flights.add(flight);
+        }
+        if (duffelFlightService.isConfigured()) {
+            try {
+                flights.addAll(duffelFlightService.searchFlights(
+                        originCode,
+                        destinationCode,
+                        requestedDeparture,
+                        requestedReturn,
+                        adults,
+                        normalizedClass));
+            } catch (ResponseStatusException exception) {
+                if (flights.isEmpty()) throw exception;
+                LOG.warn("Duffel unavailable; returning {} matching partner flights",
+                        flights.size());
+            }
         }
         return Map.of("flights", flights);
     }

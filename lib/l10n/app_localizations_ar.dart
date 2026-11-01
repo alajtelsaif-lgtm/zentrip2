@@ -1542,6 +1542,21 @@ class AppLocalizationsAr extends AppLocalizations {
   String get flightTotal => 'الإجمالي';
 
   @override
+  String get flightDuffelOffer => 'عرض Duffel';
+
+  @override
+  String get flightDuffelBookingUnavailable => 'الحجز عبر Duffel غير متصل بعد';
+
+  @override
+  String get flightProviderUnavailable =>
+      'البحث المباشر عن الرحلات غير متاح مؤقتًا. حاول مرة أخرى.';
+
+  @override
+  String flightDuffelTotal(int count) {
+    return 'إجمالي Duffel لعدد $count من المسافرين';
+  }
+
+  @override
   String get flightTermsNotice =>
       'بالنقر على تأكيد توافق على شروط الخدمة وسياسة الاسترداد';
 
