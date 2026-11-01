@@ -48,7 +48,7 @@ class _SplashScreenState extends State<SplashScreen> {
     // مدة عرض شاشة الـ Splash قبل الانتقال التلقائي.
     const splashDuration = Duration(seconds: 4);
     final results = await Future.wait<Object>([
-      Future.delayed(splashDuration),
+      Future.delayed(splashDuration, () => true),
       _restoreSessionSafely(),
       _readOnboardingSafely(),
     ]);
