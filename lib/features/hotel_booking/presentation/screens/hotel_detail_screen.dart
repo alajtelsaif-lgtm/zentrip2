@@ -207,6 +207,10 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
       AppSnackbar.warning(context, l10n.hotelDuffelBookingUnavailable);
       return;
     }
+    if (hotel.isRapidApiOffer) {
+      AppSnackbar.warning(context, l10n.hotelExternalBookingUnavailable);
+      return;
+    }
     final rooms = ctrl?.searchParams?.rooms ?? 1;
     if (hotel.availabilityKnown && hotel.availableRooms < rooms) {
       AppSnackbar.error(context, l10n.hotelSoldOut);
@@ -556,7 +560,10 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                 ).animate().fade(delay: 200.ms),
                 const SizedBox(height: 28),
                 ElevatedButton.icon(
-                  onPressed: _isBooking || isSoldOut || hotel.isDuffelOffer
+                  onPressed: _isBooking ||
+                          isSoldOut ||
+                          hotel.isDuffelOffer ||
+                          hotel.isRapidApiOffer
                       ? null
                       : _book,
                   icon: _isBooking
@@ -568,11 +575,13 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                       : const Icon(Icons.hotel_rounded),
                   label: Text(hotel.isDuffelOffer
                       ? l10n.hotelDuffelBookingUnavailable
-                      : isSoldOut
-                          ? l10n.hotelSoldOut
-                          : _isBooking
-                              ? l10n.hotelBookingInProgress
-                              : l10n.hotelBookNow),
+                      : hotel.isRapidApiOffer
+                          ? l10n.hotelExternalBookingUnavailable
+                          : isSoldOut
+                              ? l10n.hotelSoldOut
+                              : _isBooking
+                                  ? l10n.hotelBookingInProgress
+                                  : l10n.hotelBookNow),
                 ).animate().fade(delay: 280.ms),
                 const SizedBox(height: 20),
               ]),

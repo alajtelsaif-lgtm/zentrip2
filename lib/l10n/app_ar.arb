@@ -586,6 +586,7 @@
   "hotelBookingInProgress": "جارٍ الحجز...",
   "hotelBookNow": "احجز الآن",
   "hotelDuffelBookingUnavailable": "حجز فنادق Duffel غير متاح بعد",
+  "hotelExternalBookingUnavailable": "الحجز داخل التطبيق لهذا الفندق غير متاح حاليًا",
   "hotelSoldOut": "نفدت الغرف",
   "hotelAbout": "عن الفندق",
   "hotelAmenities": "المرافق",

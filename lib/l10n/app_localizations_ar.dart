@@ -1700,6 +1700,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hotelDuffelBookingUnavailable => 'حجز فنادق Duffel غير متاح بعد';
 
   @override
+  String get hotelExternalBookingUnavailable =>
+      'الحجز داخل التطبيق لهذا الفندق غير متاح حاليًا';
+
+  @override
   String get hotelSoldOut => 'نفدت الغرف';
 
   @override

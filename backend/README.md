@@ -117,3 +117,9 @@ While Zen is generating, the chat input becomes a Stop button; quick prompts and
 Authenticated profile updates use `POST /api/profile` with multipart `name`, `phone`, and an optional `photo` (JPEG, PNG, or WebP; maximum 5 MB). The photo is served from `/uploads/` and stored in `UPLOAD_DIR` (defaults to `backend/uploads`). `PUT /api/profile/password` accepts `current_password`, `password`, and `password_confirmation` as JSON. Keep the upload directory writable and persistent; use private object storage and HTTPS for production deployments.
 
 The payment endpoints intentionally retain the existing mock checkout behavior; connect a real payment provider before production use. Saved places remain local to the Flutter app, as in the original project.
+
+## RapidAPI hotel search
+
+Hotel searches with check-in and check-out dates also query the RapidAPI `booking-com15.p.rapidapi.com` Booking.com data API. The backend first resolves the city with `/api/v1/hotels/searchDestination`, then requests availability and prices from `/api/v1/hotels/searchHotels`. Set `RAPIDAPI_KEY` as a Replit Secret (or backend environment variable); the key is sent only by the backend. RapidAPI results are merged with partner and Duffel results, and provider failures leave the other sources available.
+
+These RapidAPI results are search-only. Until a provider booking flow is implemented, their detail screen displays the existing unavailable-booking state and does not create a local booking for an external hotel.

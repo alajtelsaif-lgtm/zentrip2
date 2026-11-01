@@ -67,6 +67,7 @@ public class PartnerController {
     private final AirportDirectoryService airportDirectoryService;
     private final DuffelFlightService duffelFlightService;
     private final DuffelStayService duffelStayService;
+    private final RapidApiHotelService rapidApiHotelService;
     private final UnifiedInventoryService unifiedInventoryService;
 
     public PartnerController(
@@ -76,6 +77,7 @@ public class PartnerController {
             AirportDirectoryService airportDirectoryService,
             DuffelFlightService duffelFlightService,
             DuffelStayService duffelStayService,
+            RapidApiHotelService rapidApiHotelService,
             ExchangeRateService exchangeRateService) {
         this.jdbc = jdbc;
         this.imageStorage = imageStorage;
@@ -83,6 +85,7 @@ public class PartnerController {
         this.airportDirectoryService = airportDirectoryService;
         this.duffelFlightService = duffelFlightService;
         this.duffelStayService = duffelStayService;
+        this.rapidApiHotelService = rapidApiHotelService;
         this.unifiedInventoryService = new UnifiedInventoryService(exchangeRateService);
     }
 
@@ -957,38 +960,62 @@ public class PartnerController {
         HotelCoordinates center = parsedCheckIn == null
                 ? null
                 : hotelSearchCoordinates(normalizedCity, List.of());
+        List<UnifiedInventoryService.ProviderSearch> hotelProviders = List.of(
+                new UnifiedInventoryService.ProviderSearch(
+                        "duffel",
+                        "Duffel hotel results are temporarily unavailable.",
+                        () -> {
+                            if (parsedCheckIn == null) {
+                                return UnifiedInventoryService.SourceOutcome.of(List.of());
+                            }
+                            if (!duffelStayService.isConfigured()) {
+                                return new UnifiedInventoryService.SourceOutcome(
+                                        List.of(),
+                                        List.of("Duffel hotel search is not configured."));
+                            }
+                            if (center == null) {
+                                return new UnifiedInventoryService.SourceOutcome(
+                                        List.of(),
+                                        List.of(
+                                                "Duffel hotel search needs a resolved city location."));
+                            }
+                            DuffelStayService.SearchOutcome provider =
+                                    duffelStayService.searchHotelsWithAllRatesWithWarnings(
+                                            normalizedCity,
+                                            center.latitude(),
+                                            center.longitude(),
+                                            parsedCheckIn,
+                                            parsedCheckOut,
+                                            rooms,
+                                            guests);
+                            return new UnifiedInventoryService.SourceOutcome(
+                                    provider.hotels(), provider.warnings());
+                        }),
+                new UnifiedInventoryService.ProviderSearch(
+                        "rapidapi",
+                        "Booking.com hotel results are temporarily unavailable.",
+                        () -> {
+                            if (parsedCheckIn == null) {
+                                return UnifiedInventoryService.SourceOutcome.of(List.of());
+                            }
+                            RapidApiHotelService.SearchOutcome provider =
+                                    rapidApiHotelService.searchHotelsWithWarnings(
+                                            normalizedCity,
+                                            parsedCheckIn,
+                                            parsedCheckOut,
+                                            rooms,
+                                            guests,
+                                            normalizedCurrency);
+                            return new UnifiedInventoryService.SourceOutcome(
+                                    provider.hotels(), provider.warnings());
+                        }));
         UnifiedInventoryService.SearchOutcome merged = unifiedInventoryService.merge(
                 "hotel",
                 () -> hotelSearchRows(normalizedCity).stream()
                         .map(row -> publicListing(row, "hotel"))
                         .toList(),
-                () -> {
-                    if (parsedCheckIn == null) {
-                        return UnifiedInventoryService.SourceOutcome.of(List.of());
-                    }
-                    if (!duffelStayService.isConfigured()) {
-                        return new UnifiedInventoryService.SourceOutcome(
-                                List.of(), List.of("Duffel hotel search is not configured."));
-                    }
-                    if (center == null) {
-                        return new UnifiedInventoryService.SourceOutcome(
-                                List.of(),
-                                List.of("Duffel hotel search needs a resolved city location."));
-                    }
-                    DuffelStayService.SearchOutcome provider =
-                            duffelStayService.searchHotelsWithAllRatesWithWarnings(
-                                    normalizedCity,
-                                    center.latitude(),
-                                    center.longitude(),
-                                    parsedCheckIn,
-                                    parsedCheckOut,
-                                    rooms,
-                                    guests);
-                    return new UnifiedInventoryService.SourceOutcome(
-                            provider.hotels(), provider.warnings());
-                },
-                "Partner hotel inventory is temporarily unavailable.",
-                "Duffel hotel results are temporarily unavailable.");
+                hotelProviders,
+                "Partner hotel inventory is temporarily unavailable.");
         UnifiedInventoryService.FilterOutcome filtered =
                 unifiedInventoryService.filterHotels(
                         merged.items(), hotelFilters);
@@ -998,9 +1025,14 @@ public class PartnerController {
                 .filter(hotel -> "partner".equals(hotel.get("source"))).count();
         long duffelCount = filtered.hotels().stream()
                 .filter(hotel -> "duffel".equals(hotel.get("source"))).count();
+        long rapidApiCount = filtered.hotels().stream()
+                .filter(hotel -> "rapidapi".equals(hotel.get("source"))).count();
         return Map.of(
                 "hotels", filtered.hotels(),
-                "sources", Map.of("partner", partnerCount, "duffel", duffelCount),
+                "sources", Map.of(
+                        "partner", partnerCount,
+                        "duffel", duffelCount,
+                        "rapidapi", rapidApiCount),
                 "warnings", warnings.stream().distinct().toList());
     }
 

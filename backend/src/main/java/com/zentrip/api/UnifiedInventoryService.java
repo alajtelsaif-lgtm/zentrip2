@@ -64,6 +64,21 @@ public class UnifiedInventoryService {
         }
     }
 
+    public record ProviderSearch(
+            String source,
+            String warning,
+            Supplier<SourceOutcome> search) {
+        public ProviderSearch {
+            source = source == null ? "" : source.trim().toLowerCase(Locale.ROOT);
+            warning = warning == null || warning.isBlank()
+                    ? "External inventory is temporarily unavailable."
+                    : warning;
+            if (source.isBlank() || source.equals("partner") || search == null) {
+                throw new IllegalArgumentException("A provider source and search are required");
+            }
+        }
+    }
+
     public record SearchOutcome(
             List<Map<String, Object>> items,
             List<String> warnings,
@@ -105,8 +120,25 @@ public class UnifiedInventoryService {
             Supplier<SourceOutcome> providerSearch,
             String partnerWarning,
             String providerWarning) {
-        CompletableFuture<SourceOutcome> providerFuture =
-                CompletableFuture.supplyAsync(providerSearch, PROVIDER_EXECUTOR);
+        return merge(
+                type,
+                partnerSearch,
+                List.of(new ProviderSearch("duffel", providerWarning, providerSearch)),
+                partnerWarning);
+    }
+
+    public SearchOutcome merge(
+            String type,
+            Supplier<List<Map<String, Object>>> partnerSearch,
+            List<ProviderSearch> providerSearches,
+            String partnerWarning) {
+        List<ProviderSearch> providers = providerSearches == null
+                ? List.of()
+                : providerSearches.stream().filter(provider -> provider != null).toList();
+        List<CompletableFuture<SourceOutcome>> providerFutures = providers.stream()
+                .map(provider -> CompletableFuture.supplyAsync(
+                        provider.search(), PROVIDER_EXECUTOR))
+                .toList();
 
         List<String> warnings = new ArrayList<>();
         List<Map<String, Object>> results = new ArrayList<>();
@@ -122,33 +154,41 @@ public class UnifiedInventoryService {
             warnings.add(partnerWarning);
         }
 
-        SourceOutcome providerItems;
-        try {
-            providerItems = providerFuture.join();
-        } catch (CompletionException exception) {
-            warnings.add(providerWarning);
-            providerItems = new SourceOutcome(List.of(), List.of());
-        }
-        if (providerItems != null) {
+        for (int index = 0; index < providerFutures.size(); index++) {
+            SourceOutcome providerItems;
+            try {
+                providerItems = providerFutures.get(index).join();
+            } catch (CompletionException exception) {
+                warnings.add(providers.get(index).warning());
+                continue;
+            }
+            if (providerItems == null) {
+                warnings.add(providers.get(index).warning());
+                continue;
+            }
             providerItems.items().stream()
                     .filter(item -> item != null)
                     .map(item -> normalize(item, type))
                     .forEach(results::add);
             warnings.addAll(providerItems.warnings());
-        } else {
-            warnings.add(providerWarning);
         }
 
         long partnerCount = results.stream()
                 .filter(item -> "partner".equals(item.get("source")))
                 .count();
-        long providerCount = results.stream()
-                .filter(item -> "duffel".equals(item.get("source")))
-                .count();
+        Map<String, Long> sourceCounts = new LinkedHashMap<>();
+        sourceCounts.put("partner", partnerCount);
+        for (ProviderSearch provider : providers) {
+            sourceCounts.put(
+                    provider.source(),
+                    results.stream()
+                            .filter(item -> provider.source().equals(item.get("source")))
+                            .count());
+        }
         return new SearchOutcome(
                 List.copyOf(results),
                 List.copyOf(new LinkedHashSet<>(warnings)),
-                Map.of("partner", partnerCount, "duffel", providerCount));
+                sourceCounts);
     }
 
     public FilterOutcome filterHotels(
@@ -390,7 +430,7 @@ public class UnifiedInventoryService {
     private static Map<String, Object> normalize(Map<String, Object> original, String type) {
         Map<String, Object> item = new LinkedHashMap<>(original);
         String source = text(item.get("source")).toLowerCase(Locale.ROOT);
-        if (!source.equals("duffel")) source = "partner";
+        if (!source.equals("duffel") && !source.equals("rapidapi")) source = "partner";
         item.put("source", source);
         item.put("type", type);
 

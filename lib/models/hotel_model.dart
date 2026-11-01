@@ -85,6 +85,7 @@ class HotelModel {
   });
 
   bool get isDuffelOffer => source == 'duffel';
+  bool get isRapidApiOffer => source == 'rapidapi';
 
   /// The search contract supplies a per-room, per-night provider amount.
   double? get comparisonNightlyPrice =>

@@ -600,6 +600,7 @@
   "hotelBookingInProgress": "Booking...",
   "hotelBookNow": "Book Now",
   "hotelDuffelBookingUnavailable": "Duffel hotel booking is not available yet",
+  "hotelExternalBookingUnavailable": "In-app booking for this hotel is not available yet",
   "hotelSoldOut": "Sold out",
   "hotelAbout": "About the Hotel",
   "hotelAmenities": "Amenities",

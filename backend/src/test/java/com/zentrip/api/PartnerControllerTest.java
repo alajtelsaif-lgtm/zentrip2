@@ -31,6 +31,7 @@ class PartnerControllerTest {
             mock(AirportDirectoryService.class);
     private final DuffelFlightService duffelFlightService = mock(DuffelFlightService.class);
     private final DuffelStayService duffelStayService = mock(DuffelStayService.class);
+    private final RapidApiHotelService rapidApiHotelService = mock(RapidApiHotelService.class);
     private final PartnerController controller = new PartnerController(
             jdbc,
             imageStorage,
@@ -38,6 +39,7 @@ class PartnerControllerTest {
             airportDirectoryService,
             duffelFlightService,
             duffelStayService,
+            rapidApiHotelService,
             mock(ExchangeRateService.class));
 
     @Test
@@ -653,6 +655,20 @@ class PartnerControllerTest {
                 eq(2)))
                 .thenReturn(new DuffelStayService.SearchOutcome(
                         List.of(duffelHotel), List.of()));
+        Map<String, Object> rapidApiHotel = Map.of(
+                "id", "rapidapi-123",
+                "source", "rapidapi",
+                "name", "RapidAPI Test Hotel",
+                "price_currency", "USD");
+        when(rapidApiHotelService.searchHotelsWithWarnings(
+                eq("London"),
+                eq(java.time.LocalDate.parse("2026-12-01")),
+                eq(java.time.LocalDate.parse("2026-12-03")),
+                eq(1),
+                eq(2),
+                eq("USD")))
+                .thenReturn(new RapidApiHotelService.SearchOutcome(
+                        List.of(rapidApiHotel), List.of()));
 
         Map<String, Object> response = controller.searchHotels(
                 "London",
@@ -669,9 +685,9 @@ class PartnerControllerTest {
                 null);
 
         List<?> hotels = (List<?>) response.get("hotels");
-        assertEquals(1, hotels.size());
-        assertEquals("duffel", ((Map<?, ?>) hotels.getFirst()).get("source"));
-        assertEquals(Map.of("partner", 0L, "duffel", 1L), response.get("sources"));
+        assertEquals(2, hotels.size());
+        assertEquals(Map.of(
+                "partner", 0L, "duffel", 1L, "rapidapi", 1L), response.get("sources"));
         assertEquals(List.of(), response.get("warnings"));
     }
 

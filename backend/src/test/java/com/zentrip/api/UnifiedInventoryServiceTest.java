@@ -93,6 +93,36 @@ class UnifiedInventoryServiceTest {
     }
 
     @Test
+    void oneProviderFailureDoesNotRemoveResultsFromOtherProviders() {
+        UnifiedInventoryService.SearchOutcome result = service.merge(
+                "hotel",
+                () -> List.of(Map.of(
+                        "id", "partner-1",
+                        "source", "partner",
+                        "name", "Partner Hotel")),
+                List.of(
+                        new UnifiedInventoryService.ProviderSearch(
+                                "duffel",
+                                "Duffel unavailable",
+                                () -> UnifiedInventoryService.SourceOutcome.of(List.of(Map.of(
+                                        "id", "duffel-srr-1",
+                                        "source", "duffel",
+                                        "name", "Duffel Hotel")))),
+                        new UnifiedInventoryService.ProviderSearch(
+                                "rapidapi",
+                                "RapidAPI unavailable",
+                                () -> {
+                                    throw new IllegalStateException("provider denied");
+                                })),
+                "Partner unavailable");
+
+        assertEquals(2, result.items().size());
+        assertEquals(Map.of(
+                "partner", 1L, "duffel", 1L, "rapidapi", 0L), result.sources());
+        assertTrue(result.warnings().contains("RapidAPI unavailable"));
+    }
+
+    @Test
     void partnerFailureKeepsDuffelResultsAndReturnsAWarning() {
         UnifiedInventoryService.SearchOutcome result = service.merge(
                 "hotel",

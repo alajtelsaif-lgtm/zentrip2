@@ -1715,6 +1715,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Duffel hotel booking is not available yet';
 
   @override
+  String get hotelExternalBookingUnavailable =>
+      'In-app booking for this hotel is not available yet';
+
+  @override
   String get hotelSoldOut => 'Sold out';
 
   @override

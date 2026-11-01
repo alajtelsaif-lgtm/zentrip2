@@ -21,12 +21,21 @@ PriceComparison _comparison() => PriceComparison(
 
 HotelModel _hotel({
   bool duffel = false,
+  bool rapidApi = false,
   String? price,
   String currency = 'USD',
 }) =>
     HotelModel.fromJson({
-      'id': duffel ? 'duffel-srr_test-1' : 'partner-hotel-1',
-      'source': duffel ? 'duffel' : 'partner',
+      'id': duffel
+          ? 'duffel-srr_test-1'
+          : rapidApi
+              ? 'rapidapi-123'
+              : 'partner-hotel-1',
+      'source': duffel
+          ? 'duffel'
+          : rapidApi
+              ? 'rapidapi'
+              : 'partner',
       if (duffel) 'provider_search_result_id': 'srr_test-1',
       'name': 'Central Test Hotel',
       'city': 'Tripoli',
@@ -192,6 +201,37 @@ void main() {
       _expectNoFlutterException(tester);
       controller.dispose();
     }
+  });
+
+  testWidgets('RapidAPI hotel details do not offer unsupported in-app booking',
+      (tester) async {
+    _usePhoneViewport(tester);
+    final controller = await _controllerFor(
+      _hotel(rapidApi: true, price: '120'),
+    );
+    await tester.pumpWidget(_app(controller));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final l10n =
+        AppLocalizations.of(tester.element(find.byType(HotelDetailScreen)));
+    expect(find.text('Central Test Hotel'), findsOneWidget);
+    expect(find.text('USD 120'), findsOneWidget);
+    await tester.drag(
+      find.byType(CustomScrollView),
+      const Offset(0, -900),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(
+      find.text(l10n.hotelExternalBookingUnavailable),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
+      isNull,
+    );
+    _expectNoFlutterException(tester);
+    controller.dispose();
   });
 
   testWidgets('missing selection renders the existing detail error state',

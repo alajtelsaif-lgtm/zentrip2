@@ -3286,6 +3286,12 @@ abstract class AppLocalizations {
   /// **'حجز فنادق Duffel غير متاح بعد'**
   String get hotelDuffelBookingUnavailable;
 
+  /// No description provided for @hotelExternalBookingUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'الحجز داخل التطبيق لهذا الفندق غير متاح حاليًا'**
+  String get hotelExternalBookingUnavailable;
+
   /// No description provided for @hotelSoldOut.
   ///
   /// In ar, this message translates to:
