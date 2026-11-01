@@ -272,6 +272,21 @@ def apply_import(airports: list[dict[str, str]]) -> None:
                 reason = "the psql client could not open the database session"
             elif "fatal:" in error:
                 reason = "the database rejected the session before import"
+            elif any(
+                state in error
+                for state in (
+                    "23502", "23503", "23505", "23514", "22p02", "22001",
+                    "22003", "42p10", "42804", "42883", "25p02", "0a000",
+                )
+            ):
+                state = next(
+                    state for state in (
+                        "23502", "23503", "23505", "23514", "22p02", "22001",
+                        "22003", "42p10", "42804", "42883", "25p02", "0a000",
+                    )
+                    if state in error
+                )
+                reason = f"PostgreSQL returned SQLSTATE {state.upper()}"
             elif "error:" in error:
                 reason = "PostgreSQL rejected an import command or source row"
             else:
