@@ -13,9 +13,7 @@ class AttractionPlaceSuggestion {
     required this.resultType,
   });
 
-  bool get isCountry =>
-      resultType.toLowerCase() == 'country' ||
-      (city.isEmpty && country.isNotEmpty);
+  bool get isCountry => resultType.toLowerCase() == 'country';
 
   factory AttractionPlaceSuggestion.fromJson(Map<String, dynamic> json) {
     String read(String key) => json[key]?.toString().trim() ?? '';

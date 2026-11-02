@@ -7,7 +7,6 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/current_location_service.dart';
 import '../../../models/attraction_model.dart';
 import '../../../models/attraction_place_suggestion.dart';
-import '../../../models/flight_model.dart';
 
 typedef AttractionSearchFunction = Future<List<AttractionModel>> Function({
   required String city,
@@ -39,8 +38,7 @@ class AttractionsController extends ChangeNotifier {
                 .searchAttractionSuggestions(query, language: language)),
         _loadCurrentPlace = loadCurrentPlace ??
             (() => const CurrentLocationService().getCurrentPlace()),
-        _loadPreferences =
-            loadPreferences ?? SharedPreferences.getInstance;
+        _loadPreferences = loadPreferences ?? SharedPreferences.getInstance;
 
   static const _lastCityKey = 'attraction_last_city';
   static const _lastCountryKey = 'attraction_last_country';
@@ -62,10 +60,6 @@ class AttractionsController extends ChangeNotifier {
   String selectedCategory = 'all';
   int _requestGeneration = 0;
   int _suggestionGeneration = 0;
-
-  static List<String> get countryOptions =>
-      AirportOption.supported.map((airport) => airport.country).toSet().toList()
-        ..sort();
 
   static const categories = [
     'all',
@@ -104,8 +98,8 @@ class AttractionsController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final currentPlace = await _loadCurrentPlace()
-          .timeout(const Duration(seconds: 8));
+      final currentPlace =
+          await _loadCurrentPlace().timeout(const Duration(seconds: 8));
       final city = currentPlace.city?.trim() ?? '';
       if (city.isNotEmpty && generation == _requestGeneration) {
         await load(
@@ -135,9 +129,8 @@ class AttractionsController extends ChangeNotifier {
 
     if (generation != _requestGeneration) return null;
     if (lastCity.trim().isNotEmpty || lastCountry.trim().isNotEmpty) {
-      final display = lastDisplay.trim().isNotEmpty
-          ? lastDisplay.trim()
-          : lastCity.trim();
+      final display =
+          lastDisplay.trim().isNotEmpty ? lastDisplay.trim() : lastCity.trim();
       await load(
         city: lastCity,
         country: lastCountry,
@@ -273,8 +266,10 @@ class AttractionsController extends ChangeNotifier {
   void _applyCategory() {
     results = selectedCategory == 'all'
         ? List.of(_all)
-        : _all.where((attraction) =>
-            attraction.category.toLowerCase() == selectedCategory).toList();
+        : _all
+            .where((attraction) =>
+                attraction.category.toLowerCase() == selectedCategory)
+            .toList();
   }
 
   void _persistLastSearch({

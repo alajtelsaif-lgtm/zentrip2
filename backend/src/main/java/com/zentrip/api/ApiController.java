@@ -372,12 +372,16 @@ public class ApiController {
         boolean citySearch = city != null && !city.isBlank();
         List<Map<String, Object>> discovered;
         Boolean cityFound = null;
+        Integer candidateCount = null;
+        Map<String, Integer> droppedByReason = Map.of();
         if (citySearch) {
             GeoapifyAttractionService.SearchOutcome outcome =
                     geoapifyAttractionService.searchAttractionsWithStatus(
                             city, country, language);
             discovered = outcome.places();
             cityFound = outcome.cityFound();
+            candidateCount = outcome.candidateCount();
+            droppedByReason = outcome.droppedByReason();
         } else {
             discovered = geoapifyAttractionService.searchAttractions(
                     city, country, language);
@@ -394,6 +398,10 @@ public class ApiController {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("attractions", discovered);
         response.put("source", "geoapify");
+        response.put("dropped_by_reason", droppedByReason);
+        response.put("dropped_count", droppedByReason.values().stream()
+                .mapToInt(Integer::intValue).sum());
+        if (candidateCount != null) response.put("candidate_count", candidateCount);
         if (cityFound != null) response.put("city_found", cityFound);
         return response;
     }

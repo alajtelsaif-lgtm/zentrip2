@@ -1296,7 +1296,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get taxiUseCurrentLocation => 'عرض موقعي الحالي على الخريطة';
 
   @override
-  String get attractionSearchHint => 'ابحث عن وجهة أو معلم...';
+  String get attractionSearchHint => 'ابحث عن مدينة أو دولة أو معلم...';
 
   @override
   String get attractionCountryFilter => 'ابحث عن الأماكن حسب الدولة';
@@ -1307,7 +1307,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get attractionCityNotFound =>
-      'لم نعثر على هذه المدينة. تحقق من كتابة الاسم وحاول مرة أخرى.';
+      'لم نعثر على هذا المكان. تحقق من كتابة الاسم وحاول مرة أخرى.';
 
   @override
   String get attractionCategoryAll => 'الكل';

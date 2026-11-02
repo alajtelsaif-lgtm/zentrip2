@@ -1630,7 +1630,7 @@ class ApiService {
     }
   }
 
-  /// أماكن/معالم — بيشمل مطاعم ومقاهي كفئات (category) عن طريق الباك اند.
+  /// Fetches verified landmark categories from the destination provider.
   Future<List<AttractionModel>> searchAttractions({
     required String city,
     String? category,

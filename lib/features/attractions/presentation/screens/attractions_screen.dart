@@ -113,7 +113,8 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                               dense: true,
                               leading: const Icon(Icons.place_outlined),
                               title: Text(suggestion.label),
-                              subtitle: location.isEmpty ? null : Text(location),
+                              subtitle:
+                                  location.isEmpty ? null : Text(location),
                               onTap: () => onSelected(suggestion),
                             );
                           }).toList(),
@@ -121,8 +122,7 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                       ),
                     ),
                   ),
-                  fieldViewBuilder:
-                      (context, controller, focusNode, onFieldSubmitted) {
+                  fieldViewBuilder: (context, controller, focusNode, _) {
                     _autocompleteController = controller;
                     return TextField(
                       controller: controller,
@@ -136,8 +136,7 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                       },
                       onSubmitted: (query) => unawaited(_ctrl.searchPlace(
                         query,
-                        language:
-                            Localizations.localeOf(context).languageCode,
+                        language: Localizations.localeOf(context).languageCode,
                       )),
                       decoration: InputDecoration(
                         hintText: l10n.attractionSearchHint,
@@ -149,7 +148,7 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                         focusedBorder: InputBorder.none,
                       ),
                     );
-                  ),
+                  },
                 ),
               ),
               const SizedBox(height: 10),
@@ -336,7 +335,7 @@ class _AttrCard extends StatelessWidget {
                                   fontSize: 14,
                                   color: Colors.white)),
                           const SizedBox(height: 2),
-                           Text(attraction.location,
+                          Text(attraction.location,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(

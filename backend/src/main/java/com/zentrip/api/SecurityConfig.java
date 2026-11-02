@@ -83,6 +83,7 @@ public class SecurityConfig {
                     "/api/inventory/**",
                     "/api/offers",
                     "/api/attractions/search",
+                    "/api/attractions/suggestions",
                     "/api/exchange-rates"
                 ).permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/reviews", "/api/reviews/**")

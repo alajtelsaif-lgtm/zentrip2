@@ -2574,7 +2574,7 @@ abstract class AppLocalizations {
   /// No description provided for @attractionSearchHint.
   ///
   /// In ar, this message translates to:
-  /// **'ابحث عن وجهة أو معلم...'**
+  /// **'ابحث عن مدينة أو دولة أو معلم...'**
   String get attractionSearchHint;
 
   /// No description provided for @attractionCountryFilter.
@@ -2592,7 +2592,7 @@ abstract class AppLocalizations {
   /// No description provided for @attractionCityNotFound.
   ///
   /// In ar, this message translates to:
-  /// **'لم نعثر على هذه المدينة. تحقق من كتابة الاسم وحاول مرة أخرى.'**
+  /// **'لم نعثر على هذا المكان. تحقق من كتابة الاسم وحاول مرة أخرى.'**
   String get attractionCityNotFound;
 
   /// No description provided for @attractionCategoryAll.

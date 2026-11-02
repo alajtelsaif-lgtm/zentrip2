@@ -204,6 +204,18 @@ class ApiControllerTest {
     }
 
     @Test
+    void attractionSuggestionsUseTheGeoapifyServerAdapter() {
+        when(geoapifyAttractionService.suggestPlaces("Trip", "ar"))
+                .thenReturn(List.of(Map.of("label", "طرابلس", "result_type", "city")));
+
+        Map<String, Object> response =
+                controller.suggestAttractionPlaces("Trip", "ar");
+
+        assertEquals(1, ((List<?>) response.get("suggestions")).size());
+        verify(geoapifyAttractionService).suggestPlaces("Trip", "ar");
+    }
+
+    @Test
     void countryOnlySearchFiltersTheLocalCatalogAndQueriesTheProvider() {
         when(geoapifyAttractionService.searchAttractions("", "Indonesia", "en"))
                 .thenReturn(List.of(Map.of("id", "geoapify:bali", "name", "Bali place")));

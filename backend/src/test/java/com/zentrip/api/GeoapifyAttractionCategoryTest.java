@@ -17,6 +17,8 @@ class GeoapifyAttractionCategoryTest {
                 "tourism.attraction",
                 "entertainment.museum",
                 "leisure.park",
+                "leisure.park.garden",
+                "beach",
                 "heritage.unesco",
                 "building.historic")) {
             assertTrue(

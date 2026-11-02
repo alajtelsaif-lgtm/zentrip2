@@ -1307,7 +1307,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get attractionSearchHint =>
-      'Search for a destination or attraction...';
+      'Search for a city, country or landmark...';
 
   @override
   String get attractionCountryFilter => 'Search places by country';
@@ -1318,7 +1318,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get attractionCityNotFound =>
-      'We couldn\'t find that city. Check the spelling and try again.';
+      'We couldn\'t find that place. Check the spelling and try again.';
 
   @override
   String get attractionCategoryAll => 'All';

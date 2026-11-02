@@ -50,7 +50,8 @@ public class GeoapifyAttractionService {
             "Q41176",   // building
             "Q11303",   // skyscraper
             "Q174782",  // square
-            "Q40080");  // beach
+            "Q40080",   // beach
+            "Q167346"); // botanical garden
     private static final Map<String, List<String>> COUNTRY_SEARCH_CITIES = Map.of(
             "libya", List.of("Tripoli", "Misrata", "Benghazi", "Sebha"),
             "egypt", List.of("Cairo"),
@@ -119,7 +120,7 @@ public class GeoapifyAttractionService {
 
     public SearchOutcome searchAttractionsWithStatus(
             String requestedCity, String requestedCountry, String requestedLanguage) {
-        if (apiKey.isBlank()) return new SearchOutcome(List.of(), null);
+        if (apiKey.isBlank()) return new SearchOutcome(List.of(), null, Map.of(), 0);
         boolean countrySearch = requestedCity == null || requestedCity.isBlank();
         String city = nonBlank(requestedCity, DEFAULT_CITY).trim();
         String country = countrySearch
@@ -133,7 +134,9 @@ public class GeoapifyAttractionService {
         CacheEntry previous = cache.get(cacheKey);
         Instant now = Instant.now();
         if (previous != null && now.isBefore(previous.expiresAt())) {
-            return new SearchOutcome(previous.places(), previous.cityFound());
+            return new SearchOutcome(
+                    previous.places(), previous.cityFound(), previous.droppedByReason(),
+                    previous.candidateCount());
         }
 
         try {
@@ -142,8 +145,8 @@ public class GeoapifyAttractionService {
                     : List.of(city);
             if (searchCities == null || searchCities.isEmpty()) {
                 cache.put(cacheKey, new CacheEntry(
-                        List.of(), null, now.plus(CACHE_TTL)));
-                return new SearchOutcome(List.of(), null);
+                        List.of(), null, Map.of(), 0, now.plus(CACHE_TTL)));
+                return new SearchOutcome(List.of(), null, Map.of(), 0);
             }
 
             List<PlaceBatch> batches = new ArrayList<>();
@@ -167,12 +170,19 @@ public class GeoapifyAttractionService {
 
             Map<String, PlaceEnrichment> enrichments =
                     fetchWikidataEnrichment(allFeatures);
+            int candidateCount = allFeatures.size();
             Map<String, Map<String, Object>> uniquePlaces = new LinkedHashMap<>();
+            Map<String, Integer> droppedByReason = new LinkedHashMap<>();
             for (PlaceBatch batch : batches) {
-                for (Map<String, Object> place : normalize(
+                NormalizationResult normalized = normalize(
                         batch.features(), enrichments, batch.city(), batch.country(),
-                        language, batch.location())) {
-                    uniquePlaces.putIfAbsent(deduplicationKey(place), place);
+                        language, batch.location());
+                normalized.droppedByReason().forEach((reason, count) ->
+                        addCount(droppedByReason, reason, count));
+                for (Map<String, Object> place : normalized.places()) {
+                    if (uniquePlaces.putIfAbsent(deduplicationKey(place), place) != null) {
+                        addCount(droppedByReason, "duplicate_name_and_coordinates", 1);
+                    }
                 }
             }
             List<Map<String, Object>> places = uniquePlaces.values().stream()
@@ -181,17 +191,22 @@ public class GeoapifyAttractionService {
             List<Map<String, Object>> immutablePlaces = List.copyOf(places);
             Boolean cityFound = countrySearch ? null
                     : cityGeocoded ? true : providerFailed ? null : false;
-            cache.put(cacheKey,
-                    new CacheEntry(immutablePlaces, cityFound, now.plus(CACHE_TTL)));
-            return new SearchOutcome(immutablePlaces, cityFound);
+            Map<String, Integer> immutableDroppedByReason = Map.copyOf(droppedByReason);
+            cache.put(cacheKey, new CacheEntry(
+                    immutablePlaces, cityFound, immutableDroppedByReason,
+                    candidateCount, now.plus(CACHE_TTL)));
+            return new SearchOutcome(
+                    immutablePlaces, cityFound, immutableDroppedByReason, candidateCount);
         } catch (RestClientException exception) {
             String reason = exception instanceof RestClientResponseException response
                     ? "HTTP " + response.getStatusCode().value()
                     : "network or timeout error";
             LOG.warn("Geoapify attraction search failed ({})", reason);
             return previous == null
-                    ? new SearchOutcome(List.of(), null)
-                    : new SearchOutcome(previous.places(), previous.cityFound());
+                    ? new SearchOutcome(List.of(), null, Map.of(), 0)
+                    : new SearchOutcome(
+                            previous.places(), previous.cityFound(), previous.droppedByReason(),
+                            previous.candidateCount());
         }
     }
 
@@ -223,25 +238,42 @@ public class GeoapifyAttractionService {
                 Double longitude = number(result.get("lon"));
                 if (latitude == null || longitude == null
                         || !validCoordinates(latitude, longitude)) continue;
-                String label = "ar".equals(language)
-                        ? firstNonBlank(
-                                arabicText(result.get("name")),
-                                arabicText(result.get("address_line1")),
-                                arabicText(result.get("formatted")))
-                        : firstNonBlank(
-                                englishText(result.get("name")),
-                                englishText(result.get("address_line1")),
-                                englishText(result.get("formatted")));
-                if (label == null) continue;
-                String city = firstNonBlank(
+                String type = text(result.get("result_type"));
+                boolean administrative = Set.of(
+                                "country", "state", "county", "city", "town",
+                                "village", "municipality", "district", "suburb",
+                                "locality")
+                        .contains(type == null ? "" : type.toLowerCase(Locale.ROOT));
+                List<String> categories = strings(result.get("categories"));
+                boolean landmark = isAllowedLandmarkCategory(categories)
+                        && wikidataQid(result) != null;
+                if (!administrative && !landmark) continue;
+                String localizedName = localizedText(result.get("name"), language);
+                String city = nonBlank(firstNonBlank(
                         localizedText(result.get("city"), language),
                         localizedText(result.get("town"), language),
                         localizedText(result.get("village"), language),
                         localizedText(result.get("municipality"), language),
-                        "");
+                        Set.of("city", "town", "village", "municipality")
+                                .contains(type == null ? "" : type.toLowerCase(Locale.ROOT))
+                                ? localizedName : null,
+                        ""), "");
                 String country = firstNonBlank(
                         localizedText(result.get("country"), language), "");
-                String type = text(result.get("result_type"));
+                String label;
+                if ("country".equalsIgnoreCase(nonBlank(type, ""))) {
+                    label = firstNonBlank(country, localizedName);
+                } else if (administrative && !city.isEmpty()) {
+                    label = country.isEmpty()
+                            ? city
+                            : city + ("ar".equals(language) ? "، " : ", ") + country;
+                } else {
+                    label = firstNonBlank(
+                            localizedName,
+                            localizedText(result.get("address_line1"), language),
+                            localizedText(result.get("formatted"), language));
+                }
+                if (label == null) continue;
                 String key = normalizeName(label) + "|" + normalizeName(city)
                         + "|" + normalizeName(country);
                 if (!unique.add(key)) continue;
@@ -282,8 +314,9 @@ public class GeoapifyAttractionService {
                     latitude, longitude, null, city, country, null);
             List<Map<?, ?>> features = fetchPlaces(center, language);
             List<Map<String, Object>> places = List.copyOf(normalize(features,
-                    fetchWikidataEnrichment(features), city, country, language, center));
-            cache.put(cacheKey, new CacheEntry(places, null, now.plus(CACHE_TTL)));
+                    fetchWikidataEnrichment(features), city, country, language, center).places());
+            cache.put(cacheKey, new CacheEntry(
+                    places, null, Map.of(), features.size(), now.plus(CACHE_TTL)));
             return places;
         } catch (RestClientException exception) {
             LOG.warn("Geoapify coordinate landmark lookup unavailable.");
@@ -353,8 +386,8 @@ public class GeoapifyAttractionService {
                 .uri(uri -> uri.path("/v2/places")
                         .queryParam("categories",
                                 "tourism.sights,tourism.attraction,entertainment.museum,"
-                                        + "leisure.park,leisure.garden,natural.beach,"
-                                        + "leisure.beach,heritage,building.historic")
+                                        + "leisure.park,leisure.park.garden,beach,"
+                                        + "heritage,building.historic")
                         .queryParam("filter", placeFilter(center))
                         .queryParam("bias", "proximity:" + center.longitude()
                                 + "," + center.latitude())
@@ -396,7 +429,7 @@ public class GeoapifyAttractionService {
                   VALUES ?landmarkType {
                     wd:Q4989906 wd:Q839954 wd:Q33506 wd:Q207694
                     wd:Q22698 wd:Q46169 wd:Q9259 wd:Q41176
-                    wd:Q11303 wd:Q174782 wd:Q40080
+                    wd:Q11303 wd:Q174782 wd:Q40080 wd:Q167346
                   }
                   ?item wdt:P31/wdt:P279* ?landmarkType .
                   ?item wdt:P625 ?coordinates .
@@ -461,7 +494,7 @@ public class GeoapifyAttractionService {
         }
     }
 
-    private List<Map<String, Object>> normalize(
+    private NormalizationResult normalize(
             List<Map<?, ?>> features,
             Map<String, PlaceEnrichment> enrichments,
             String requestedCity,
@@ -469,14 +502,27 @@ public class GeoapifyAttractionService {
             String language,
             GeoPoint center) {
         List<Map<String, Object>> places = new ArrayList<>();
+        Map<String, Integer> droppedByReason = new LinkedHashMap<>();
         for (Map<?, ?> feature : features) {
             Map<?, ?> properties = properties(feature);
             String qid = wikidataQid(properties);
             PlaceEnrichment enrichment = qid == null ? null : enrichments.get(qid);
             List<String> categories = strings(properties.get("categories"));
-            if (!isAllowedLandmarkCategory(categories)) continue;
+            if (!isAllowedLandmarkCategory(categories)) {
+                addCount(droppedByReason, categories.isEmpty()
+                        ? "missing_or_unclassified_category"
+                        : "category_not_in_landmark_allowlist", 1);
+                continue;
+            }
             Map<?, ?> raw = map(map(properties.get("datasource")).get("raw"));
-            if (qid == null || enrichment == null) continue;
+            if (qid == null) {
+                addCount(droppedByReason, "missing_wikidata_id", 1);
+                continue;
+            }
+            if (enrichment == null) {
+                addCount(droppedByReason, "wikidata_type_or_coordinates_unverified", 1);
+                continue;
+            }
 
             Double latitude = number(properties.get("lat"));
             Double longitude = number(properties.get("lon"));
@@ -492,18 +538,21 @@ public class GeoapifyAttractionService {
                     || !withinSearchArea(latitude, longitude, center)
                     || !withinSearchArea(
                             enrichment.latitude(), enrichment.longitude(), center)) {
+                addCount(droppedByReason, "invalid_or_out_of_city_coordinates", 1);
                 continue;
             }
 
             String featureCountryCode = text(properties.get("country_code"));
             if (center.countryCode() != null && featureCountryCode != null
                     && !center.countryCode().equalsIgnoreCase(featureCountryCode)) {
+                addCount(droppedByReason, "outside_selected_country", 1);
                 continue;
             }
             String featureCountry = text(properties.get("country"));
             if (center.countryCode() == null && featureCountry != null
                     && requestedCountry != null
                     && !sameCountry(featureCountry, requestedCountry)) {
+                addCount(droppedByReason, "outside_selected_country", 1);
                 continue;
             }
 
@@ -516,7 +565,10 @@ public class GeoapifyAttractionService {
                     arabicText(raw.get("name:ar")),
                     arabicText(properties.get("name")));
             String name = "ar".equals(language) ? nameAr : nameEn;
-            if (name == null) continue;
+            if (name == null) {
+                addCount(droppedByReason, "missing_requested_language_label", 1);
+                continue;
+            }
 
             String city = firstNonBlank(
                     localizedText(properties.get("city"), language),
@@ -591,7 +643,7 @@ public class GeoapifyAttractionService {
         places.sort((left, right) -> Double.compare(
                 distanceValue(left.get("distance_km")),
                 distanceValue(right.get("distance_km"))));
-        return places;
+        return new NormalizationResult(List.copyOf(places), Map.copyOf(droppedByReason));
     }
 
     private static Bounds bounds(Map<?, ?> value) {
@@ -705,9 +757,7 @@ public class GeoapifyAttractionService {
                 || joined.contains("tourism.attraction")
                 || joined.contains("entertainment.museum")
                 || joined.contains("leisure.park")
-                || joined.contains("leisure.garden")
-                || joined.contains("natural.beach")
-                || joined.contains("leisure.beach")
+                || joined.contains("leisure.park.garden")
                 || joined.contains("tourism.sights.beach")
                 || joined.contains("heritage")
                 || joined.contains("historic")
@@ -801,15 +851,26 @@ public class GeoapifyAttractionService {
     private static String arabicText(Object value) {
         String normalized = text(value);
         if (normalized == null) return null;
-        boolean hasArabic = normalized.codePoints().anyMatch(codePoint ->
-                Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.ARABIC);
-        return hasArabic ? normalized : null;
+        return hasOnlyLettersInScript(normalized, Character.UnicodeScript.ARABIC)
+                ? normalized : null;
     }
 
     private static String englishText(Object value) {
         String normalized = text(value);
         if (normalized == null) return null;
-        return arabicText(normalized) == null ? normalized : null;
+        return hasOnlyLettersInScript(normalized, Character.UnicodeScript.LATIN)
+                ? normalized : null;
+    }
+
+    private static boolean hasOnlyLettersInScript(
+            String value, Character.UnicodeScript expectedScript) {
+        boolean hasLetter = false;
+        for (int codePoint : value.codePoints().toArray()) {
+            if (!Character.isLetter(codePoint)) continue;
+            hasLetter = true;
+            if (Character.UnicodeScript.of(codePoint) != expectedScript) return false;
+        }
+        return hasLetter;
     }
 
     private static GeoPoint wikidataPoint(String value) {
@@ -932,10 +993,30 @@ public class GeoapifyAttractionService {
         return null;
     }
 
+    private static void addCount(
+            Map<String, Integer> counts, String reason, int count) {
+        if (count > 0) counts.merge(reason, count, Integer::sum);
+    }
+
     public record SearchOutcome(
-            List<Map<String, Object>> places, Boolean cityFound) {
+            List<Map<String, Object>> places,
+            Boolean cityFound,
+            Map<String, Integer> droppedByReason,
+            int candidateCount) {
+        public SearchOutcome(List<Map<String, Object>> places, Boolean cityFound) {
+            this(places, cityFound, Map.of(), 0);
+        }
+
+        public SearchOutcome(
+                List<Map<String, Object>> places,
+                Boolean cityFound,
+                Map<String, Integer> droppedByReason) {
+            this(places, cityFound, droppedByReason, 0);
+        }
+
         public SearchOutcome {
             places = List.copyOf(places);
+            droppedByReason = Map.copyOf(droppedByReason);
         }
     }
 
@@ -961,6 +1042,9 @@ public class GeoapifyAttractionService {
     private record PlaceBatch(
             String city, String country, GeoPoint location, List<Map<?, ?>> features) {}
 
+    private record NormalizationResult(
+            List<Map<String, Object>> places, Map<String, Integer> droppedByReason) {}
+
     private record PlaceEnrichment(
             String landmarkType,
             double latitude,
@@ -976,5 +1060,12 @@ public class GeoapifyAttractionService {
             String arWikiImage) {}
 
     private record CacheEntry(
-            List<Map<String, Object>> places, Boolean cityFound, Instant expiresAt) {}
+            List<Map<String, Object>> places,
+            Boolean cityFound,
+            Map<String, Integer> droppedByReason,
+            int candidateCount,
+            Instant expiresAt) {}
+
+    private record SuggestionCacheEntry(
+            List<Map<String, Object>> suggestions, Instant expiresAt) {}
 }

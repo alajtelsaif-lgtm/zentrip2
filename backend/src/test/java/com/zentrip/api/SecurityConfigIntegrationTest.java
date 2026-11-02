@@ -35,6 +35,20 @@ class SecurityConfigIntegrationTest {
     @MockBean
     private PasswordResetService passwordResetService;
 
+    @MockBean
+    private GeoapifyAttractionService geoapifyAttractionService;
+
+    @Test
+    void placeSuggestionsArePublicAndDoNotRequireALogin() throws Exception {
+        when(geoapifyAttractionService.suggestPlaces("Trip", "en"))
+                .thenReturn(List.of(Map.of("label", "Tripoli", "result_type", "city")));
+
+        mockMvc.perform(get("/api/attractions/suggestions")
+                        .param("query", "Trip")
+                        .param("lang", "en"))
+                .andExpect(status().isOk());
+    }
+
     @Test
     void publicLoginEndpointDoesNotRequireHttpBasicAuthentication() throws Exception {
         when(jdbcTemplate.queryForList("SELECT id, password FROM users WHERE email = ?", "user@example.com"))
