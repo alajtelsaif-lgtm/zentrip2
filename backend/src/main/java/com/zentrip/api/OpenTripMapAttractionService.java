@@ -41,7 +41,7 @@ import org.springframework.web.server.ResponseStatusException;
  * The API key is only ever attached to server-side provider requests.
  */
 @Service
-public class OpenTripMapAttractionService {
+public class OpenTripMapAttractionService implements LandmarkProvider {
     private static final Logger LOG =
             LoggerFactory.getLogger(OpenTripMapAttractionService.class);
 
@@ -59,6 +59,10 @@ public class OpenTripMapAttractionService {
     private static final Pattern CODE_OR_NUMBER = Pattern.compile("^[\\p{N}\\p{Punct}\\s]+$");
     private static final Pattern SHORT_CODE_NAME =
             Pattern.compile("(?i)^[A-Z]{2,6}\\d{1,5}$");
+    private static final Set<String> ISO_COUNTRY_CODES =
+            Set.of(Locale.getISOCountries());
+    private static final Map<String, String> COUNTRY_NAME_TO_CODE =
+            buildCountryNameIndex();
 
     /*
      * These are category IDs copied from OpenTripMap's published category tree.
@@ -207,8 +211,9 @@ public class OpenTripMapAttractionService {
                     List.of("OpenTripMap does not provide this category."), 0);
         }
         String cacheKey = String.join("|",
-                normalizedCity.toLowerCase(Locale.ROOT),
-                normalizedCountry.toLowerCase(Locale.ROOT),
+                normalizedCity == null ? "" : normalizedCity.toLowerCase(Locale.ROOT),
+                normalizedCountry == null
+                        ? "" : normalizedCountry.toLowerCase(Locale.ROOT),
                 apiLanguage,
                 normalizedCategory,
                 coordinateKey(latitude), coordinateKey(longitude),
@@ -561,6 +566,12 @@ public class OpenTripMapAttractionService {
             Double latitude = number(result.get("lat"));
             Double longitude = number(result.get("lon"));
             if (!validCoordinates(latitude, longitude)) return null;
+            String requestedCountryCode = isoCountry(country);
+            String resolvedCountryCode = isoCountry(text(result.get("country")));
+            if (requestedCountryCode != null
+                    && !requestedCountryCode.equals(resolvedCountryCode)) {
+                return null;
+            }
             return new Geoname(
                     nonBlank(text(result.get("name")), query),
                     text(result.get("country")), latitude, longitude);
@@ -921,6 +932,7 @@ public class OpenTripMapAttractionService {
         place.put("best_time_to_visit", null);
         place.put("tags", splitKinds(item.kinds()));
         place.put("source_provider", "opentripmap");
+        place.put("response_language", language);
         place.put("source_attribution", sourceAttribution(raw));
         place.put("image_attribution", wikipediaImage == null
                 ? "OpenTripMap; follow the linked source attribution."
@@ -1362,8 +1374,60 @@ public class OpenTripMapAttractionService {
 
     private static String isoCountry(String value) {
         String country = clean(value);
-        return country != null && country.matches("(?i)^[a-z]{2}$")
-                ? country.toUpperCase(Locale.ROOT) : null;
+        if (country == null) return null;
+        if (country.matches("(?i)^[a-z]{2}$")) {
+            String code = country.toUpperCase(Locale.ROOT);
+            return ISO_COUNTRY_CODES.contains(code) ? code : null;
+        }
+        return COUNTRY_NAME_TO_CODE.get(normalizeCountryName(country));
+    }
+
+    private static Map<String, String> buildCountryNameIndex() {
+        Map<String, Set<String>> candidates = new LinkedHashMap<>();
+        Locale[] languages = Locale.getAvailableLocales();
+        for (String code : Locale.getISOCountries()) {
+            Locale country = new Locale.Builder().setRegion(code).build();
+            for (Locale language : languages) {
+                String displayName = country.getDisplayCountry(language);
+                String normalized = normalizeCountryName(displayName);
+                if (!normalized.isEmpty()) {
+                    candidates.computeIfAbsent(normalized, ignored -> new LinkedHashSet<>())
+                            .add(code);
+                }
+            }
+        }
+        Map<String, String> names = new LinkedHashMap<>();
+        candidates.forEach((name, codes) -> {
+            if (codes.size() == 1) names.put(name, codes.iterator().next());
+        });
+        Map<String, String> aliases = Map.ofEntries(
+                Map.entry("usa", "US"),
+                Map.entry("united states of america", "US"),
+                Map.entry("uk", "GB"),
+                Map.entry("great britain", "GB"),
+                Map.entry("turkey", "TR"),
+                Map.entry("turkiye", "TR"),
+                Map.entry("russia", "RU"),
+                Map.entry("south korea", "KR"),
+                Map.entry("north korea", "KP"),
+                Map.entry("iran", "IR"),
+                Map.entry("syria", "SY"),
+                Map.entry("myanmar", "MM"),
+                Map.entry("czech republic", "CZ"),
+                Map.entry("ivory coast", "CI"),
+                Map.entry("vietnam", "VN"));
+        names.putAll(aliases);
+        return Map.copyOf(names);
+    }
+
+    private static String normalizeCountryName(String value) {
+        if (value == null) return "";
+        return Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^\\p{L}\\p{N}]+", " ")
+                .trim()
+                .replaceAll("\\s+", " ");
     }
 
     private static List<String> splitKinds(String kinds) {

@@ -88,7 +88,9 @@ class OpenTripMapAttractionServiceTest {
     @Test
     void suppressesDuplicateAndRecordsItsReason() {
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
-        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder)
+                .ignoreExpectOrder(true)
+                .build();
         server.expect(requestTo(org.hamcrest.Matchers.containsString("/geoname")))
                 .andRespond(withSuccess(
                         """
@@ -149,6 +151,51 @@ class OpenTripMapAttractionServiceTest {
                 .searchAttractionsWithStatus("Tripoli", "LY", "ar");
 
         assertTrue(result.cityFound());
+        assertTrue(result.places().isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void searchesWorldwideCityWithoutAnOptionalCountry() {
+        RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(org.hamcrest.Matchers.containsString(
+                        "/en/places/geoname")))
+                .andExpect(queryParam("name", "Rome"))
+                .andRespond(withSuccess(
+                        """
+                        {"name":"Rome","country":"IT","lat":41.9,"lon":12.5}
+                        """, APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString(
+                        "/en/places/radius")))
+                .andRespond(withSuccess("[]", APPLICATION_JSON));
+
+        var result = service("test-key", builder)
+                .searchAttractionsWithStatus("Rome", null, "en");
+
+        assertTrue(result.cityFound());
+        assertTrue(result.places().isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void countryNameIsConvertedToIsoFilterAndWrongCountryGeonameIsRejected() {
+        RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(org.hamcrest.Matchers.containsString(
+                        "/en/places/geoname")))
+                .andExpect(requestTo(org.hamcrest.Matchers.containsString(
+                        "name=Leptis%20Magna")))
+                .andExpect(queryParam("country", "LY"))
+                .andRespond(withSuccess(
+                        """
+                        {"name":"Leptis Magna","country":"US","lat":40.7,"lon":-111.9}
+                        """, APPLICATION_JSON));
+
+        var result = service("test-key", builder)
+                .searchAttractionsWithStatus("Leptis Magna", "Libya", "en");
+
+        assertFalse(result.cityFound());
         assertTrue(result.places().isEmpty());
         server.verify();
     }

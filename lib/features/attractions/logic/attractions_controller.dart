@@ -91,7 +91,7 @@ class AttractionsController extends ChangeNotifier {
   static const _lastCountryKey = 'attraction_last_country';
   static const _lastDisplayKey = 'attraction_last_display';
   static const _lastSearchAtKey = 'attraction_last_search_at';
-  static const _suggestionDebounce = Duration(milliseconds: 300);
+  static const _suggestionDebounce = Duration(milliseconds: 400);
   static const _pageSize = 40;
 
   final AttractionSearchPageFunction _searchPage;
@@ -440,6 +440,34 @@ class AttractionsController extends ChangeNotifier {
       language: language,
       displayQuery: normalizedQuery,
     );
+  }
+
+  void clearSearch() {
+    _requestGeneration++;
+    _suggestionGeneration++;
+    ApiService.instance.cancelAttractionRequests();
+    _all = [];
+    results = [];
+    warnings = [];
+    searchQuery = '';
+    _lastCity = '';
+    _lastCountry = '';
+    _lastDisplay = '';
+    _lastLatitude = null;
+    _lastLongitude = null;
+    _lastSouth = null;
+    _lastWest = null;
+    _lastNorth = null;
+    _lastEast = null;
+    _lastPlaceId = null;
+    _offset = 0;
+    isLoading = false;
+    isLoadingMore = false;
+    hasMore = false;
+    hasError = false;
+    cityNotFound = false;
+    hasSearched = false;
+    notifyListeners();
   }
 
   void setCategory(String category) {

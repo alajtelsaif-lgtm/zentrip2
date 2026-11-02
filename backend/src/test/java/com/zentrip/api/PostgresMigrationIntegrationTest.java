@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -27,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "app.bootstrap.enabled=false", "spring.sql.init.mode=never",
         "google.places.api-key=", "serpapi.key=", "requesty.api-key=",
+        "landmarks.duplicate-verifier.api-key=",
         "spring.datasource.hikari.data-source-properties.prepareThreshold=0"
 })
 @AutoConfigureMockMvc
@@ -35,6 +37,7 @@ class PostgresMigrationIntegrationTest {
     @Autowired MockMvc http;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper json;
+    @Autowired LandmarkCatalogService landmarkCatalog;
     long userId;
     String token;
 
@@ -58,6 +61,115 @@ class PostgresMigrationIntegrationTest {
                 """, Long.class, token + "@example.invalid");
         jdbc.update("INSERT INTO api_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
                 userId, TokenAuthFilter.sha256(token), Timestamp.from(Instant.now().plusSeconds(3600)));
+    }
+
+    @Test
+    void landmarkCachePersistsTheWholeViewportForThirtyDays() {
+        Map<String, Object> request = Map.of(
+                "area_kind", "viewport",
+                "query", "باريس",
+                "lang", "ar",
+                "south", 48.7,
+                "west", 2.2,
+                "north", 48.9,
+                "east", 2.5);
+        String cacheKey = landmarkCatalog.cacheKey(request);
+        Map<String, Object> response = Map.of(
+                "attractions", java.util.List.of(Map.of(
+                        "id", "P_TEST",
+                        "name", "Test landmark",
+                        "latitude", 48.85,
+                        "longitude", 2.35)),
+                "warnings", java.util.List.of());
+
+        landmarkCatalog.cacheArea(cacheKey, request, response);
+
+        Map<String, Object> cached = landmarkCatalog.cachedArea(cacheKey, false);
+        assertNotNull(cached);
+        assertEquals("Test landmark",
+                ((Map<?, ?>) ((java.util.List<?>) cached.get("attractions")).getFirst())
+                        .get("name"));
+        assertTrue(jdbc.queryForObject("""
+                SELECT expires_at > NOW() + INTERVAL '29 days'
+                FROM landmark_search_areas WHERE cache_key = ?
+                """, Boolean.class, cacheKey));
+    }
+
+    @Test
+    @Transactional
+    void landmarkCatalogTablesAreAccessibleToTheNoBypassRuntimeRole() {
+        jdbc.execute("SET LOCAL ROLE zentrip_api_runtime");
+        String cacheKey = landmarkCatalog.cacheKey(Map.of(
+                "area_kind", "viewport",
+                "query", "runtime-role-" + UUID.randomUUID(),
+                "lang", "en"));
+        Map<String, Object> request = Map.of(
+                "area_kind", "viewport",
+                "query", "runtime-role-test",
+                "lang", "en");
+
+        landmarkCatalog.cacheArea(cacheKey, request, Map.of("attractions", java.util.List.of()));
+
+        assertNotNull(landmarkCatalog.cachedArea(cacheKey, false));
+    }
+
+    @Test
+    void landmarkIdentityLinksExactWikidataAliasesAndQueuesNearbyUnverifiedPairs() {
+        String firstXid = "P" + UUID.randomUUID().toString().replace("-", "");
+        String aliasXid = "P" + UUID.randomUUID().toString().replace("-", "");
+        String nearXid = "P" + UUID.randomUUID().toString().replace("-", "");
+        Map<String, Object> canonical = landmark(
+                firstXid, "Q123456789", 32.64, 14.29, "Ancient Site");
+        Map<String, Object> exactAlias = landmark(
+                aliasXid, "Q123456789", 32.64, 14.29, "Leptis Magna");
+        Map<String, Object> nearbyUncertain = landmark(
+                nearXid, "", 32.6408, 14.29, "Nearby Museum");
+
+        Map<String, Object> storedCanonical = landmarkCatalog
+                .persistAndCanonicalize(java.util.List.of(canonical)).getFirst();
+        Map<String, Object> storedAlias = landmarkCatalog
+                .persistAndCanonicalize(java.util.List.of(exactAlias)).getFirst();
+        Map<String, Object> storedNearby = landmarkCatalog
+                .persistAndCanonicalize(java.util.List.of(nearbyUncertain)).getFirst();
+
+        assertEquals(storedCanonical.get("canonical_place_id"),
+                storedAlias.get("canonical_place_id"));
+        assertEquals(firstXid, storedAlias.get("id"));
+        assertNotEquals(storedCanonical.get("canonical_place_id"),
+                storedNearby.get("canonical_place_id"));
+        assertEquals(2, jdbc.queryForObject("""
+                SELECT COUNT(*) FROM landmark_place_aliases
+                WHERE canonical_place_id = ?::uuid
+                """, Integer.class, storedCanonical.get("canonical_place_id")));
+        assertEquals(1, landmarkCatalog.searchCachedPlaces("Leptis", "en", 5).size());
+        assertEquals("Leptis Magna",
+                landmarkCatalog.searchAliases("Leptis", "en", 5).getFirst().get("label"));
+        assertEquals(1, jdbc.queryForObject("""
+                SELECT COUNT(*) FROM landmark_merge_candidates
+                WHERE status = 'pending'
+                  AND distance_meters BETWEEN 50 AND 300
+                """, Integer.class));
+    }
+
+    private static Map<String, Object> landmark(
+            String xid, String wikidataId, double latitude, double longitude, String name) {
+        Map<String, Object> place = new java.util.LinkedHashMap<>();
+        place.put("id", xid);
+        place.put("xid", xid);
+        place.put("source_provider", "opentripmap");
+        place.put("wikidata_id", wikidataId);
+        place.put("name", name);
+        place.put("name_en", name);
+        place.put("response_language", "en");
+        place.put("city", "Khoms");
+        place.put("country", "Libya");
+        place.put("category", "historical");
+        place.put("rating", 2);
+        place.put("latitude", latitude);
+        place.put("longitude", longitude);
+        place.put("image_url", "");
+        place.put("description", "");
+        return place;
     }
 
     long listing(String type, String attributes) {

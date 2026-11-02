@@ -22,6 +22,7 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
   final _ctrl = AttractionsController();
   final _searchCtrl = TextEditingController();
   TextEditingController? _autocompleteController;
+  FocusNode? _autocompleteFocusNode;
   bool _loaded = false;
 
   @override
@@ -43,11 +44,21 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
   void _setSearchText(String value) {
     _searchCtrl.text = value;
     final controller = _autocompleteController;
-    if (controller == null) return;
-    controller.value = TextEditingValue(
-      text: value,
-      selection: TextSelection.collapsed(offset: value.length),
-    );
+    if (controller != null) {
+      controller.value = TextEditingValue(
+        text: value,
+        selection: TextSelection.collapsed(offset: value.length),
+      );
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _clearSearch() {
+    _searchCtrl.clear();
+    _autocompleteController?.clear();
+    _ctrl.clearSearch();
+    _autocompleteFocusNode?.requestFocus();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -81,7 +92,6 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                         color:
                             isDark ? AppColors.darkBorder : AppColors.border)),
                 child: Autocomplete<AttractionPlaceSuggestion>(
-                  initialValue: TextEditingValue(text: _searchCtrl.text),
                   displayStringForOption: (suggestion) => suggestion.label,
                   optionsBuilder: (value) => _ctrl.suggestionsFor(
                     value.text,
@@ -124,6 +134,7 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                   ),
                   fieldViewBuilder: (context, controller, focusNode, _) {
                     _autocompleteController = controller;
+                    _autocompleteFocusNode = focusNode;
                     return TextField(
                       controller: controller,
                       focusNode: focusNode,
@@ -131,8 +142,9 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                       onChanged: (query) {
                         _searchCtrl.text = query;
                         if (query.trim().isEmpty) {
-                          unawaited(_loadDefaultPlace());
+                          _ctrl.clearSearch();
                         }
+                        if (mounted) setState(() {});
                       },
                       onSubmitted: (query) => unawaited(_ctrl.searchPlace(
                         query,
@@ -142,6 +154,14 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                         hintText: l10n.attractionSearchHint,
                         prefixIcon: const Icon(Icons.search_rounded,
                             color: AppColors.textSecondary, size: 20),
+                        suffixIcon: _searchCtrl.text.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: 'Clear search',
+                                onPressed: _clearSearch,
+                                icon: const Icon(Icons.close_rounded,
+                                    color: AppColors.textSecondary, size: 19),
+                              ),
                         border: InputBorder.none,
                         filled: false,
                         enabledBorder: InputBorder.none,

@@ -45,12 +45,12 @@ public class AirportDirectoryService {
 
     private final JdbcTemplate jdbc;
     private final GeoapifyAirportService geoapifyAirportService;
-    private final OpenTripMapAttractionService openTripMapAttractionService;
+    private final LandmarkProvider openTripMapAttractionService;
 
     public AirportDirectoryService(
             JdbcTemplate jdbc,
             GeoapifyAirportService geoapifyAirportService,
-            OpenTripMapAttractionService openTripMapAttractionService) {
+            LandmarkProvider openTripMapAttractionService) {
         this.jdbc = jdbc;
         this.geoapifyAirportService = geoapifyAirportService;
         this.openTripMapAttractionService = openTripMapAttractionService;

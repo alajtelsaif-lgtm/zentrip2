@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -236,6 +237,36 @@ class ApiControllerTest {
         assertEquals(List.of(), response.get("attractions"));
         verify(openTripMapAttractionService).searchAttractionsWithStatus(
                 "No Such City", "Libya", "ar", "", null, null, null, null, null, null, null);
+    }
+
+    @Test
+    void arabicCitySearchUsesCountryFilteredGeocodingBeforeOpenTripMap() {
+        GeoapifyAirportService geocoder = mock(GeoapifyAirportService.class);
+        controller.setGeoapifyAirportService(geocoder);
+        when(geocoder.resolveLocation("طرابلس", "ly"))
+                .thenReturn(new GeoapifyAirportService.GeocodedPlace(
+                        "Tripoli", "Tripoli", "Libya", "ly", "Tripoli District",
+                        "Tripoli, Libya", "city", "geo-place", null, 32.89, 13.19));
+        when(openTripMapAttractionService.searchAttractionsWithStatus(
+                eq("Tripoli"), eq("Libya"), eq("ar"), eq(""),
+                eq(32.89), eq(13.19),
+                isNull(), isNull(), isNull(), isNull(), isNull()))
+                .thenReturn(new OpenTripMapAttractionService.SearchOutcome(
+                        List.of(Map.of(
+                                "id", "P123",
+                                "name", "Tripoli landmark",
+                                "source_provider", "opentripmap")),
+                        true, 1, Map.of(), List.of(), List.of(), 1));
+
+        Map<String, Object> response =
+                controller.searchMonuments("طرابلس", null, "ly", "ar");
+
+        assertEquals("opentripmap", response.get("source"));
+        assertEquals(1, ((List<?>) response.get("attractions")).size());
+        verify(geocoder).resolveLocation("طرابلس", "ly");
+        verify(openTripMapAttractionService).searchAttractionsWithStatus(
+                "Tripoli", "Libya", "ar", "", 32.89, 13.19,
+                null, null, null, null, null);
     }
 
     @Test

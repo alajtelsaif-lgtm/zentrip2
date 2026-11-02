@@ -50,3 +50,43 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+## Worldwide landmark catalog
+
+Landmark discovery uses OpenTripMap as the only tourism POI provider. Keep
+`OPENTRIPMAP_API_KEY` in Replit Secrets; the backend reads it and the Flutter app
+never receives it. OpenTripMap does not document Arabic responses, so Arabic
+searches use supported English place text. When a city query is Arabic, Geoapify
+is used only as a country-aware geocoder before OpenTripMap fetches the POIs; it
+is not a tourism data source. If OpenTripMap cannot resolve another city and a
+country is supplied, the same geocoding fallback is used. Keep provider
+attribution and follow OpenTripMap/OSM licensing terms.
+
+The catalog migration is additive and leaves the existing `tourist_monuments`
+table unchanged. Back up the target database, ensure
+`20261101_role_access_rls.sql` has run, then apply
+`backend/src/main/resources/migrations/20261102_landmark_catalog.sql` in Supabase.
+Without the migration, live OpenTripMap search still works, but persistent
+30-day caching and global alias search are unavailable.
+
+Exact provider/Wikidata identities and places under 50 m apart are canonicalized.
+Places 50–300 m apart remain separate and are queued for review unless the
+duplicate verifier is configured. The importer never deletes places or rewrites
+legacy tables. The current environment has no Anthropic credential, so ambiguous
+places stay in the review queue. To enable automated checks, add `ANTHROPIC_API_KEY`
+to backend Secrets and, if needed, set `ANTHROPIC_MODEL`. Verifier failures remain
+in the review queue. Never put either value in Flutter or a client `.env` file.
+
+The duplicate audit is read-only and requires a verified backup file:
+
+```sh
+bash scripts/audit-landmark-duplicates.sh --dry-run --backup /path/to/backup.dump
+```
+
+It reports up to 500 nearby or shared-Wikidata candidates from the new catalog.
+It has no apply mode. Legacy curated monuments have no coordinates in their
+current schema and are excluded.
+
+Map searches request only visible bounds, debounce map movement in Flutter, and
+return clusters at low zoom. Search responses and aliases are cached in the
+database for 30 days; the app does not download the entire world.

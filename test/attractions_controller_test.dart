@@ -35,6 +35,32 @@ void main() {
     controller.dispose();
   });
 
+  test('clearing a destination invalidates pending data and resets errors',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = AttractionsController(
+      searchAttractions: ({
+        required String city,
+        String? country,
+        String? language,
+      }) async =>
+          [_place(id: 'paris-place', category: 'historical')],
+    );
+
+    await controller.load(city: 'Paris', country: 'fr');
+    expect(controller.results, hasLength(1));
+
+    controller.clearSearch();
+
+    expect(controller.results, isEmpty);
+    expect(controller.searchQuery, isEmpty);
+    expect(controller.hasError, isFalse);
+    expect(controller.cityNotFound, isFalse);
+    expect(controller.isLoading, isFalse);
+    expect(controller.hasMore, isFalse);
+    controller.dispose();
+  });
+
   test('search reports a place that Geoapify could not resolve', () async {
     final controller = AttractionsController(
       searchSuggestions: (query, {language}) async => const [],

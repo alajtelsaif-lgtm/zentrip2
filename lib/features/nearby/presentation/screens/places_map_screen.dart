@@ -1,19 +1,39 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/api_service.dart';
 import '../../../../core/services/current_location_service.dart';
 import '../../../../features/favorites/logic/favorites_controller.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../models/attraction_map_viewport.dart';
+import '../../../../models/attraction_model.dart';
 import '../../../../models/map_search_result.dart';
+
+typedef AttractionViewportLoader = Future<AttractionMapViewport> Function({
+  required double south,
+  required double west,
+  required double north,
+  required double east,
+  required double zoom,
+  String? category,
+  int minRate,
+  String? language,
+});
 
 /// Unified place map with exclusive category filters and tappable markers.
 class PlacesMapScreen extends StatefulWidget {
   final MapSearchResult? selectedPlace;
   final List<MapSearchResult> places;
+  final AttractionViewportLoader? loadAttractionViewport;
 
   const PlacesMapScreen(
-      {super.key, this.selectedPlace, this.places = const []});
+      {super.key,
+      this.selectedPlace,
+      this.places = const [],
+      this.loadAttractionViewport});
 
   @override
   State<PlacesMapScreen> createState() => _PlacesMapScreenState();
@@ -30,6 +50,7 @@ class _MapPlace {
   final String? priceOrRating;
   final MapSearchResult? result;
   final String? favoriteId;
+  final int? clusterCount;
   const _MapPlace(
       {required this.id,
       required this.title,
@@ -38,23 +59,37 @@ class _MapPlace {
       required this.layer,
       this.priceOrRating,
       this.result,
-      this.favoriteId});
+      this.favoriteId,
+      this.clusterCount});
 }
 
 class _PlacesMapScreenState extends State<PlacesMapScreen> {
   final _locationService = const CurrentLocationService();
+  final MapController _mapController = MapController();
+  final Map<String, _CachedAttractionViewport> _viewportCache = {};
   _MapLayer? _activeLayer;
   LatLng? _myLocation;
   CurrentLocationError? _locationError;
   bool _isLoading = true;
+  double _mapZoom = 12;
+  List<AttractionModel> _remoteAttractions = const [];
+  List<AttractionMapCluster> _remoteClusters = const [];
+  Timer? _viewportDebounce;
+  int _viewportGeneration = 0;
+  bool _initialViewportScheduled = false;
 
   @override
   void initState() {
     super.initState();
+    if (widget.selectedPlace != null) _mapZoom = 16;
     _load();
   }
 
   Future<void> _load() async {
+    if (widget.selectedPlace != null || widget.places.isNotEmpty) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
     try {
       final position = await _locationService.getPosition();
       _myLocation = LatLng(position.latitude, position.longitude);
@@ -63,6 +98,89 @@ class _PlacesMapScreenState extends State<PlacesMapScreen> {
       _locationError = error.reason;
     }
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    _viewportDebounce?.cancel();
+    _viewportGeneration++;
+    ApiService.instance.cancelAttractionRequests();
+    super.dispose();
+  }
+
+  void _onPositionChanged(MapCamera camera, bool hasGesture) {
+    _mapZoom = camera.zoom;
+    if (!hasGesture) return;
+    _viewportDebounce?.cancel();
+    _viewportDebounce = Timer(const Duration(milliseconds: 500), () {
+      unawaited(_loadViewport(camera.visibleBounds, camera.zoom));
+    });
+  }
+
+  void _loadInitialViewport() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        final camera = _mapController.camera;
+        unawaited(_loadViewport(camera.visibleBounds, camera.zoom));
+      } catch (_) {
+        // The controller is not attached until FlutterMap has completed layout.
+      }
+    });
+  }
+
+  Future<void> _loadViewport(LatLngBounds bounds, double zoom) async {
+    if (!mounted) return;
+    final generation = ++_viewportGeneration;
+    final key = [
+      bounds.southWest.latitude.toStringAsFixed(3),
+      bounds.southWest.longitude.toStringAsFixed(3),
+      bounds.northEast.latitude.toStringAsFixed(3),
+      bounds.northEast.longitude.toStringAsFixed(3),
+      zoom.round(),
+      Localizations.localeOf(context).languageCode,
+    ].join(':');
+    final cached = _viewportCache[key];
+    if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
+      if (widget.loadAttractionViewport == null) {
+        ApiService.instance.cancelAttractionMapRequest();
+      }
+      if (!mounted) return;
+      setState(() {
+        _remoteAttractions = cached.viewport.attractions;
+        _remoteClusters = cached.viewport.clusters;
+        _mapZoom = zoom;
+      });
+      return;
+    }
+
+    try {
+      final loader = widget.loadAttractionViewport ??
+          ApiService.instance.searchAttractionMap;
+      final viewport = await loader(
+        south: bounds.southWest.latitude,
+        west: bounds.southWest.longitude,
+        north: bounds.northEast.latitude,
+        east: bounds.northEast.longitude,
+        zoom: zoom,
+        language: Localizations.localeOf(context).languageCode,
+      );
+      if (!mounted || generation != _viewportGeneration) return;
+      _viewportCache[key] = _CachedAttractionViewport(
+        DateTime.now().add(const Duration(minutes: 5)),
+        viewport,
+      );
+      if (_viewportCache.length > 32) {
+        _viewportCache.remove(_viewportCache.keys.first);
+      }
+      setState(() {
+        _remoteAttractions = viewport.attractions;
+        _remoteClusters = viewport.clusters;
+        _mapZoom = zoom;
+      });
+    } catch (_) {
+      // Keep the last successful viewport visible when a request fails.
+    }
   }
 
   String _locationErrorMessage(AppLocalizations l10n) =>
@@ -102,6 +220,8 @@ class _PlacesMapScreenState extends State<PlacesMapScreen> {
   List<_MapPlace> get _places {
     final list = <_MapPlace>[];
     final visibleResultIds = <String>{};
+    final showsAttractions =
+        _activeLayer == null || _activeLayer == _MapLayer.attractions;
     for (final result in widget.places) {
       if (result.latitude == null || result.longitude == null) continue;
       final layer = _layerForCategory(result.category);
@@ -111,6 +231,49 @@ class _PlacesMapScreenState extends State<PlacesMapScreen> {
       final mapPlace = _mapPlaceFromResult(result);
       list.add(mapPlace);
       visibleResultIds.add(mapPlace.id);
+    }
+    if (showsAttractions) {
+      final clusteredIds = <String>{};
+      if (_mapZoom < 7) {
+        for (final cluster in _remoteClusters) {
+          for (final place in cluster.places) {
+            clusteredIds.add(place.id);
+          }
+          list.add(_MapPlace(
+            id: 'cluster-${cluster.latitude}-${cluster.longitude}',
+            title: '${cluster.count} places',
+            subtitle: '',
+            point: LatLng(cluster.latitude, cluster.longitude),
+            layer: _MapLayer.attractions,
+            clusterCount: cluster.count,
+          ));
+        }
+      }
+      for (final attraction in _remoteAttractions) {
+        if (clusteredIds.contains(attraction.id) ||
+            attraction.latitude < -90 ||
+            attraction.latitude > 90 ||
+            attraction.longitude < -180 ||
+            attraction.longitude > 180) {
+          continue;
+        }
+        final result = MapSearchResult(
+          title: attraction.name,
+          address: [attraction.city, attraction.country]
+              .where((part) => part.trim().isNotEmpty)
+              .join(', '),
+          category: 'attraction',
+          placeId: attraction.id,
+          rating: attraction.rating,
+          reviews: attraction.reviewCount,
+          latitude: attraction.latitude,
+          longitude: attraction.longitude,
+          type: attraction.category,
+          thumbnail: attraction.imageUrl,
+        );
+        final place = _mapPlaceFromResult(result);
+        if (visibleResultIds.add(place.id)) list.add(place);
+      }
     }
     for (final f in FavoritesController.instance.all) {
       if (f.latitude == null || f.longitude == null) continue;
@@ -149,6 +312,17 @@ class _PlacesMapScreenState extends State<PlacesMapScreen> {
   void _showMapResult(MapSearchResult result) {
     if (result.latitude == null || result.longitude == null) return;
     _showPlaceSheet(_mapPlaceFromResult(result));
+  }
+
+  void _onMapPlaceTap(_MapPlace place) {
+    if (place.clusterCount != null) {
+      final double nextZoom =
+          (_mapController.camera.zoom + 2).clamp(0.0, 24.0).toDouble();
+      _mapController.move(place.point, nextZoom);
+      unawaited(_loadViewport(_mapController.camera.visibleBounds, nextZoom));
+      return;
+    }
+    _showPlaceSheet(place);
   }
 
   void _showPlaceSheet(_MapPlace place) {
@@ -259,6 +433,10 @@ class _PlacesMapScreenState extends State<PlacesMapScreen> {
     final center = selectedCenter ??
         _myLocation ??
         (places.isNotEmpty ? places.first.point : null);
+    if (center != null && !_initialViewportScheduled) {
+      _initialViewportScheduled = true;
+      _loadInitialViewport();
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.placesMapTitle)),
@@ -295,9 +473,11 @@ class _PlacesMapScreenState extends State<PlacesMapScreen> {
               : Stack(
                   children: [
                     FlutterMap(
+                      mapController: _mapController,
                       options: MapOptions(
                         initialCenter: center,
                         initialZoom: selectedCenter == null ? 12 : 16,
+                        onPositionChanged: _onPositionChanged,
                       ),
                       children: [
                         TileLayer(
@@ -351,7 +531,7 @@ class _PlacesMapScreenState extends State<PlacesMapScreen> {
                               height: 40,
                               child: GestureDetector(
                                 behavior: HitTestBehavior.opaque,
-                                onTap: () => _showPlaceSheet(p),
+                                onTap: () => _onMapPlaceTap(p),
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: _layerStyle(p.layer).$2,
@@ -366,8 +546,16 @@ class _PlacesMapScreenState extends State<PlacesMapScreen> {
                                           offset: const Offset(0, 2))
                                     ],
                                   ),
-                                  child: Icon(_layerStyle(p.layer).$1,
-                                      color: Colors.white, size: 18),
+                                  child: p.clusterCount == null
+                                      ? Icon(_layerStyle(p.layer).$1,
+                                          color: Colors.white, size: 18)
+                                      : Text(
+                                          p.clusterCount.toString(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ),
@@ -452,4 +640,11 @@ class _PlacesMapScreenState extends State<PlacesMapScreen> {
                 ),
     );
   }
+}
+
+class _CachedAttractionViewport {
+  final DateTime expiresAt;
+  final AttractionMapViewport viewport;
+
+  const _CachedAttractionViewport(this.expiresAt, this.viewport);
 }

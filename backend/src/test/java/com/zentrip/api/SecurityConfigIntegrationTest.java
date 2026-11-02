@@ -50,6 +50,12 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
+    void attractionMapIsPublicLikeTheAttractionSearch() throws Exception {
+        mockMvc.perform(get("/api/attractions/map").param("zoom", "5"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void publicLoginEndpointDoesNotRequireHttpBasicAuthentication() throws Exception {
         when(jdbcTemplate.queryForList("SELECT id, password FROM users WHERE email = ?", "user@example.com"))
                 .thenReturn(List.of());

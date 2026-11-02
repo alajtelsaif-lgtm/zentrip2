@@ -20,6 +20,7 @@ import '../../models/car_model.dart';
 import '../../models/attraction_model.dart';
 import '../../models/attraction_place_suggestion.dart';
 import '../../models/attraction_search_page.dart';
+import '../../models/attraction_map_viewport.dart';
 import '../../models/attraction_recent_destination.dart';
 import '../../models/transfer_model.dart';
 import '../../models/trip_model.dart';
@@ -91,6 +92,24 @@ class ApiService {
   SessionExpiredCallback? onSessionExpired;
 
   bool _initialized = false;
+  CancelToken? _attractionSearchCancelToken;
+  CancelToken? _attractionSuggestionCancelToken;
+  CancelToken? _attractionMapCancelToken;
+  final Map<String, _TimedSuggestionCache> _attractionSuggestionCache = {};
+
+  void cancelAttractionRequests() {
+    _attractionSearchCancelToken?.cancel('Landmark search superseded');
+    _attractionSuggestionCancelToken?.cancel('Landmark suggestions superseded');
+    _attractionMapCancelToken?.cancel('Landmark map request superseded');
+    _attractionSearchCancelToken = null;
+    _attractionSuggestionCancelToken = null;
+    _attractionMapCancelToken = null;
+  }
+
+  void cancelAttractionMapRequest() {
+    _attractionMapCancelToken?.cancel('Landmark map viewport superseded');
+    _attractionMapCancelToken = null;
+  }
 
   Future<ApiResult<List<MapSearchResult>>> searchGoogleMaps({
     required String query,
@@ -1667,40 +1686,98 @@ class ApiService {
         'OpenTripMap landmark search requires the configured live backend.',
       );
     }
-    final res = await _dio.get(
-      '/attractions/search',
-      queryParameters: {
-        'city': city,
-        if (category != null && category != 'all') 'category': category,
-        if (country != null && country.isNotEmpty) 'country': country,
-        if (language != null && language.isNotEmpty) 'lang': language,
-        if (latitude != null) 'lat': latitude,
-        if (longitude != null) 'lon': longitude,
-        if (south != null) 'bbox_south': south,
-        if (west != null) 'bbox_west': west,
-        if (north != null) 'bbox_north': north,
-        if (east != null) 'bbox_east': east,
-        if (placeId != null && placeId.isNotEmpty) 'place_id': placeId,
-        'limit': limit,
-        'offset': offset,
-      },
-    );
-    final data = res.data;
-    if (data is Map && data['city_found'] == false) {
-      throw const AttractionCityNotFoundException();
+    _attractionSearchCancelToken?.cancel('A newer landmark search started');
+    final cancelToken = CancelToken();
+    _attractionSearchCancelToken = cancelToken;
+    try {
+      final res = await _dio.get(
+        '/attractions/search',
+        queryParameters: {
+          'city': city,
+          if (category != null && category != 'all') 'category': category,
+          if (country != null && country.isNotEmpty) 'country': country,
+          if (language != null && language.isNotEmpty) 'lang': language,
+          if (latitude != null) 'lat': latitude,
+          if (longitude != null) 'lon': longitude,
+          if (south != null) 'bbox_south': south,
+          if (west != null) 'bbox_west': west,
+          if (north != null) 'bbox_north': north,
+          if (east != null) 'bbox_east': east,
+          if (placeId != null && placeId.isNotEmpty) 'place_id': placeId,
+          'limit': limit,
+          'offset': offset,
+        },
+        cancelToken: cancelToken,
+      );
+      final data = res.data;
+      if (data is Map && data['city_found'] == false) {
+        throw const AttractionCityNotFoundException();
+      }
+      if (data is! Map || data['attractions'] is! List) {
+        throw const FormatException('Unexpected attractions response');
+      }
+      final page = AttractionSearchPage.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+      return AttractionSearchPage(
+        attractions: page.attractions.where(_isLandmarkCategory).toList(),
+        totalCount: page.totalCount,
+        hasMore: page.hasMore,
+        warnings: page.warnings,
+      );
+    } finally {
+      if (identical(_attractionSearchCancelToken, cancelToken)) {
+        _attractionSearchCancelToken = null;
+      }
     }
-    if (data is! Map || data['attractions'] is! List) {
-      throw const FormatException('Unexpected attractions response');
+  }
+
+  Future<AttractionMapViewport> searchAttractionMap({
+    required double south,
+    required double west,
+    required double north,
+    required double east,
+    required double zoom,
+    String? category,
+    int minRate = 0,
+    String? language,
+  }) async {
+    if (useMockMode) {
+      throw StateError(
+        'OpenTripMap landmark search requires the configured live backend.',
+      );
     }
-    final page = AttractionSearchPage.fromJson(
-      Map<String, dynamic>.from(data),
-    );
-    return AttractionSearchPage(
-      attractions: page.attractions.where(_isLandmarkCategory).toList(),
-      totalCount: page.totalCount,
-      hasMore: page.hasMore,
-      warnings: page.warnings,
-    );
+    _attractionMapCancelToken
+        ?.cancel('A newer landmark viewport was requested');
+    final cancelToken = CancelToken();
+    _attractionMapCancelToken = cancelToken;
+    try {
+      final response = await _dio.get(
+        '/attractions/map',
+        queryParameters: {
+          'south': south,
+          'west': west,
+          'north': north,
+          'east': east,
+          'zoom': zoom.round(),
+          if (category != null && category.isNotEmpty) 'category': category,
+          'min_rate': minRate,
+          if (language != null && language.isNotEmpty) 'lang': language,
+        },
+        cancelToken: cancelToken,
+      );
+      if (response.data is! Map ||
+          (response.data as Map)['attractions'] is! List) {
+        throw const FormatException('Unexpected landmark map response');
+      }
+      return AttractionMapViewport.fromJson(
+        Map<String, dynamic>.from(response.data as Map),
+      );
+    } finally {
+      if (identical(_attractionMapCancelToken, cancelToken)) {
+        _attractionMapCancelToken = null;
+      }
+    }
   }
 
   Future<AttractionRecentDestination?> recentAttractionDestination() async {
@@ -1733,24 +1810,64 @@ class ApiService {
   }) async {
     final normalizedQuery = query.trim();
     if (normalizedQuery.length < 2) return const [];
-    final response = await _dio.get(
-      '/attractions/suggestions',
-      queryParameters: {
-        'query': normalizedQuery,
-        if (language != null && language.isNotEmpty) 'lang': language,
-        if (latitude != null) 'lat': latitude,
-        if (longitude != null) 'lon': longitude,
-      },
-    );
-    final data = response.data;
-    if (data is! Map || data['suggestions'] is! List) return const [];
-    return (data['suggestions'] as List)
-        .whereType<Map>()
-        .map((item) =>
-            AttractionPlaceSuggestion.fromJson(Map<String, dynamic>.from(item)))
-        .where((item) => item.label.isNotEmpty)
-        .toList();
+    final normalizedKey = _normalizeAttractionQuery(normalizedQuery);
+    final cacheKey = '${language ?? 'en'}:$normalizedKey:'
+        '${latitude?.toStringAsFixed(2) ?? ''}:'
+        '${longitude?.toStringAsFixed(2) ?? ''}';
+    final cached = _attractionSuggestionCache[cacheKey];
+    if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
+      return cached.suggestions;
+    }
+    _attractionSuggestionCancelToken
+        ?.cancel('A newer landmark query was typed');
+    final cancelToken = CancelToken();
+    _attractionSuggestionCancelToken = cancelToken;
+    try {
+      final response = await _dio.get(
+        '/attractions/suggestions',
+        queryParameters: {
+          'query': normalizedQuery,
+          if (language != null && language.isNotEmpty) 'lang': language,
+          if (latitude != null) 'lat': latitude,
+          if (longitude != null) 'lon': longitude,
+        },
+        cancelToken: cancelToken,
+      );
+      final data = response.data;
+      if (data is! Map || data['suggestions'] is! List) return const [];
+      final suggestions = (data['suggestions'] as List)
+          .whereType<Map>()
+          .map((item) => AttractionPlaceSuggestion.fromJson(
+                Map<String, dynamic>.from(item),
+              ))
+          .where((item) => item.label.isNotEmpty)
+          .toList(growable: false);
+      _attractionSuggestionCache[cacheKey] = _TimedSuggestionCache(
+        DateTime.now().add(const Duration(minutes: 5)),
+        suggestions,
+      );
+      if (_attractionSuggestionCache.length > 200) {
+        _attractionSuggestionCache
+            .remove(_attractionSuggestionCache.keys.first);
+      }
+      return suggestions;
+    } finally {
+      if (identical(_attractionSuggestionCancelToken, cancelToken)) {
+        _attractionSuggestionCancelToken = null;
+      }
+    }
   }
+
+  String _normalizeAttractionQuery(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\u064b-\u065f\u0670\u0640]'), '')
+      .replaceAll('أ', 'ا')
+      .replaceAll('إ', 'ا')
+      .replaceAll('آ', 'ا')
+      .replaceAll('ة', 'ه')
+      .replaceAll('ى', 'ي')
+      .replaceAll(RegExp(r'\s+'), ' ');
 
   /// Records one anonymous place visit per device and UTC day.
   Future<void> recordAttractionVisit(String attractionId) async {
@@ -2217,4 +2334,11 @@ typedef SessionExpiredCallback = void Function();
 
 class AttractionCityNotFoundException implements Exception {
   const AttractionCityNotFoundException();
+}
+
+class _TimedSuggestionCache {
+  final DateTime expiresAt;
+  final List<AttractionPlaceSuggestion> suggestions;
+
+  const _TimedSuggestionCache(this.expiresAt, this.suggestions);
 }
