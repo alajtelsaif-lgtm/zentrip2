@@ -12,3 +12,4 @@
 - [Currency comparison scope](currency-comparison-scope.md) — comparison estimates do not authorize booking-table or settlement changes.
 - [UI styling preservation](ui-styling-preservation.md) — keep existing screen design intact during backend and data integrations.
 - [Duffel stay inventory boundary](duffel-stay-inventory.md) — treat Duffel stay search as read-only and fetched rates as authoritative display prices.
+- [Xotelo hotel data boundary](xotelo-hotel-data-boundary.md) — direct listing and rate calls need known TripAdvisor keys; hotel search is RapidAPI-only, not a booking API.
