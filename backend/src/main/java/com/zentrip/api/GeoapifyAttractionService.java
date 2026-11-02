@@ -7,13 +7,17 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -32,7 +36,12 @@ import org.springframework.web.client.RestClientResponseException;
 @Service
 public class GeoapifyAttractionService {
     private static final Logger LOG = LoggerFactory.getLogger(GeoapifyAttractionService.class);
-    private static final Duration CACHE_TTL = Duration.ofMinutes(30);
+    private static final Duration CACHE_TTL = Duration.ofHours(24);
+    private static final int PROVIDER_PAGE_SIZE = 250;
+    private static final int MAX_PROVIDER_PAGES = 4;
+    private static final int MAX_CACHED_RESULTS = 1000;
+    private static final Executor PROVIDER_EXECUTOR =
+            task -> Thread.ofVirtual().start(task);
     private static final Pattern WIKIDATA_QID = Pattern.compile("\\bQ[1-9][0-9]*\\b");
     private static final Pattern WIKIDATA_POINT = Pattern.compile(
             "Point\\s*\\(\\s*([-+]?[0-9]+(?:\\.[0-9]+)?)\\s+"
@@ -47,11 +56,18 @@ public class GeoapifyAttractionService {
             "Q22698",   // park
             "Q46169",   // national park
             "Q9259",    // UNESCO World Heritage Site
-            "Q41176",   // building
-            "Q11303",   // skyscraper
-            "Q174782",  // square
+            "Q35112127", // historic building
+            "Q23413",   // castle
+            "Q1785071", // fort
+            "Q570116",  // tourist attraction
             "Q40080",   // beach
-            "Q167346"); // botanical garden
+            "Q167346",  // botanical garden
+            "Q8502",    // mountain
+            "Q46831",   // mountain range
+            "Q23397",   // lake
+            "Q34038",   // waterfall
+            "Q35509",   // cave
+            "Q179049"); // nature reserve
     private static final Map<String, List<String>> COUNTRY_SEARCH_CITIES = Map.of(
             "libya", List.of("Tripoli", "Misrata", "Benghazi", "Sebha"),
             "egypt", List.of("Cairo"),
@@ -120,15 +136,43 @@ public class GeoapifyAttractionService {
 
     public SearchOutcome searchAttractionsWithStatus(
             String requestedCity, String requestedCountry, String requestedLanguage) {
-        if (apiKey.isBlank()) return new SearchOutcome(List.of(), null, Map.of(), 0);
+        return searchAttractionsWithStatus(
+                requestedCity, requestedCountry, requestedLanguage, "",
+                null, null, null, null, null, null, null);
+    }
+
+    public SearchOutcome searchAttractionsWithStatus(
+            String requestedCity,
+            String requestedCountry,
+            String requestedLanguage,
+            String requestedCategory,
+            Double requestedLatitude,
+            Double requestedLongitude,
+            Double south,
+            Double west,
+            Double north,
+            Double east,
+            String requestedPlaceId) {
         boolean countrySearch = requestedCity == null || requestedCity.isBlank();
         String city = nonBlank(requestedCity, DEFAULT_CITY).trim();
         String country = countrySearch
                 ? nonBlank(requestedCountry, DEFAULT_COUNTRY).trim()
                 : nonBlank(requestedCountry, "").trim();
         String language = "ar".equalsIgnoreCase(requestedLanguage) ? "ar" : "en";
+        String category = nonBlank(requestedCategory, "").trim().toLowerCase(Locale.ROOT);
+        if (!apiKey.isBlank() && !hasValidCoordinates(requestedLatitude, requestedLongitude)) {
+            // City-only lookups require Geoapify to resolve a provider-backed boundary.
+        } else if (apiKey.isBlank() && !hasValidCoordinates(
+                requestedLatitude, requestedLongitude)) {
+            return new SearchOutcome(
+                    List.of(), null, Map.of(), 0,
+                    List.of("Geoapify geocoding is unavailable because its key is not configured."),
+                    List.of());
+        }
         String cacheCity = countrySearch ? "country" : city;
-        String cacheKey = (cacheCity + "|" + country + "|" + language)
+        String cacheKey = (cacheCity + "|" + country + "|" + language + "|" + category
+                + "|" + requestedPlaceId + "|" + requestedLatitude + "|" + requestedLongitude
+                + "|" + south + "|" + west + "|" + north + "|" + east)
                 .toLowerCase(Locale.ROOT);
 
         CacheEntry previous = cache.get(cacheKey);
@@ -136,77 +180,136 @@ public class GeoapifyAttractionService {
         if (previous != null && now.isBefore(previous.expiresAt())) {
             return new SearchOutcome(
                     previous.places(), previous.cityFound(), previous.droppedByReason(),
-                    previous.candidateCount());
+                    previous.candidateCount(), previous.warnings(), previous.droppedItems());
         }
 
         try {
+            if (!hasValidCoordinates(requestedLatitude, requestedLongitude)
+                    && apiKey.isBlank()) {
+                return new SearchOutcome(List.of(), null, Map.of(), 0,
+                        List.of("Geoapify geocoding is unavailable because its key is not configured."),
+                        List.of());
+            }
             List<String> searchCities = countrySearch
                     ? COUNTRY_SEARCH_CITIES.get(country.toLowerCase(Locale.ROOT))
                     : List.of(city);
             if (searchCities == null || searchCities.isEmpty()) {
                 cache.put(cacheKey, new CacheEntry(
-                        List.of(), null, Map.of(), 0, now.plus(CACHE_TTL)));
-                return new SearchOutcome(List.of(), null, Map.of(), 0);
+                        List.of(), null, Map.of(), 0, List.of(), List.of(),
+                        now.plus(CACHE_TTL)));
+                return new SearchOutcome(List.of(), null, Map.of(), 0, List.of(), List.of());
             }
 
             List<PlaceBatch> batches = new ArrayList<>();
             List<Map<?, ?>> allFeatures = new ArrayList<>();
             boolean cityGeocoded = false;
-            boolean providerFailed = false;
+            List<String> warnings = new ArrayList<>();
             for (String searchCity : searchCities) {
                 try {
-                    GeoPoint center = geocode(searchCity, country, language);
+                    GeoPoint center = hasValidCoordinates(requestedLatitude, requestedLongitude)
+                            ? explicitGeoPoint(
+                                    requestedLatitude, requestedLongitude, south, west, north, east,
+                                    searchCity, country)
+                            : geocode(searchCity, country, language);
                     if (center == null) continue;
                     cityGeocoded = true;
-                    List<Map<?, ?>> features = fetchPlaces(center, language);
-                    batches.add(new PlaceBatch(searchCity, country, center, features));
-                    allFeatures.addAll(features);
+                    CompletableFuture<ProviderResult<List<Map<?, ?>>>> placesFuture =
+                            CompletableFuture.supplyAsync(
+                                    () -> fetchPlaces(center, language), PROVIDER_EXECUTOR);
+                    CompletableFuture<ProviderResult<Map<String, PlaceEnrichment>>> wikidataFuture =
+                            CompletableFuture.supplyAsync(
+                                    () -> fetchWikidataPlaces(center, language),
+                                    PROVIDER_EXECUTOR);
+                    ProviderResult<List<Map<?, ?>>> placesResult =
+                            providerResult(placesFuture, List.of());
+                    ProviderResult<Map<String, PlaceEnrichment>> wikidataResult =
+                            providerResult(wikidataFuture, Map.of());
+                    allFeatures.addAll(placesResult.value());
+                    warnings.addAll(placesResult.warnings());
+                    warnings.addAll(wikidataResult.warnings());
+
+                    NormalizationResult geoNormalized = normalize(
+                            placesResult.value(), wikidataResult.value(), searchCity,
+                            center.countryLabel(), language, center, "geoapify");
+                    NormalizationResult wikidataNormalized = normalizeWikidata(
+                            wikidataResult.value(), searchCity, center.countryLabel(),
+                            language, center);
+                    List<RejectedItem> rejected = new ArrayList<>();
+                    rejected.addAll(geoNormalized.droppedItems());
+                    rejected.addAll(wikidataNormalized.droppedItems());
+                    Map<String, Integer> dropped = new LinkedHashMap<>();
+                    mergeDropCounts(dropped, geoNormalized.droppedByReason());
+                    mergeDropCounts(dropped, wikidataNormalized.droppedByReason());
+                    List<Map<String, Object>> merged = mergeProviders(
+                            geoNormalized.places(), wikidataNormalized.places(), dropped, rejected);
+                    batches.add(new PlaceBatch(
+                            searchCity, country, center, merged, dropped, rejected));
                 } catch (RestClientException exception) {
-                    providerFailed = true;
                     String reason = classifyProviderFailure(exception);
-                    LOG.warn("Geoapify places unavailable for a destination city ({})", reason);
+                    warnings.add("Geoapify destination lookup unavailable.");
+                    LOG.warn("Geoapify destination lookup unavailable ({})", reason);
                 }
             }
 
-            Map<String, PlaceEnrichment> enrichments =
-                    fetchWikidataEnrichment(allFeatures);
-            int candidateCount = allFeatures.size();
             Map<String, Map<String, Object>> uniquePlaces = new LinkedHashMap<>();
             Map<String, Integer> droppedByReason = new LinkedHashMap<>();
+            List<RejectedItem> droppedItems = new ArrayList<>();
+            int candidateCount = 0;
             for (PlaceBatch batch : batches) {
-                NormalizationResult normalized = normalize(
-                        batch.features(), enrichments, batch.city(), batch.country(),
-                        language, batch.location());
-                normalized.droppedByReason().forEach((reason, count) ->
-                        addCount(droppedByReason, reason, count));
-                for (Map<String, Object> place : normalized.places()) {
-                    if (uniquePlaces.putIfAbsent(deduplicationKey(place), place) != null) {
-                        addCount(droppedByReason, "duplicate_name_and_coordinates", 1);
+                candidateCount += batch.features().size() + batch.droppedItems().size()
+                        + batch.droppedByReason().values().stream()
+                                .mapToInt(Integer::intValue).sum();
+                mergeDropCounts(droppedByReason, batch.droppedByReason());
+                droppedItems.addAll(batch.droppedItems());
+                for (Map<String, Object> place : batch.features()) {
+                    String duplicateKey = deduplicationKey(place);
+                    if (findDuplicate(uniquePlaces.values(), place) != null) {
+                        addCount(droppedByReason, "duplicate", 1);
+                        droppedItems.add(rejected(place, "duplicate", "merged source or duplicate"));
+                    } else {
+                        uniquePlaces.putIfAbsent(duplicateKey, place);
                     }
                 }
             }
             List<Map<String, Object>> places = uniquePlaces.values().stream()
-                    .limit(countrySearch ? 50 : 20)
+                    .sorted(notabilityComparator())
+                    .limit(MAX_CACHED_RESULTS)
                     .toList();
+            if (!category.isBlank()) {
+                places = places.stream()
+                        .filter(place -> category.equals(
+                                String.valueOf(place.get("category")).toLowerCase(Locale.ROOT))
+                                || category.equals(
+                                        String.valueOf(place.get("highlight_category"))
+                                                .toLowerCase(Locale.ROOT)))
+                        .toList();
+            }
+            droppedItems.forEach(item -> LOG.debug(
+                    "Landmark candidate dropped reason={} source={} name={} id={}",
+                    item.reason(), item.source(), item.name(), item.id()));
             List<Map<String, Object>> immutablePlaces = List.copyOf(places);
             Boolean cityFound = countrySearch ? null
-                    : cityGeocoded ? true : providerFailed ? null : false;
+                    : cityGeocoded ? true : warnings.isEmpty() ? false : null;
             Map<String, Integer> immutableDroppedByReason = Map.copyOf(droppedByReason);
             cache.put(cacheKey, new CacheEntry(
                     immutablePlaces, cityFound, immutableDroppedByReason,
-                    candidateCount, now.plus(CACHE_TTL)));
+                    candidateCount, List.copyOf(warnings), List.copyOf(droppedItems),
+                    now.plus(CACHE_TTL)));
             return new SearchOutcome(
-                    immutablePlaces, cityFound, immutableDroppedByReason, candidateCount);
+                    immutablePlaces, cityFound, immutableDroppedByReason, candidateCount,
+                    warnings.stream().distinct().toList(), List.copyOf(droppedItems));
         } catch (RestClientException exception) {
             String reason = exception instanceof RestClientResponseException response
                     ? "HTTP " + response.getStatusCode().value()
                     : "network or timeout error";
-            LOG.warn("Geoapify attraction search failed ({})", reason);
+            LOG.warn("Attraction destination lookup failed ({})", reason);
             return previous == null
-                    ? new SearchOutcome(List.of(), null, Map.of(), 0)
+                    ? new SearchOutcome(List.of(), null, Map.of(), 0,
+                            List.of("Destination lookup is temporarily unavailable."), List.of())
                     : new SearchOutcome(
                             previous.places(), previous.cityFound(), previous.droppedByReason(),
-                            previous.candidateCount());
+                            previous.candidateCount(), previous.warnings(),
+                            previous.droppedItems());
         }
     }
 
