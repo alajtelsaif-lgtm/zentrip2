@@ -734,6 +734,41 @@ public class OpenTripMapAttractionService {
         }
     }
 
+    static String displayImageUrl(
+            String previewUrl, String wikipediaImage, String providerImage) {
+        for (String candidate : List.of(
+                previewUrl == null ? "" : previewUrl,
+                wikipediaImage == null ? "" : wikipediaImage,
+                providerImage == null ? "" : providerImage)) {
+            String image = clean(candidate);
+            if (!isHttpUrl(image)) continue;
+            String commonsImage = commonsDirectImageUrl(image);
+            return commonsImage == null ? image : commonsImage;
+        }
+        return null;
+    }
+
+    private static String commonsDirectImageUrl(String imageUrl) {
+        try {
+            URI uri = URI.create(imageUrl);
+            if (!"commons.wikimedia.org".equalsIgnoreCase(uri.getHost())) return null;
+            String path = uri.getPath();
+            String filePrefix = "/wiki/File:";
+            if (path == null || !path.regionMatches(
+                    true, 0, filePrefix, 0, filePrefix.length())) {
+                return null;
+            }
+            String filename = path.substring(filePrefix.length());
+            if (filename.isBlank()) return null;
+            String encodedFilename = URLEncoder.encode(
+                    filename, StandardCharsets.UTF_8).replace("+", "%20");
+            return "https://commons.wikimedia.org/wiki/Special:FilePath/"
+                    + encodedFilename;
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
     private List<Map<String, Object>> enrichAndFilter(
             List<Map<?, ?>> rawCandidates,
             GeoPoint center,
@@ -837,7 +872,8 @@ public class OpenTripMapAttractionService {
                 center == null ? null : center.country(),
                 "");
         String wikipediaImage = text(raw.get("_wikipedia_image_url"));
-        String image = firstNonBlank(item.imageUrl(), item.previewUrl(), wikipediaImage);
+        String image = displayImageUrl(
+                item.previewUrl(), wikipediaImage, item.imageUrl());
         String description = firstNonBlank(item.description(), item.infoDescription(), "");
         place.put("id", item.xid());
         place.put("xid", item.xid());

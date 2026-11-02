@@ -191,6 +191,28 @@ class OpenTripMapAttractionServiceTest {
     }
 
     @Test
+    void prefersDirectPreviewImagesAndNormalizesCommonsFilePages() {
+        assertEquals(
+                "https://upload.wikimedia.org/preview.jpg",
+                OpenTripMapAttractionService.displayImageUrl(
+                        "https://upload.wikimedia.org/preview.jpg",
+                        null,
+                        "https://commons.wikimedia.org/wiki/File:original.jpg"));
+        assertEquals(
+                "https://commons.wikimedia.org/wiki/Special:FilePath/Example%20Image.jpg",
+                OpenTripMapAttractionService.displayImageUrl(
+                        null,
+                        null,
+                        "https://commons.wikimedia.org/wiki/File:Example%20Image.jpg"));
+        assertEquals(
+                "https://upload.wikimedia.org/fallback.jpg",
+                OpenTripMapAttractionService.displayImageUrl(
+                        null,
+                        "https://upload.wikimedia.org/fallback.jpg",
+                        null));
+    }
+
+    @Test
     void refusesToReturnMockLandmarksWhenTheServerKeyIsMissing() {
         OpenTripMapAttractionService service = new OpenTripMapAttractionService(
                 "", false, true, RestClient.builder().baseUrl(BASE_URL).build());
