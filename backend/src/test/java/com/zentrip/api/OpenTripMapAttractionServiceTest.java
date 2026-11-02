@@ -98,16 +98,28 @@ class OpenTripMapAttractionServiceTest {
                 .andRespond(withSuccess(
                         """
                         [
-                          {"xid":"N111","name":"Pantheon","kinds":"historic","rate":"3",
+                          {"xid":"N111","name":"Ichijō Modoribashi",
+                           "kinds":"bridges,architecture","rate":"3",
                            "point":{"lat":41.8986,"lon":12.4769}},
-                          {"xid":"N222","name":"Pantheon","kinds":"historic","rate":"2",
-                           "point":{"lat":41.8986,"lon":12.4769}}
+                          {"xid":"N222","name":"Ichijo-modoribashi bridge",
+                           "kinds":"bridges,architecture","rate":"2",
+                           "point":{"lat":41.89865,"lon":12.47695}}
                         ]
                         """, APPLICATION_JSON));
-        server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/")))
-                .andRespond(withSuccess(pantheonDetails(), APPLICATION_JSON));
-        server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/")))
-                .andRespond(withSuccess(pantheonDetails(), APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/N111")))
+                .andRespond(withSuccess(
+                        """
+                        {"xid":"N111","name":"Ichijō Modoribashi",
+                         "kinds":"bridges,architecture","rate":"3",
+                         "point":{"lat":41.8986,"lon":12.4769}}
+                        """, APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/N222")))
+                .andRespond(withSuccess(
+                        """
+                        {"xid":"N222","name":"Ichijo-modoribashi bridge",
+                         "kinds":"bridges,architecture","rate":"2",
+                         "point":{"lat":41.89865,"lon":12.47695}}
+                        """, APPLICATION_JSON));
 
         OpenTripMapAttractionService.SearchOutcome result =
                 service("test-key", builder)
@@ -204,6 +216,13 @@ class OpenTripMapAttractionServiceTest {
                         null,
                         null,
                         "https://commons.wikimedia.org/wiki/File:Example%20Image.jpg"));
+        String blocked400pxThumbnail =
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/"
+                        + "Palazzo_Reale_di_Tripoli.jpg/400px-Palazzo_Reale_di_Tripoli.jpg";
+        assertEquals(
+                blocked400pxThumbnail.replace("/400px-", "/500px-"),
+                OpenTripMapAttractionService.displayImageUrl(
+                        blocked400pxThumbnail, null, null));
         assertEquals(
                 "https://upload.wikimedia.org/fallback.jpg",
                 OpenTripMapAttractionService.displayImageUrl(
@@ -232,6 +251,7 @@ class OpenTripMapAttractionServiceTest {
         assertRejected("Office", "offices", "business");
         assertRejected("DAS18", "museums", "no_identity");
         assertRejected("Ordinary building", "buildings", "type");
+        assertRejected("Battle of Tripoli", "battlefields,historic", "event");
         var farAway = candidate("Far Museum", "museums", 42.3, 12.5, "3");
         assertEquals("location", OpenTripMapAttractionService.isRealLandmark(
                 farAway, ROME, null, null, null, null).reason());

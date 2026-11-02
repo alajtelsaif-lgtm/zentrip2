@@ -3,6 +3,7 @@ package com.zentrip.api;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -491,6 +492,7 @@ public class OpenTripMapAttractionService {
             Double north,
             Double east) {
         if (candidate == null) return Validation.reject("type");
+        if (isHistoricalEvent(candidate)) return Validation.reject("event");
         if (isBusiness(candidate)) return Validation.reject("business");
         String category = categoryForKinds(candidate.kinds());
         if (category == null) return Validation.reject("type");
@@ -743,7 +745,9 @@ public class OpenTripMapAttractionService {
             String image = clean(candidate);
             if (!isHttpUrl(image)) continue;
             String commonsImage = commonsDirectImageUrl(image);
-            return commonsImage == null ? image : commonsImage;
+            if (commonsImage != null) return commonsImage;
+            String validThumbnail = normalizeWikimediaThumbnail(image);
+            return validThumbnail == null ? image : validThumbnail;
         }
         return null;
     }
@@ -764,6 +768,25 @@ public class OpenTripMapAttractionService {
                     filename, StandardCharsets.UTF_8).replace("+", "%20");
             return "https://commons.wikimedia.org/wiki/Special:FilePath/"
                     + encodedFilename;
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private static String normalizeWikimediaThumbnail(String imageUrl) {
+        try {
+            URI uri = URI.create(imageUrl);
+            if (!"upload.wikimedia.org".equalsIgnoreCase(uri.getHost())) return null;
+            String path = uri.getRawPath();
+            if (path == null || !path.contains("/thumb/")) return null;
+            int lastSlash = path.lastIndexOf('/');
+            if (lastSlash < 0) return null;
+            String thumbnail = path.substring(lastSlash + 1);
+            if (!thumbnail.startsWith("400px-")) return null;
+            String normalizedPath = path.substring(0, lastSlash + 1)
+                    + "500px-" + thumbnail.substring("400px-".length());
+            return uri.getScheme() + "://" + uri.getRawAuthority() + normalizedPath
+                    + (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery());
         } catch (IllegalArgumentException ignored) {
             return null;
         }
@@ -937,6 +960,7 @@ public class OpenTripMapAttractionService {
             Double north,
             Double east) {
         if (candidate == null) return "type";
+        if (isHistoricalEvent(candidate)) return "event";
         if (isBusiness(candidate)) return "business";
         if (categoryForKinds(candidate.kinds()) == null) return "type";
         String name = clean(candidate.name());
@@ -965,6 +989,12 @@ public class OpenTripMapAttractionService {
                 + "bank|pharmacy|clinic|school|gas station|parking|gym|salon|bar|club|"
                 + "office|company|companies|business|service|apartment|residential|"
                 + "bus stop|street|neighborhood|district)\\b.*");
+    }
+
+    private static boolean isHistoricalEvent(Candidate candidate) {
+        Set<String> kinds = new LinkedHashSet<>(splitKinds(candidate.kinds()));
+        return kinds.contains("battlefields")
+                && normalize(candidate.name()).matches("^(the )?battle of\\b.*");
     }
 
     private static String categoryForKinds(String kindsValue) {
@@ -1023,7 +1053,8 @@ public class OpenTripMapAttractionService {
             List<RejectedItem> dropped) {
         List<Map<String, Object>> unique = new ArrayList<>();
         for (Map<String, Object> candidate : places) {
-            String name = normalize(text(candidate.get("name")));
+            String name = duplicateNameKey(
+                    text(candidate.get("name")), safeList(candidate.get("tags")));
             double lat = number(candidate.get("latitude")) == null
                     ? 0 : number(candidate.get("latitude"));
             double lon = number(candidate.get("longitude")) == null
@@ -1031,7 +1062,9 @@ public class OpenTripMapAttractionService {
             boolean duplicate = unique.stream().anyMatch(existing -> {
                 Double existingLatitude = number(existing.get("latitude"));
                 Double existingLongitude = number(existing.get("longitude"));
-                return normalize(text(existing.get("name"))).equals(name)
+                String existingName = duplicateNameKey(
+                        text(existing.get("name")), safeList(existing.get("tags")));
+                return existingName.equals(name)
                         && existingLatitude != null && existingLongitude != null
                         && distanceMeters(lat, lon,
                                 existingLatitude, existingLongitude) <= 100;
@@ -1048,6 +1081,17 @@ public class OpenTripMapAttractionService {
             }
         }
         return unique;
+    }
+
+    private static String duplicateNameKey(String name, List<?> tags) {
+        String key = Normalizer.normalize(normalize(name), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replaceAll("[^\\p{L}\\p{N}]+", " ")
+                .trim();
+        boolean bridge = tags.stream()
+                .map(OpenTripMapAttractionService::text)
+                .anyMatch("bridges"::equals);
+        return bridge ? key.replaceFirst("\\s+bridge$", "") : key;
     }
 
     private static List<Map<String, Object>> deduplicateSuggestions(

@@ -155,8 +155,9 @@ commit an `.env` file.
 
 - `OpenTripMapAttractionService.java` — destination geoname/autosuggest,
   radius/bbox search, xid details, strict allowlist/business/identity/location
-  filtering, deduplication, ranking, caching, bounded detail concurrency,
-  rate spacing, retry/backoff, and provider-only normalized results.
+  filtering, historical-event rejection, diacritic/bridge-alias deduplication,
+  ranking, caching, bounded detail concurrency, rate spacing, retry/backoff,
+  provider-only normalized results, and Wikimedia thumbnail URL normalization.
 - `ApiController.java` and `AirportDirectoryService.java` — landmark search and
   airport-associated landmark suggestions now use OpenTripMap; airport search
   remains available when landmark results are unavailable.
