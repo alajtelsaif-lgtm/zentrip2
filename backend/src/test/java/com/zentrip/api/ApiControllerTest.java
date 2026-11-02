@@ -55,6 +55,36 @@ class ApiControllerTest {
     }
 
     @Test
+    void recentAttractionDestinationRequiresVerifiedCustomerSession() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute("authRole", "partner");
+        request.setAttribute("authUserId", 7L);
+
+        Map<String, Object> response = controller.recentAttractionDestination(request);
+
+        assertEquals(null, response.get("destination"));
+        verifyNoInteractions(jdbc);
+    }
+
+    @Test
+    void recentAttractionDestinationUsesOnlyTheAuthenticatedCustomerId() {
+        when(jdbc.queryForList(any(String.class), any(Object[].class)))
+                .thenReturn(List.of(Map.of(
+                        "destination_city", "Rome",
+                        "destination_country", "Italy",
+                        "created_at", "2026-10-22T10:00:00Z")));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute("authRole", "customer");
+        request.setAttribute("authUserId", 42L);
+
+        Map<String, Object> response = controller.recentAttractionDestination(request);
+
+        assertEquals("Rome", ((Map<?, ?>) response.get("destination")).get("city"));
+        assertEquals("Italy", ((Map<?, ?>) response.get("destination")).get("country"));
+        verify(jdbc).queryForList(any(String.class), any(Object[].class));
+    }
+
+    @Test
     void invalidLoginReturnsLaravelValidationResponse() {
         when(jdbc.queryForList("SELECT id, password FROM users WHERE email = ?", "user@example.com"))
                 .thenReturn(List.of());

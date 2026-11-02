@@ -5,6 +5,8 @@ import 'package:zentrip/core/services/current_location_service.dart';
 import 'package:zentrip/features/attractions/logic/attractions_controller.dart';
 import 'package:zentrip/models/attraction_model.dart';
 import 'package:zentrip/models/attraction_place_suggestion.dart';
+import 'package:zentrip/models/attraction_search_page.dart';
+import 'package:zentrip/models/attraction_recent_destination.dart';
 
 void main() {
   test('debounces place suggestions and ignores an older query', () async {
@@ -122,6 +124,145 @@ void main() {
     expect(searchedCity, 'Rabat');
     expect(searchedCountry, 'ma');
     expect(controller.results.single.id, 'kasbah');
+    controller.dispose();
+  });
+
+  test('a newer saved booking destination wins over local search history',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'attraction_last_city': 'Rabat',
+      'attraction_last_country': 'ma',
+      'attraction_last_display': 'Rabat, Morocco',
+      'attraction_last_search_at': '2026-10-01T10:00:00Z',
+    });
+    String? searchedCity;
+    String? searchedCountry;
+    final controller = AttractionsController(
+      loadRecentDestination: () async => AttractionRecentDestination(
+        city: 'Kyoto',
+        country: 'jp',
+        createdAt: DateTime.parse('2026-10-20T10:00:00Z'),
+      ),
+      loadCurrentPlace: () async => throw StateError('should not use location'),
+      searchAttractions: ({
+        required String city,
+        String? country,
+        String? language,
+      }) async {
+        searchedCity = city;
+        searchedCountry = country;
+        return [_place(id: 'kyoto-temple', category: 'historical')];
+      },
+    );
+
+    final display = await controller.loadDefault();
+
+    expect(display, 'Kyoto');
+    expect(searchedCity, 'Kyoto');
+    expect(searchedCountry, 'jp');
+    controller.dispose();
+  });
+
+  test('selected place coordinates and bounds reach the search request',
+      () async {
+    double? searchedLatitude;
+    double? searchedLongitude;
+    double? searchedSouth;
+    String? searchedPlaceId;
+    final controller = AttractionsController(
+      searchPage: ({
+        required String city,
+        String? category,
+        String? country,
+        String? language,
+        double? latitude,
+        double? longitude,
+        double? south,
+        double? west,
+        double? north,
+        double? east,
+        String? placeId,
+        int limit = 40,
+        int offset = 0,
+      }) async {
+        searchedLatitude = latitude;
+        searchedLongitude = longitude;
+        searchedSouth = south;
+        searchedPlaceId = placeId;
+        return AttractionSearchPage(
+          attractions: [_place(id: 'museum', category: 'museum')],
+          totalCount: 1,
+          hasMore: false,
+        );
+      },
+    );
+
+    await controller.loadSuggestion(const AttractionPlaceSuggestion(
+      label: 'Museum, Rome',
+      city: 'Rome',
+      country: 'Italy',
+      countryCode: 'it',
+      resultType: 'city',
+      placeId: 'geo-place-1',
+      latitude: 41.9,
+      longitude: 12.5,
+      south: 41.8,
+      west: 12.4,
+      north: 42.0,
+      east: 12.6,
+    ));
+
+    expect(searchedLatitude, 41.9);
+    expect(searchedLongitude, 12.5);
+    expect(searchedSouth, 41.8);
+    expect(searchedPlaceId, 'geo-place-1');
+    controller.dispose();
+  });
+
+  test('loads the next verified landmark page when more results exist',
+      () async {
+    final requestedOffsets = <int>[];
+    final controller = AttractionsController(
+      searchPage: ({
+        required String city,
+        String? category,
+        String? country,
+        String? language,
+        double? latitude,
+        double? longitude,
+        double? south,
+        double? west,
+        double? north,
+        double? east,
+        String? placeId,
+        int limit = 40,
+        int offset = 0,
+      }) async {
+        requestedOffsets.add(offset);
+        if (offset == 0) {
+          return AttractionSearchPage(
+            attractions: List.generate(
+              40,
+              (index) => _place(id: 'landmark-$index', category: 'historical'),
+            ),
+            totalCount: 41,
+            hasMore: true,
+          );
+        }
+        return AttractionSearchPage(
+          attractions: [_place(id: 'landmark-40', category: 'historical')],
+          totalCount: 41,
+          hasMore: false,
+        );
+      },
+    );
+
+    await controller.load(city: 'Rome');
+    await controller.loadMore();
+
+    expect(requestedOffsets, [0, 40]);
+    expect(controller.results, hasLength(41));
+    expect(controller.hasMore, isFalse);
     controller.dispose();
   });
 

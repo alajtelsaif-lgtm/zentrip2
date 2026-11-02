@@ -10,6 +10,14 @@ Use JDK 25 or newer to run the backend and Android Gradle build. The Android app
 
 Configure `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and `SERPAPI_KEY` as described in [backend/README.md](backend/README.md), then run `mvn spring-boot:run` from `backend/`.
 
+## Backend tests
+
+Run the mock-based backend suite with `bash scripts/test-backend.sh`. The PostgreSQL migration and HTTP integration tests are intentionally skipped by that command because it unsets database settings and does not start a database.
+
+To run the full suite, including those PostgreSQL tests, use `bash scripts/test-postgres.sh`. It creates a fresh temporary PostgreSQL cluster bound only to `127.0.0.1`, loads `backend/src/main/resources/schema.sql`, runs all backend tests, then stops and removes the cluster. It does not connect to Supabase or use application database credentials. PostgreSQL server tools (`initdb`, `pg_ctl`, `createdb`, and `psql`), Maven, and JDK 25 are required.
+
+The full PostgreSQL suite also runs in GitHub Actions on pushes and pull requests via `.github/workflows/backend-postgres.yml`.
+
 ## Run Flutter
 
 From this project root, run:

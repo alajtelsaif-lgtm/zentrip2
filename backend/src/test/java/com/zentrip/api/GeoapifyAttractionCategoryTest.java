@@ -11,7 +11,6 @@ class GeoapifyAttractionCategoryTest {
     @Test
     void acceptsOnlyLandmarkCategoryFamilies() {
         for (String category : List.of(
-                "tourism.sights",
                 "tourism.sights.archaeological_site",
                 "tourism.sights.building",
                 "tourism.attraction",
@@ -44,6 +43,10 @@ class GeoapifyAttractionCategoryTest {
                     GeoapifyAttractionService.isAllowedLandmarkCategory(List.of(category)),
                     category);
         }
+        assertFalse(
+                GeoapifyAttractionService.isAllowedLandmarkCategory(
+                        List.of("tourism.sights")),
+                "generic tourism.sights must be verified against a specific type");
     }
 
     @Test

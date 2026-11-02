@@ -7,6 +7,8 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/current_location_service.dart';
 import '../../../models/attraction_model.dart';
 import '../../../models/attraction_place_suggestion.dart';
+import '../../../models/attraction_search_page.dart';
+import '../../../models/attraction_recent_destination.dart';
 
 typedef AttractionSearchFunction = Future<List<AttractionModel>> Function({
   required String city,
@@ -14,41 +16,92 @@ typedef AttractionSearchFunction = Future<List<AttractionModel>> Function({
   String? language,
 });
 
+typedef AttractionSearchPageFunction = Future<AttractionSearchPage> Function({
+  required String city,
+  String? category,
+  String? country,
+  String? language,
+  double? latitude,
+  double? longitude,
+  double? south,
+  double? west,
+  double? north,
+  double? east,
+  String? placeId,
+  int limit,
+  int offset,
+});
+
 typedef AttractionSuggestionsFunction = Future<List<AttractionPlaceSuggestion>>
     Function(String query, {String? language});
 
 typedef CurrentPlaceLoader = Future<CurrentPlace> Function();
 typedef AttractionPreferencesLoader = Future<SharedPreferences> Function();
+typedef RecentAttractionDestinationLoader = Future<AttractionRecentDestination?>
+    Function();
 
 class AttractionsController extends ChangeNotifier {
   AttractionsController({
     AttractionSearchFunction? searchAttractions,
+    AttractionSearchPageFunction? searchPage,
     AttractionSuggestionsFunction? searchSuggestions,
     CurrentPlaceLoader? loadCurrentPlace,
     AttractionPreferencesLoader? loadPreferences,
-  })  : _searchAttractions = searchAttractions ??
-            (({required city, country, language}) =>
-                ApiService.instance.searchAttractions(
-                  city: city,
-                  country: country,
-                  language: language,
-                )),
+    RecentAttractionDestinationLoader? loadRecentDestination,
+  })  : _supportsPaging = searchAttractions == null || searchPage != null,
+        _searchPage = searchPage ??
+            (searchAttractions == null
+                ? ApiService.instance.searchAttractionPage
+                : ({
+                    required String city,
+                    String? category,
+                    String? country,
+                    String? language,
+                    double? latitude,
+                    double? longitude,
+                    double? south,
+                    double? west,
+                    double? north,
+                    double? east,
+                    String? placeId,
+                    int limit = 40,
+                    int offset = 0,
+                  }) async {
+                    final found = await searchAttractions(
+                      city: city,
+                      country: country,
+                      language: language,
+                    );
+                    return AttractionSearchPage(
+                      attractions: found,
+                      totalCount: found.length,
+                      hasMore: false,
+                    );
+                  }),
         _searchSuggestions = searchSuggestions ??
             ((query, {language}) => ApiService.instance
                 .searchAttractionSuggestions(query, language: language)),
         _loadCurrentPlace = loadCurrentPlace ??
             (() => const CurrentLocationService().getCurrentPlace()),
-        _loadPreferences = loadPreferences ?? SharedPreferences.getInstance;
+        _loadPreferences = loadPreferences ?? SharedPreferences.getInstance,
+        _loadRecentDestination = loadRecentDestination ??
+            (searchAttractions != null || searchPage != null
+                ? () async => null
+                : ApiService.instance.recentAttractionDestination);
 
   static const _lastCityKey = 'attraction_last_city';
   static const _lastCountryKey = 'attraction_last_country';
   static const _lastDisplayKey = 'attraction_last_display';
+  static const _lastSearchAtKey = 'attraction_last_search_at';
   static const _suggestionDebounce = Duration(milliseconds: 300);
+  static const _pageSize = 40;
 
-  final AttractionSearchFunction _searchAttractions;
+  final AttractionSearchPageFunction _searchPage;
+  final bool _supportsPaging;
   final AttractionSuggestionsFunction _searchSuggestions;
   final CurrentPlaceLoader _loadCurrentPlace;
   final AttractionPreferencesLoader _loadPreferences;
+  final RecentAttractionDestinationLoader _loadRecentDestination;
 
   List<AttractionModel> _all = [];
   List<AttractionModel> results = [];
@@ -56,10 +109,25 @@ class AttractionsController extends ChangeNotifier {
   bool hasError = false;
   bool cityNotFound = false;
   bool hasSearched = false;
+  bool isLoadingMore = false;
+  bool hasMore = false;
+  List<String> warnings = [];
   String searchQuery = '';
   String selectedCategory = 'all';
   int _requestGeneration = 0;
   int _suggestionGeneration = 0;
+  int _offset = 0;
+  String _lastCity = '';
+  String _lastCountry = '';
+  String _lastDisplay = '';
+  String _lastLanguage = 'en';
+  double? _lastLatitude;
+  double? _lastLongitude;
+  double? _lastSouth;
+  double? _lastWest;
+  double? _lastNorth;
+  double? _lastEast;
+  String? _lastPlaceId;
 
   static const categories = [
     'all',
@@ -87,8 +155,7 @@ class AttractionsController extends ChangeNotifier {
   static bool isMonument(AttractionModel attraction) =>
       monumentCategories.contains(attraction.category.toLowerCase());
 
-  /// Loads the current city first, then the last successful search.
-  /// If neither is available, the screen keeps its existing empty state.
+  /// Reuses the most recent search or saved trip/booking before geolocation.
   Future<String?> loadDefault({String language = 'en'}) async {
     final generation = ++_requestGeneration;
     isLoading = true;
@@ -96,6 +163,63 @@ class AttractionsController extends ChangeNotifier {
     cityNotFound = false;
     hasSearched = false;
     notifyListeners();
+
+    String lastCity = '';
+    String lastCountry = '';
+    String lastDisplay = '';
+    DateTime? lastSearchAt;
+    try {
+      final preferences = await _loadPreferences();
+      lastCity = preferences.getString(_lastCityKey) ?? '';
+      lastCountry = preferences.getString(_lastCountryKey) ?? '';
+      lastDisplay = preferences.getString(_lastDisplayKey) ?? '';
+      lastSearchAt = DateTime.tryParse(
+        preferences.getString(_lastSearchAtKey) ?? '',
+      );
+    } catch (_) {
+      // Preferences are optional; without them the screen remains empty.
+    }
+
+    if (generation != _requestGeneration) return null;
+    AttractionRecentDestination? recent;
+    try {
+      recent =
+          await _loadRecentDestination().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Recent trip/booking lookup is optional; local history still works.
+    }
+    if (generation != _requestGeneration) return null;
+
+    final hasLocalDestination =
+        lastCity.trim().isNotEmpty || lastCountry.trim().isNotEmpty;
+    final hasRecentDestination = recent != null && recent.city.isNotEmpty;
+    final recentAt = recent?.createdAt;
+    final preferRecent = hasRecentDestination &&
+        (!hasLocalDestination ||
+            recentAt == null ||
+            lastSearchAt == null ||
+            recentAt.isAfter(lastSearchAt));
+    if (preferRecent) {
+      await load(
+        city: recent.city,
+        country: recent.country,
+        language: language,
+        displayQuery: recent.city,
+      );
+      return recent.city;
+    }
+
+    if (hasLocalDestination) {
+      final display =
+          lastDisplay.trim().isNotEmpty ? lastDisplay.trim() : lastCity.trim();
+      await load(
+        city: lastCity,
+        country: lastCountry,
+        language: language,
+        displayQuery: display,
+      );
+      return display.isEmpty ? null : display;
+    }
 
     try {
       final currentPlace =
@@ -111,35 +235,10 @@ class AttractionsController extends ChangeNotifier {
         return city;
       }
     } catch (_) {
-      // Location access is optional; the saved search is the fallback.
+      // Location access is optional; the screen keeps its existing empty state.
     }
 
     if (generation != _requestGeneration) return null;
-    String lastCity = '';
-    String lastCountry = '';
-    String lastDisplay = '';
-    try {
-      final preferences = await _loadPreferences();
-      lastCity = preferences.getString(_lastCityKey) ?? '';
-      lastCountry = preferences.getString(_lastCountryKey) ?? '';
-      lastDisplay = preferences.getString(_lastDisplayKey) ?? '';
-    } catch (_) {
-      // Preferences are optional; without them the screen remains empty.
-    }
-
-    if (generation != _requestGeneration) return null;
-    if (lastCity.trim().isNotEmpty || lastCountry.trim().isNotEmpty) {
-      final display =
-          lastDisplay.trim().isNotEmpty ? lastDisplay.trim() : lastCity.trim();
-      await load(
-        city: lastCity,
-        country: lastCountry,
-        language: language,
-        displayQuery: display,
-      );
-      return display.isEmpty ? null : display;
-    }
-
     isLoading = false;
     hasError = false;
     cityNotFound = false;
@@ -155,22 +254,57 @@ class AttractionsController extends ChangeNotifier {
     String? country,
     String language = 'en',
     String? displayQuery,
+    double? latitude,
+    double? longitude,
+    double? south,
+    double? west,
+    double? north,
+    double? east,
+    String? placeId,
   }) async {
     final requestGeneration = ++_requestGeneration;
     isLoading = true;
+    isLoadingMore = false;
     hasError = false;
     cityNotFound = false;
     hasSearched = true;
     searchQuery = displayQuery ?? city?.trim() ?? '';
+    warnings = [];
+    _offset = 0;
+    hasMore = false;
+    _lastCity = city ?? '';
+    _lastCountry = country ?? '';
+    _lastDisplay = displayQuery ?? city ?? '';
+    _lastLanguage = language;
+    _lastLatitude = latitude;
+    _lastLongitude = longitude;
+    _lastSouth = south;
+    _lastWest = west;
+    _lastNorth = north;
+    _lastEast = east;
+    _lastPlaceId = placeId;
     notifyListeners();
     try {
-      final found = await _searchAttractions(
+      final page = await _searchPage(
         city: city ?? '',
+        category: selectedCategory == 'all' ? null : selectedCategory,
         country: country,
         language: language,
+        latitude: latitude,
+        longitude: longitude,
+        south: south,
+        west: west,
+        north: north,
+        east: east,
+        placeId: placeId,
+        limit: _pageSize,
+        offset: 0,
       );
       if (requestGeneration != _requestGeneration) return;
-      _all = found.where(isMonument).toList();
+      _all = page.attractions.where(isMonument).toList();
+      _offset = page.attractions.length;
+      hasMore = _supportsPaging && page.hasMore;
+      warnings = page.warnings;
       _persistLastSearch(
         city: city ?? '',
         country: country ?? '',
@@ -180,14 +314,54 @@ class AttractionsController extends ChangeNotifier {
       if (requestGeneration != _requestGeneration) return;
       _all = [];
       cityNotFound = true;
+      hasMore = false;
     } catch (_) {
       if (requestGeneration != _requestGeneration) return;
       _all = [];
       hasError = true;
+      hasMore = false;
     }
     if (requestGeneration != _requestGeneration) return;
     _applyCategory();
     isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> loadMore() async {
+    if (!_supportsPaging || !hasMore || isLoading || isLoadingMore) return;
+    final generation = _requestGeneration;
+    isLoadingMore = true;
+    notifyListeners();
+    try {
+      final page = await _searchPage(
+        city: _lastCity,
+        category: selectedCategory == 'all' ? null : selectedCategory,
+        country: _lastCountry,
+        language: _lastLanguage,
+        latitude: _lastLatitude,
+        longitude: _lastLongitude,
+        south: _lastSouth,
+        west: _lastWest,
+        north: _lastNorth,
+        east: _lastEast,
+        placeId: _lastPlaceId,
+        limit: _pageSize,
+        offset: _offset,
+      );
+      if (generation != _requestGeneration) return;
+      final existingIds = _all.map((item) => item.id).toSet();
+      _all.addAll(page.attractions.where(
+        (item) => isMonument(item) && existingIds.add(item.id),
+      ));
+      _offset += page.attractions.length;
+      hasMore = page.hasMore;
+      warnings = {...warnings, ...page.warnings}.toList();
+      _applyCategory();
+    } catch (_) {
+      // Keep the visible results and allow a later scroll to retry the page.
+    }
+    if (generation != _requestGeneration) return;
+    isLoadingMore = false;
     notifyListeners();
   }
 
@@ -228,6 +402,13 @@ class AttractionsController extends ChangeNotifier {
       country: country,
       language: language,
       displayQuery: suggestion.label,
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+      south: suggestion.south,
+      west: suggestion.west,
+      north: suggestion.north,
+      east: suggestion.east,
+      placeId: suggestion.placeId,
     );
   }
 
@@ -258,8 +439,25 @@ class AttractionsController extends ChangeNotifier {
 
   void setCategory(String category) {
     if (!categories.contains(category)) return;
+    if (selectedCategory == category) return;
     selectedCategory = category;
     _applyCategory();
+    if (_supportsPaging && hasSearched) {
+      unawaited(load(
+        city: _lastCity,
+        country: _lastCountry,
+        language: _lastLanguage,
+        displayQuery: _lastDisplay,
+        latitude: _lastLatitude,
+        longitude: _lastLongitude,
+        south: _lastSouth,
+        west: _lastWest,
+        north: _lastNorth,
+        east: _lastEast,
+        placeId: _lastPlaceId,
+      ));
+      return;
+    }
     notifyListeners();
   }
 
@@ -284,6 +482,10 @@ class AttractionsController extends ChangeNotifier {
         await preferences.setString(_lastCityKey, city.trim());
         await preferences.setString(_lastCountryKey, country.trim());
         await preferences.setString(_lastDisplayKey, display.trim());
+        await preferences.setString(
+          _lastSearchAtKey,
+          DateTime.now().toUtc().toIso8601String(),
+        );
       } catch (_) {
         // The screen remains functional if local persistence is unavailable.
       }

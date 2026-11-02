@@ -40,6 +40,8 @@ public class GeoapifyAttractionService {
     private static final int PROVIDER_PAGE_SIZE = 250;
     private static final int MAX_PROVIDER_PAGES = 4;
     private static final int MAX_CACHED_RESULTS = 1000;
+    private static final int MAX_ENTITY_ENRICHMENTS = 100;
+    private static final int ENTITY_BATCH_SIZE = 30;
     private static final Executor PROVIDER_EXECUTOR =
             task -> Thread.ofVirtual().start(task);
     private static final Pattern WIKIDATA_QID = Pattern.compile("\\bQ[1-9][0-9]*\\b");
@@ -57,6 +59,7 @@ public class GeoapifyAttractionService {
             "Q46169",   // national park
             "Q9259",    // UNESCO World Heritage Site
             "Q35112127", // historic building
+            "Q16560",   // palace
             "Q23413",   // castle
             "Q1785071", // fort
             "Q570116",  // tourist attraction
@@ -122,10 +125,48 @@ public class GeoapifyAttractionService {
     private static RestClient.Builder wikidataBuilder() {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(3));
-        requestFactory.setReadTimeout(Duration.ofSeconds(5));
+        requestFactory.setReadTimeout(Duration.ofSeconds(8));
         return RestClient.builder()
                 .baseUrl("https://query.wikidata.org")
                 .requestFactory(requestFactory);
+    }
+
+    private static boolean hasValidCoordinates(Double latitude, Double longitude) {
+        return latitude != null && longitude != null
+                && validCoordinates(latitude, longitude);
+    }
+
+    private static GeoPoint explicitGeoPoint(
+            double latitude,
+            double longitude,
+            Double south,
+            Double west,
+            Double north,
+            Double east,
+            String city,
+            String country) {
+        Bounds area = null;
+        if (south != null && west != null && north != null && east != null
+                && validCoordinates(south, west) && validCoordinates(north, east)
+                && south <= north && west <= east) {
+            area = new Bounds(south, north, west, east);
+        }
+        String countryCode = country == null ? null
+                : country.trim().matches("(?i)^[a-z]{2}$")
+                        ? country.trim().toLowerCase(Locale.ROOT)
+                        : COUNTRY_CODES.get(normalizeCountry(country));
+        return new GeoPoint(latitude, longitude, area, city, country, countryCode);
+    }
+
+    private static <T> ProviderResult<T> providerResult(
+            CompletableFuture<ProviderResult<T>> future, T fallback) {
+        try {
+            return future.join();
+        } catch (CompletionException exception) {
+            LOG.warn("Attraction provider task failed without a result");
+            return new ProviderResult<>(
+                    fallback, List.of("A landmark data source is temporarily unavailable."));
+        }
     }
 
     public List<Map<String, Object>> searchAttractions(
@@ -160,10 +201,8 @@ public class GeoapifyAttractionService {
                 : nonBlank(requestedCountry, "").trim();
         String language = "ar".equalsIgnoreCase(requestedLanguage) ? "ar" : "en";
         String category = nonBlank(requestedCategory, "").trim().toLowerCase(Locale.ROOT);
-        if (!apiKey.isBlank() && !hasValidCoordinates(requestedLatitude, requestedLongitude)) {
-            // City-only lookups require Geoapify to resolve a provider-backed boundary.
-        } else if (apiKey.isBlank() && !hasValidCoordinates(
-                requestedLatitude, requestedLongitude)) {
+        if (apiKey.isBlank()
+                && !hasValidCoordinates(requestedLatitude, requestedLongitude)) {
             return new SearchOutcome(
                     List.of(), null, Map.of(), 0,
                     List.of("Geoapify geocoding is unavailable because its key is not configured."),
@@ -201,7 +240,6 @@ public class GeoapifyAttractionService {
             }
 
             List<PlaceBatch> batches = new ArrayList<>();
-            List<Map<?, ?>> allFeatures = new ArrayList<>();
             boolean cityGeocoded = false;
             List<String> warnings = new ArrayList<>();
             for (String searchCity : searchCities) {
@@ -224,12 +262,22 @@ public class GeoapifyAttractionService {
                             providerResult(placesFuture, List.of());
                     ProviderResult<Map<String, PlaceEnrichment>> wikidataResult =
                             providerResult(wikidataFuture, Map.of());
-                    allFeatures.addAll(placesResult.value());
                     warnings.addAll(placesResult.warnings());
                     warnings.addAll(wikidataResult.warnings());
+                    Map<String, PlaceEnrichment> enrichmentMap =
+                            new LinkedHashMap<>(wikidataResult.value());
+                    if (!wikidataResult.warnings().isEmpty()) {
+                        ProviderResult<Map<String, PlaceEnrichment>> entityFallback =
+                                fetchWikidataEntityFallback(placesResult.value());
+                        entityFallback.value().forEach((qid, enrichment) ->
+                                enrichmentMap.merge(
+                                        qid, enrichment,
+                                        GeoapifyAttractionService::mergeEnrichment));
+                        warnings.addAll(entityFallback.warnings());
+                    }
 
                     NormalizationResult geoNormalized = normalize(
-                            placesResult.value(), wikidataResult.value(), searchCity,
+                            placesResult.value(), enrichmentMap, searchCity,
                             center.countryLabel(), language, center, "geoapify");
                     NormalizationResult wikidataNormalized = normalizeWikidata(
                             wikidataResult.value(), searchCity, center.countryLabel(),
@@ -243,7 +291,8 @@ public class GeoapifyAttractionService {
                     List<Map<String, Object>> merged = mergeProviders(
                             geoNormalized.places(), wikidataNormalized.places(), dropped, rejected);
                     batches.add(new PlaceBatch(
-                            searchCity, country, center, merged, dropped, rejected));
+                            searchCity, country, center, merged, dropped, rejected,
+                            placesResult.value().size() + wikidataResult.value().size()));
                 } catch (RestClientException exception) {
                     String reason = classifyProviderFailure(exception);
                     warnings.add("Geoapify destination lookup unavailable.");
@@ -256,9 +305,7 @@ public class GeoapifyAttractionService {
             List<RejectedItem> droppedItems = new ArrayList<>();
             int candidateCount = 0;
             for (PlaceBatch batch : batches) {
-                candidateCount += batch.features().size() + batch.droppedItems().size()
-                        + batch.droppedByReason().values().stream()
-                                .mapToInt(Integer::intValue).sum();
+                candidateCount += batch.candidateCount();
                 mergeDropCounts(droppedByReason, batch.droppedByReason());
                 droppedItems.addAll(batch.droppedItems());
                 for (Map<String, Object> place : batch.features()) {
@@ -609,6 +656,108 @@ public class GeoapifyAttractionService {
         return new ProviderResult<>(Map.copyOf(items), warnings);
     }
 
+    private ProviderResult<Map<String, PlaceEnrichment>> fetchWikidataEntityFallback(
+            List<Map<?, ?>> features) {
+        Set<String> qids = new LinkedHashSet<>();
+        for (Map<?, ?> feature : features) {
+            String qid = wikidataQid(properties(feature));
+            if (qid != null) qids.add(qid);
+            if (qids.size() >= MAX_ENTITY_ENRICHMENTS) break;
+        }
+        if (qids.isEmpty()) return new ProviderResult<>(Map.of(), List.of());
+
+        List<String> ids = List.copyOf(qids);
+        Map<String, PlaceEnrichment> enrichments = new LinkedHashMap<>();
+        List<String> warnings = new ArrayList<>();
+        for (int start = 0; start < ids.size(); start += ENTITY_BATCH_SIZE) {
+            List<String> batch = ids.subList(
+                    start, Math.min(ids.size(), start + ENTITY_BATCH_SIZE));
+            String requestUrl = "https://www.wikidata.org/w/api.php"
+                    + "?action=wbgetentities&ids="
+                    + URLEncoder.encode(String.join("|", batch), StandardCharsets.UTF_8)
+                    + "&props=labels%7Cdescriptions%7Csitelinks%7Cclaims"
+                    + "&languages=en%7Car&format=json";
+            try {
+                Map<?, ?> response = wikidata.get()
+                        .uri(URI.create(requestUrl))
+                        .header("Accept", "application/json")
+                        .retrieve()
+                        .body(Map.class);
+                Map<?, ?> entities = map(map(response).get("entities"));
+                for (String qid : batch) {
+                    Map<?, ?> entity = map(entities.get(qid));
+                    if (entity.isEmpty()) continue;
+                    Map<?, ?> sitelinks = map(entity.get("sitelinks"));
+                    String enTitle = text(map(sitelinks.get("enwiki")).get("title"));
+                    String arTitle = text(map(sitelinks.get("arwiki")).get("title"));
+                    String type = entityVerifiedLandmarkType(entity);
+                    PlaceEnrichment enrichment = new PlaceEnrichment(
+                            type,
+                            0,
+                            0,
+                            entityLocalizedText(entity, "labels", "en"),
+                            entityLocalizedText(entity, "labels", "ar"),
+                            entityLocalizedText(entity, "descriptions", "en"),
+                            entityLocalizedText(entity, "descriptions", "ar"),
+                            enTitle == null ? null : wikiUrl("en:" + enTitle),
+                            arTitle == null ? null : wikiUrl("ar:" + arTitle),
+                            entityImageUrl(entity),
+                            null,
+                            null,
+                            sitelinks.size());
+                    enrichments.put(qid, enrichment);
+                }
+            } catch (RestClientException | IllegalArgumentException exception) {
+                LOG.warn("Wikidata entity fallback unavailable for a batch");
+                warnings.add("Wikidata details could not be loaded for some landmarks.");
+            }
+        }
+        return new ProviderResult<>(Map.copyOf(enrichments), warnings);
+    }
+
+    private static String entityLocalizedText(
+            Map<?, ?> entity, String property, String language) {
+        return text(map(map(entity.get(property)).get(language)).get("value"));
+    }
+
+    private static String entityClaimString(Map<?, ?> entity, String property) {
+        for (Object statementValue : list(map(entity.get("claims")).get(property))) {
+            Map<?, ?> statement = map(statementValue);
+            Map<?, ?> mainsnak = map(statement.get("mainsnak"));
+            Map<?, ?> dataValue = map(mainsnak.get("datavalue"));
+            Object value = dataValue.get("value");
+            if (value instanceof Map<?, ?> valueMap) {
+                String id = text(valueMap.get("id"));
+                if (id != null) return id;
+            } else {
+                String textValue = text(value);
+                if (textValue != null) return textValue;
+            }
+        }
+        return null;
+    }
+
+    private static String entityVerifiedLandmarkType(Map<?, ?> entity) {
+        for (Object statementValue : list(map(entity.get("claims")).get("P31"))) {
+            Map<?, ?> statement = map(statementValue);
+            Map<?, ?> mainsnak = map(statement.get("mainsnak"));
+            Map<?, ?> dataValue = map(mainsnak.get("datavalue"));
+            String type = text(map(dataValue.get("value")).get("id"));
+            if (type != null && VERIFIED_LANDMARK_TYPES.contains(type)) return type;
+        }
+        return null;
+    }
+
+    private static String entityImageUrl(Map<?, ?> entity) {
+        String image = entityClaimString(entity, "P18");
+        if (image == null || image.startsWith("http://") || image.startsWith("https://")) {
+            return image;
+        }
+        String fileName = image.startsWith("File:") ? image.substring("File:".length()) : image;
+        return "https://commons.wikimedia.org/wiki/Special:FilePath/"
+                + URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
     private static String wikidataAreaQuery(
             GeoPoint center, String language, int offset) {
         String areaConstraint;
@@ -640,9 +789,18 @@ public class GeoapifyAttractionService {
                 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
                 PREFIX schema: <http://schema.org/>
                 PREFIX wikibase: <http://wikiba.se/ontology#>
-                SELECT ?item ?landmarkType ?coordinates ?labelEn ?labelAr
-                       ?descriptionEn ?descriptionAr ?enwiki ?arwiki ?image
-                       ?enWikiImage ?arWikiImage ?sitelinks
+                SELECT ?item ?sitelinks
+                       (SAMPLE(?landmarkType) AS ?landmarkType)
+                       (SAMPLE(?coordinates) AS ?coordinates)
+                       (SAMPLE(?labelEn) AS ?labelEn)
+                       (SAMPLE(?labelAr) AS ?labelAr)
+                       (SAMPLE(?descriptionEn) AS ?descriptionEn)
+                       (SAMPLE(?descriptionAr) AS ?descriptionAr)
+                       (SAMPLE(?enwiki) AS ?enwiki)
+                       (SAMPLE(?arwiki) AS ?arwiki)
+                       (SAMPLE(?image) AS ?image)
+                       (SAMPLE(?enWikiImage) AS ?enWikiImage)
+                       (SAMPLE(?arWikiImage) AS ?arWikiImage)
                 WHERE {
                   %s
                   VALUES ?landmarkType { %s }
@@ -663,6 +821,7 @@ public class GeoapifyAttractionService {
                   OPTIONAL { ?arwiki schema:image ?arWikiImage . }
                   FILTER(BOUND(%s))
                 }
+                GROUP BY ?item ?sitelinks
                 ORDER BY DESC(?sitelinks)
                 LIMIT %d OFFSET %d
                 """.formatted(
@@ -753,7 +912,8 @@ public class GeoapifyAttractionService {
                         value(binding, "arwiki"),
                         value(binding, "image"),
                         value(binding, "enWikiImage"),
-                        value(binding, "arWikiImage"));
+                        value(binding, "arWikiImage"),
+                        integerValue(value(binding, "sitelinks")));
                 enrichments.merge(qid, candidate, GeoapifyAttractionService::mergeEnrichment);
             }
             return enrichments;
@@ -772,30 +932,17 @@ public class GeoapifyAttractionService {
             String requestedCity,
             String requestedCountry,
             String language,
-            GeoPoint center) {
+            GeoPoint center,
+            String source) {
         List<Map<String, Object>> places = new ArrayList<>();
         Map<String, Integer> droppedByReason = new LinkedHashMap<>();
+        List<RejectedItem> droppedItems = new ArrayList<>();
         for (Map<?, ?> feature : features) {
             Map<?, ?> properties = properties(feature);
             String qid = wikidataQid(properties);
             PlaceEnrichment enrichment = qid == null ? null : enrichments.get(qid);
             List<String> categories = strings(properties.get("categories"));
-            if (!isAllowedLandmarkCategory(categories)) {
-                addCount(droppedByReason, categories.isEmpty()
-                        ? "missing_or_unclassified_category"
-                        : "category_not_in_landmark_allowlist", 1);
-                continue;
-            }
             Map<?, ?> raw = map(map(properties.get("datasource")).get("raw"));
-            if (qid == null) {
-                addCount(droppedByReason, "missing_wikidata_id", 1);
-                continue;
-            }
-            if (enrichment == null) {
-                addCount(droppedByReason, "wikidata_type_or_coordinates_unverified", 1);
-                continue;
-            }
-
             Double latitude = number(properties.get("lat"));
             Double longitude = number(properties.get("lon"));
             if (latitude == null || longitude == null) {
@@ -805,40 +952,59 @@ public class GeoapifyAttractionService {
                     latitude = number(coordinates.get(1));
                 }
             }
-            if (latitude == null || longitude == null
-                    || !validCoordinates(latitude, longitude)
-                    || !withinSearchArea(latitude, longitude, center)
-                    || !withinSearchArea(
-                            enrichment.latitude(), enrichment.longitude(), center)) {
-                addCount(droppedByReason, "invalid_or_out_of_city_coordinates", 1);
-                continue;
-            }
-
-            String featureCountryCode = text(properties.get("country_code"));
-            if (center.countryCode() != null && featureCountryCode != null
-                    && !center.countryCode().equalsIgnoreCase(featureCountryCode)) {
-                addCount(droppedByReason, "outside_selected_country", 1);
-                continue;
-            }
-            String featureCountry = text(properties.get("country"));
-            if (center.countryCode() == null && featureCountry != null
-                    && requestedCountry != null
-                    && !sameCountry(featureCountry, requestedCountry)) {
-                addCount(droppedByReason, "outside_selected_country", 1);
-                continue;
-            }
-
             String nameEn = firstNonBlank(
-                    enrichment.labelEn(),
+                    enrichment == null ? null : enrichment.labelEn(),
                     englishText(properties.get("name")),
                     englishText(raw.get("name")));
             String nameAr = firstNonBlank(
-                    arabicText(enrichment.labelAr()),
+                    enrichment == null ? null : arabicText(enrichment.labelAr()),
                     arabicText(raw.get("name:ar")),
                     arabicText(properties.get("name")));
             String name = "ar".equals(language) ? nameAr : nameEn;
+            String identityName = firstNonBlank(
+                    name, nameEn, nameAr, text(properties.get("name")),
+                    text(raw.get("name")));
+            String wiki = firstNonBlank(
+                    text(properties.get("wikipedia")), text(raw.get("wikipedia")));
+            String commons = firstNonBlank(
+                    text(properties.get("wikimedia_commons")),
+                    text(raw.get("wikimedia_commons")),
+                    text(properties.get("image")), text(raw.get("image")));
+            String featureCountryCode = text(properties.get("country_code"));
+            String featureCountry = text(properties.get("country"));
+            boolean countryMatches = center.countryCode() == null
+                    || featureCountryCode == null
+                    || center.countryCode().equalsIgnoreCase(featureCountryCode);
+            if (center.countryCode() == null && featureCountry != null
+                    && requestedCountry != null && !requestedCountry.isBlank()) {
+                countryMatches = sameCountry(featureCountry, requestedCountry);
+            }
+            boolean within = latitude != null && longitude != null
+                    && validCoordinates(latitude, longitude)
+                    && withinSearchArea(latitude, longitude, center)
+                    && countryMatches
+                    && (enrichment == null || "geoapify".equals(source) || withinSearchArea(
+                            enrichment.latitude(), enrichment.longitude(), center));
+            LandmarkValidation validation = isRealLandmark(
+                    identityName, categories, raw, qid,
+                    enrichment != null && enrichment.landmarkType() != null
+                            && VERIFIED_LANDMARK_TYPES.contains(enrichment.landmarkType()),
+                    wiki, commons,
+                    hasOsmLandmarkIdentity(raw), within);
+            if (!validation.accepted()) {
+                addCount(droppedByReason, validation.reason(), 1);
+                droppedItems.add(new RejectedItem(
+                        nonBlank(identityName, ""), nonBlank(qid, ""),
+                        nonBlank(normalizeCategory(categories, null, raw), ""),
+                        nonBlank(source, "geoapify"), validation.reason()));
+                continue;
+            }
             if (name == null) {
-                addCount(droppedByReason, "missing_requested_language_label", 1);
+                addCount(droppedByReason, "no_identity", 1);
+                droppedItems.add(new RejectedItem(
+                        nonBlank(identityName, ""), nonBlank(qid, ""),
+                        nonBlank(normalizeCategory(categories, null, raw), ""),
+                        nonBlank(source, "geoapify"), "no_identity"));
                 continue;
             }
 
@@ -855,15 +1021,25 @@ public class GeoapifyAttractionService {
                     localizedText(center.countryLabel(), language),
                     localizedText(requestedCountry, language),
                     "");
-            String category = normalizeCategory(categories);
+            String category = normalizeCategory(
+                    categories, enrichment == null ? null : enrichment.landmarkType(), raw);
             String imageUrl = commonsImageUrl(firstNonBlank(
-                    enrichment.imageUrl(),
-                    "ar".equals(language)
+                    enrichment == null ? null : enrichment.imageUrl(),
+                    enrichment == null ? null : "ar".equals(language)
                             ? enrichment.arWikiImage() : enrichment.enWikiImage(),
-                    enrichment.enWikiImage(),
-                    enrichment.arWikiImage()));
-            String wikipediaUrl = "ar".equals(language)
+                    enrichment == null ? null : enrichment.enWikiImage(),
+                    enrichment == null ? null : enrichment.arWikiImage(),
+                    commons));
+            if (imageUrl == null) {
+                addCount(droppedByReason, "image_missing", 1);
+                droppedItems.add(new RejectedItem(
+                        nonBlank(identityName, ""), nonBlank(qid, ""), category,
+                        nonBlank(source, "geoapify"), "image_missing"));
+                continue;
+            }
+            String wikipediaUrl = enrichment == null ? null : "ar".equals(language)
                     ? enrichment.arwiki() : enrichment.enwiki();
+            if (wikipediaUrl == null) wikipediaUrl = wikiUrl(wiki);
 
             String placeId = firstNonBlank(
                     text(properties.get("place_id")),
@@ -879,14 +1055,16 @@ public class GeoapifyAttractionService {
             place.put("country", country);
             place.put("location", locationLabel(city, country));
             place.put("category", category);
-            place.put("highlight_category", highlightCategory(categories));
+            place.put("highlight_category", highlightCategory(categories, category));
             place.put("category_tag", category);
-            place.put("source_attribution", "ar".equals(language)
-                    ? "Geoapify · مساهمو OpenStreetMap"
-                    : "Geoapify · © OpenStreetMap contributors");
+            place.put("source_attribution", enrichment != null
+                    ? "Geoapify · OpenStreetMap · Wikidata"
+                    : "ar".equals(language)
+                            ? "Geoapify · مساهمو OpenStreetMap"
+                            : "Geoapify · © OpenStreetMap contributors");
             place.put("description", "ar".equals(language)
-                    ? firstNonBlank(enrichment.descriptionAr(), "")
-                    : firstNonBlank(enrichment.descriptionEn(), ""));
+                    ? enrichment == null ? "" : firstNonBlank(enrichment.descriptionAr(), "")
+                    : enrichment == null ? "" : firstNonBlank(enrichment.descriptionEn(), ""));
             place.put("rating", 0);
             place.put("review_count", 0);
             place.put("visit_count", 0);
@@ -906,16 +1084,335 @@ public class GeoapifyAttractionService {
                     : distanceBetween(
                             latitude, longitude, center.latitude(), center.longitude()));
             place.put("tags", List.of(category));
-            place.put("source_provider", "geoapify");
+            place.put("source_provider", enrichment == null ? source : source + "+wikidata");
             place.put("wikidata_id", qid);
             place.put("wikipedia_url", wikipediaUrl);
+            place.put("sitelinks_count", enrichment == null ? 0 : enrichment.sitelinks());
             places.add(place);
         }
+        return new NormalizationResult(
+                List.copyOf(places), Map.copyOf(droppedByReason), List.copyOf(droppedItems));
+    }
 
-        places.sort((left, right) -> Double.compare(
-                distanceValue(left.get("distance_km")),
-                distanceValue(right.get("distance_km"))));
-        return new NormalizationResult(List.copyOf(places), Map.copyOf(droppedByReason));
+    private NormalizationResult normalizeWikidata(
+            Map<String, PlaceEnrichment> items,
+            String requestedCity,
+            String requestedCountry,
+            String language,
+            GeoPoint center) {
+        List<Map<String, Object>> places = new ArrayList<>();
+        Map<String, Integer> droppedByReason = new LinkedHashMap<>();
+        List<RejectedItem> droppedItems = new ArrayList<>();
+        for (Map.Entry<String, PlaceEnrichment> entry : items.entrySet()) {
+            String qid = entry.getKey();
+            PlaceEnrichment enrichment = entry.getValue();
+            String nameEn = englishText(enrichment.labelEn());
+            String nameAr = arabicText(enrichment.labelAr());
+            String name = "ar".equals(language) ? nameAr : nameEn;
+            List<String> categories = categoryForType(enrichment.landmarkType());
+            boolean within = withinSearchArea(
+                    enrichment.latitude(), enrichment.longitude(), center);
+            LandmarkValidation validation = isRealLandmark(
+                    name, categories, Map.of(), qid,
+                    VERIFIED_LANDMARK_TYPES.contains(enrichment.landmarkType()),
+                    enrichment.enwiki(), enrichment.imageUrl(), false, within);
+            if (!validation.accepted()) {
+                addCount(droppedByReason, validation.reason(), 1);
+                droppedItems.add(new RejectedItem(
+                        nonBlank(name, ""), qid,
+                        normalizeCategory(categories, enrichment.landmarkType()),
+                        "wikidata", validation.reason()));
+                continue;
+            }
+            if (name == null) continue;
+
+            String city = nonBlank(localizedText(center.cityLabel(), language),
+                    nonBlank(localizedText(requestedCity, language), ""));
+            String country = nonBlank(localizedText(center.countryLabel(), language),
+                    nonBlank(localizedText(requestedCountry, language), ""));
+            String category = normalizeCategory(categories, enrichment.landmarkType());
+            String imageUrl = commonsImageUrl(firstNonBlank(
+                    enrichment.imageUrl(),
+                    "ar".equals(language) ? enrichment.arWikiImage() : enrichment.enWikiImage(),
+                    enrichment.enWikiImage(),
+                    enrichment.arWikiImage()));
+            if (imageUrl == null) {
+                addCount(droppedByReason, "image_missing", 1);
+                droppedItems.add(new RejectedItem(
+                        nonBlank(name, ""), qid, category, "wikidata", "image_missing"));
+                continue;
+            }
+            String wikipediaUrl = "ar".equals(language)
+                    ? firstNonBlank(enrichment.arwiki(), enrichment.enwiki())
+                    : firstNonBlank(enrichment.enwiki(), enrichment.arwiki());
+            double distance = distanceBetween(
+                    enrichment.latitude(), enrichment.longitude(),
+                    center.latitude(), center.longitude());
+            Map<String, Object> place = new LinkedHashMap<>();
+            place.put("id", "wikidata:" + qid);
+            place.put("name", name);
+            place.put("name_en", nonBlank(nameEn, ""));
+            place.put("name_ar", nonBlank(nameAr, ""));
+            place.put("city", city);
+            place.put("country", country);
+            place.put("location", locationLabel(city, country));
+            place.put("category", category);
+            place.put("highlight_category", highlightCategory(categories));
+            place.put("category_tag", category);
+            place.put("source_attribution", "Wikidata · Wikimedia Commons");
+            place.put("description", "ar".equals(language)
+                    ? nonBlank(enrichment.descriptionAr(), "")
+                    : nonBlank(enrichment.descriptionEn(), ""));
+            place.put("rating", 0);
+            place.put("review_count", 0);
+            place.put("visit_count", 0);
+            place.put("country_visit_count", 0);
+            place.put("entry_fee", null);
+            place.put("image_url", imageUrl);
+            place.put("image_source", imageUrl == null ? null : "Wikimedia Commons");
+            place.put("opening_hours", null);
+            place.put("best_time_to_visit", null);
+            place.put("latitude", enrichment.latitude());
+            place.put("longitude", enrichment.longitude());
+            place.put("distance_km", distance);
+            place.put("tags", List.of(category));
+            place.put("source_provider", "wikidata");
+            place.put("wikidata_id", qid);
+            place.put("wikipedia_url", wikipediaUrl);
+            place.put("sitelinks_count", enrichment.sitelinks());
+            places.add(place);
+        }
+        return new NormalizationResult(
+                List.copyOf(places), Map.copyOf(droppedByReason), List.copyOf(droppedItems));
+    }
+
+    static LandmarkValidation isRealLandmark(
+            String name,
+            List<String> categories,
+            Map<?, ?> raw,
+            String wikidataId,
+            boolean verifiedWikidataType,
+            String wikipedia,
+            String commonsImage,
+            boolean osmIdentity,
+            boolean insideDestination) {
+        boolean trustedLandmark = verifiedWikidataType
+                || extractQid(wikidataId) != null
+                || text(wikipedia) != null
+                || text(raw.get("historic")) != null
+                || text(raw.get("heritage")) != null;
+        if (isBusinessLike(name, categories, raw, trustedLandmark)) {
+            return new LandmarkValidation(false, "business");
+        }
+        boolean allowedType = isAllowedLandmarkCategory(categories)
+                || verifiedWikidataType
+                || text(raw.get("historic")) != null
+                || text(raw.get("heritage")) != null;
+        if (!allowedType) return new LandmarkValidation(false, "type");
+        if (!isProperLandmarkName(name)
+                || (extractQid(wikidataId) == null
+                        && text(wikipedia) == null
+                        && text(commonsImage) == null
+                        && !osmIdentity)) {
+            return new LandmarkValidation(false, "no_identity");
+        }
+        if (!insideDestination) return new LandmarkValidation(false, "location");
+        return new LandmarkValidation(true, "");
+    }
+
+    private static boolean isProperLandmarkName(String name) {
+        String normalized = normalizeName(name);
+        if (normalized.isBlank() || normalized.matches("(?:[a-z]{1,8}\\s*\\d{1,8}|\\d+)")) {
+            return false;
+        }
+        return !Set.of(
+                "park", "building", "museum", "beach", "monument", "attraction",
+                "landmark", "garden", "site", "historic site", "historical site",
+                "nature reserve", "castle", "fort", "lake", "mountain", "cave",
+                "waterfall", "archaeological site").contains(normalized);
+    }
+
+    private static boolean isBusinessLike(
+            String name, List<String> categories, Map<?, ?> raw, boolean trustedLandmark) {
+        String normalizedName = normalizeName(name);
+        if (normalizedName.matches(
+                ".*\\b(antique|antiques|shop|store|restaurant|cafe|hotel|hostel|office|"
+                        + "supermarket|mall|boutique|bank|pharmacy|clinic|hospital)\\b.*")) {
+            return true;
+        }
+        for (String value : categories) {
+            String category = value.toLowerCase(Locale.ROOT);
+            boolean weakBusinessCategory = category.startsWith("commercial")
+                    || category.startsWith("office")
+                    || category.startsWith("building.")
+                    || category.startsWith("service.");
+            if (trustedLandmark && weakBusinessCategory
+                    && !isExplicitBusinessCategory(category)) {
+                continue;
+            }
+            if ((!trustedLandmark && weakBusinessCategory)
+                    || isExplicitBusinessCategory(category)
+                    || category.contains("gas_station")
+                    || category.contains("parking")
+                    || category.contains("residential")
+                    || category.contains("address")
+                    || category.contains("road")
+                    || category.contains("bus_stop")
+                    || category.contains("neighborhood")
+                    || category.contains("district")) {
+                return true;
+            }
+        }
+        if (!trustedLandmark
+                && (text(raw.get("shop")) != null || text(raw.get("office")) != null)) {
+            return true;
+        }
+        String amenity = lowerText(raw.get("amenity"));
+        if (Set.of("restaurant", "cafe", "marketplace", "bank", "atm", "pharmacy",
+                "clinic", "hospital", "school", "university", "fuel", "parking",
+                "bus_station", "bar", "pub", "nightclub", "gym").contains(amenity)) {
+            return true;
+        }
+        String tourism = lowerText(raw.get("tourism"));
+        if (Set.of("hotel", "hostel", "motel", "guest_house", "apartment").contains(tourism)) {
+            return true;
+        }
+        String building = lowerText(raw.get("building"));
+        if (trustedLandmark) return false;
+        return Set.of("residential", "apartments", "house", "detached")
+                .contains(building) || (!trustedLandmark && "commercial".equals(building));
+    }
+
+    private static boolean isExplicitBusinessCategory(String category) {
+        return category.startsWith("catering")
+                || category.startsWith("shop")
+                || category.startsWith("accommodation")
+                || category.startsWith("healthcare")
+                || category.startsWith("education")
+                || category.startsWith("transport.parking")
+                || category.contains("restaurant")
+                || category.contains("cafe")
+                || category.contains("market")
+                || category.contains("mall")
+                || category.contains("supermarket")
+                || category.contains("hotel")
+                || category.contains("hostel")
+                || category.contains("bank")
+                || category.contains("pharmacy")
+                || category.contains("clinic")
+                || category.contains("hospital")
+                || category.contains("school")
+                || category.contains("gym")
+                || category.contains("salon");
+    }
+
+    private static boolean hasOsmLandmarkIdentity(Map<?, ?> raw) {
+        if (text(raw.get("wikipedia")) != null
+                || text(raw.get("wikimedia_commons")) != null
+                || text(raw.get("image")) != null) return true;
+        if (text(raw.get("heritage")) != null
+                && !"no".equalsIgnoreCase(text(raw.get("heritage")))) return true;
+        String tourism = lowerText(raw.get("tourism"));
+        if ("museum".equals(tourism)) return true;
+        String leisure = lowerText(raw.get("leisure"));
+        if (Set.of("park", "garden", "nature_reserve").contains(leisure)) return true;
+        return text(raw.get("natural")) != null || text(raw.get("historic")) != null;
+    }
+
+    private static Map<String, Object> findDuplicate(
+            Iterable<Map<String, Object>> existing, Map<String, Object> candidate) {
+        String candidateQid = text(candidate.get("wikidata_id"));
+        String candidateName = normalizeName(text(candidate.get("name")));
+        Double candidateLat = number(candidate.get("latitude"));
+        Double candidateLon = number(candidate.get("longitude"));
+        for (Map<String, Object> item : existing) {
+            String existingQid = text(item.get("wikidata_id"));
+            if (candidateQid != null && candidateQid.equals(existingQid)) return item;
+            if (candidateName.isBlank()
+                    || !candidateName.equals(normalizeName(text(item.get("name"))))) continue;
+            Double existingLat = number(item.get("latitude"));
+            Double existingLon = number(item.get("longitude"));
+            if (candidateLat != null && candidateLon != null
+                    && existingLat != null && existingLon != null
+                    && distanceBetween(candidateLat, candidateLon, existingLat, existingLon) <= 0.1) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private static List<Map<String, Object>> mergeProviders(
+            List<Map<String, Object>> geoapifyPlaces,
+            List<Map<String, Object>> wikidataPlaces,
+            Map<String, Integer> dropCounts,
+            List<RejectedItem> droppedItems) {
+        List<Map<String, Object>> merged = new ArrayList<>();
+        for (Map<String, Object> candidate :
+                Stream.concat(geoapifyPlaces.stream(), wikidataPlaces.stream()).toList()) {
+            Map<String, Object> duplicate = findDuplicate(merged, candidate);
+            if (duplicate == null) {
+                merged.add(candidate);
+                continue;
+            }
+            int existingIndex = merged.indexOf(duplicate);
+            Map<String, Object> combined = mergePlaceMaps(duplicate, candidate);
+            merged.set(existingIndex, combined);
+            addCount(dropCounts, "duplicate", 1);
+            droppedItems.add(rejected(candidate, "duplicate", "merged duplicate"));
+        }
+        return List.copyOf(merged);
+    }
+
+    private static Map<String, Object> mergePlaceMaps(
+            Map<String, Object> preferred, Map<String, Object> other) {
+        Map<String, Object> merged = new LinkedHashMap<>(preferred);
+        for (Map.Entry<String, Object> entry : other.entrySet()) {
+            Object existing = merged.get(entry.getKey());
+            if (existing == null || (existing instanceof String string && string.isBlank())) {
+                if (entry.getValue() != null) merged.put(entry.getKey(), entry.getValue());
+            }
+        }
+        String firstSource = nonBlank(text(preferred.get("source_provider")), "");
+        String nextSource = nonBlank(text(other.get("source_provider")), "");
+        if (!firstSource.equals(nextSource)
+                && firstSource.contains("geoapify") && nextSource.contains("wikidata")
+                || !firstSource.equals(nextSource)
+                        && firstSource.contains("wikidata") && nextSource.contains("geoapify")) {
+            merged.put("source_provider", "geoapify+wikidata");
+            merged.put("source_attribution", "Geoapify · OpenStreetMap · Wikidata");
+        }
+        return merged;
+    }
+
+    private static RejectedItem rejected(
+            Map<String, Object> place, String reason, String source) {
+        return new RejectedItem(
+                nonBlank(text(place.get("name")), ""),
+                nonBlank(text(place.get("wikidata_id")), text(place.get("id"))),
+                nonBlank(text(place.get("category")), ""),
+                source,
+                reason);
+    }
+
+    private static Comparator<Map<String, Object>> notabilityComparator() {
+        return Comparator
+                .comparingInt((Map<String, Object> place) ->
+                        number(place.get("sitelinks_count")) == null ? 0
+                                : number(place.get("sitelinks_count")).intValue())
+                .reversed()
+                .thenComparing((Map<String, Object> place) ->
+                        text(place.get("image_url")) == null ? 0 : 1,
+                        Comparator.reverseOrder())
+                .thenComparingDouble(place -> distanceValue(place.get("distance_km")));
+    }
+
+    private static void mergeDropCounts(
+            Map<String, Integer> target, Map<String, Integer> source) {
+        source.forEach((reason, count) -> addCount(target, reason, count));
+    }
+
+    private static List<String> mergeWarnings(List<String> first, List<String> second) {
+        return Stream.concat(first.stream(), second.stream()).distinct().toList();
     }
 
     private static Bounds bounds(Map<?, ?> value) {
@@ -988,6 +1485,19 @@ public class GeoapifyAttractionService {
                 .replaceAll("\\s+", " ");
     }
 
+    private static String wikiUrl(String wikipedia) {
+        String value = text(wikipedia);
+        if (value == null) return null;
+        if (value.startsWith("https://") || value.startsWith("http://")) return value;
+        int separator = value.indexOf(':');
+        String language = separator > 0 ? value.substring(0, separator) : "en";
+        String article = separator > 0 ? value.substring(separator + 1) : value;
+        if (!language.matches("[a-z]{2,3}") || article.isBlank()) return null;
+        return "https://" + language + ".wikipedia.org/wiki/"
+                + URLEncoder.encode(article.replace(' ', '_'), StandardCharsets.UTF_8)
+                        .replace("+", "%20");
+    }
+
     private static String locationLabel(String city, String country) {
         return Stream.of(city, country)
                 .filter(value -> value != null && !value.isBlank())
@@ -996,46 +1506,113 @@ public class GeoapifyAttractionService {
     }
 
     private static String normalizeCategory(List<String> categories) {
+        return normalizeCategory(categories, null);
+    }
+
+    private static String normalizeCategory(List<String> categories, String landmarkType) {
+        return normalizeCategory(categories, landmarkType, Map.of());
+    }
+
+    private static String normalizeCategory(
+            List<String> categories, String landmarkType, Map<?, ?> raw) {
         String joined = String.join(" ", categories).toLowerCase(Locale.ROOT);
-        if (joined.contains("beach")) return "beach";
-        if (joined.contains("museum")) return "museum";
-        if (joined.contains("park") || joined.contains("garden")) return "park";
+        String type = landmarkType == null ? "" : landmarkType;
+        String historicValue = text(raw.get("historic"));
+        String naturalValue = text(raw.get("natural"));
+        String leisureValue = text(raw.get("leisure"));
+        String tourismValue = text(raw.get("tourism"));
+        String historic = historicValue == null ? "" : historicValue.toLowerCase(Locale.ROOT);
+        String natural = naturalValue == null ? "" : naturalValue.toLowerCase(Locale.ROOT);
+        String leisure = leisureValue == null ? "" : leisureValue.toLowerCase(Locale.ROOT);
+        String tourism = tourismValue == null ? "" : tourismValue.toLowerCase(Locale.ROOT);
+        if (Set.of("Q33506", "Q207694").contains(type)
+                || joined.contains("museum") || "museum".equals(tourism)) return "museum";
+        if (joined.contains("beach") || "beach".equals(natural)) return "beach";
+        if ("Q40080".equals(type)) return "beach";
+        if (Set.of("Q22698", "Q46169", "Q167346").contains(type)
+                || joined.contains("park") || joined.contains("garden")
+                || "park".equals(leisure) || "garden".equals(leisure)) return "park";
+        if (Set.of("Q8502", "Q46831", "Q23397", "Q34038", "Q35509", "Q179049")
+                .contains(type)
+                || joined.contains("natural")
+                || joined.contains("mountain")
+                || joined.contains("waterfall")
+                || joined.contains("cave")
+                || Set.of("mountain", "peak", "waterfall", "cave", "lake", "wood")
+                        .contains(natural)) return "natural";
         if (joined.contains("architecture")
-                || joined.contains("tourism.sights.building")) return "architecture";
+                || joined.contains("tourism.sights.building")
+                || Set.of("Q35112127", "Q16560").contains(type)) return "architecture";
         if (joined.contains("historic") || joined.contains("heritage")
-                || joined.contains("monument") || joined.contains("archaeological")) {
+                || joined.contains("monument") || joined.contains("archaeological")
+                || Set.of("Q4989906", "Q839954", "Q9259", "Q23413", "Q1785071")
+                        .contains(type)
+                || Set.of(
+                        "archaeological_site", "castle", "fort", "memorial",
+                        "monument", "ruins", "city_gate", "wayside_shrine",
+                        "wayside_cross", "building")
+                        .contains(historic)
+                || ("attraction".equals(tourism) && !historic.isEmpty())) {
             return "historical";
         }
         return "landmark";
     }
 
+    private static List<String> categoryForType(String landmarkType) {
+        String type = landmarkType == null ? "" : landmarkType;
+        if (Set.of("Q33506", "Q207694").contains(type)) {
+            return List.of("entertainment.museum");
+        }
+        if (Set.of("Q22698", "Q46169", "Q167346").contains(type)) {
+            return List.of("leisure.park");
+        }
+        if ("Q40080".equals(type)) return List.of("beach");
+        if ("Q16560".equals(type)) return List.of("tourism.sights.building");
+        if (Set.of("Q8502", "Q46831", "Q23397", "Q34038", "Q35509", "Q179049")
+                .contains(type)) {
+            return List.of("tourism.sights.natural");
+        }
+        if ("Q570116".equals(type)) return List.of("tourism.attraction");
+        return List.of("tourism.sights.historic");
+    }
+
     static boolean isAllowedLandmarkCategory(List<String> categories) {
-        String joined = String.join(" ", categories).toLowerCase(Locale.ROOT);
+        if (categories == null || categories.isEmpty()) return false;
         if (categories.stream().map(value -> value.toLowerCase(Locale.ROOT))
-                .anyMatch(category -> category.startsWith("catering.")
-                        || category.startsWith("commercial.")
-                        || category.startsWith("catering")
+                .anyMatch(category -> category.startsWith("catering")
                         || category.startsWith("commercial")
                         || category.startsWith("shop")
                         || category.startsWith("office")
-                        || category.startsWith("accommodation.")
+                        || category.startsWith("accommodation")
+                        || category.startsWith("healthcare")
+                        || category.startsWith("education")
+                        || category.startsWith("service.")
+                        || category.startsWith("transport.parking")
+                        || category.startsWith("building.residential")
+                        || category.startsWith("building.apartment")
+                        || category.startsWith("building.commercial")
                         || category.contains("restaurant")
                         || category.contains("cafe")
                         || category.contains("market")
-                        || category.contains("shopping"))) {
-            return false;
-        }
-        return joined.contains("tourism.sights")
-                || joined.contains("tourism.attraction")
-                || joined.contains("entertainment.museum")
-                || joined.contains("leisure.park")
-                || joined.contains("leisure.park.garden")
-                || joined.contains("tourism.sights.beach")
-                || joined.contains("heritage")
-                || joined.contains("historic")
-                || joined.contains("monument")
-                || joined.contains("archaeological")
-                || joined.contains("beach");
+                        || category.contains("shopping")
+                        || category.contains("hotel")
+                        || category.contains("hostel")
+                        || category.contains("parking"))) return false;
+        return categories.stream().map(value -> value.toLowerCase(Locale.ROOT))
+                .anyMatch(category -> category.startsWith("tourism.sights.")
+                        || category.equals("tourism.attraction")
+                        || category.startsWith("tourism.attraction.")
+                        || category.equals("entertainment.museum")
+                        || category.startsWith("entertainment.museum.")
+                        || category.equals("leisure.park")
+                        || category.startsWith("leisure.park.")
+                        || category.equals("beach")
+                        || category.startsWith("heritage.")
+                        || category.equals("heritage")
+                        || category.startsWith("building.historic")
+                        || category.contains("historic")
+                        || category.contains("monument")
+                        || category.contains("archaeological"));
     }
 
     static String classifyProviderFailure(RestClientException exception) {
@@ -1057,18 +1634,26 @@ public class GeoapifyAttractionService {
     }
 
     private static String highlightCategory(List<String> categories) {
+        return highlightCategory(categories, normalizeCategory(categories));
+    }
+
+    private static String highlightCategory(List<String> categories, String category) {
         String joined = String.join(" ", categories).toLowerCase(Locale.ROOT);
-        if (joined.contains("beach")) {
+        if ("natural".equals(category) || "park".equals(category)
+                || "beach".equals(category) || joined.contains("beach")) {
             return "Nature";
         }
-        if (joined.contains("park")) {
+        if (joined.contains("park") || joined.contains("natural")
+                || joined.contains("mountain") || joined.contains("lake")
+                || joined.contains("waterfall") || joined.contains("cave")) {
             return "Nature";
         }
         if (joined.contains("architecture") || joined.contains("building")
                 || joined.contains("church") || joined.contains("cathedral")) {
             return "Architecture";
         }
-        if (joined.contains("historic") || joined.contains("historical")
+        if ("historical".equals(category)
+                || joined.contains("historic") || joined.contains("historical")
                 || joined.contains("ruin") || joined.contains("memorial")
                 || joined.contains("monument") || joined.contains("archaeological")
                 || joined.contains("heritage")) {
@@ -1174,7 +1759,8 @@ public class GeoapifyAttractionService {
                 firstNonBlank(first.arwiki(), next.arwiki()),
                 firstNonBlank(first.imageUrl(), next.imageUrl()),
                 firstNonBlank(first.enWikiImage(), next.enWikiImage()),
-                firstNonBlank(first.arWikiImage(), next.arWikiImage()));
+                firstNonBlank(first.arWikiImage(), next.arWikiImage()),
+                Math.max(first.sitelinks(), next.sitelinks()));
     }
 
     private static boolean sameCountry(String first, String second) {
@@ -1241,6 +1827,15 @@ public class GeoapifyAttractionService {
         return null;
     }
 
+    private static int integerValue(String value) {
+        if (value == null) return 0;
+        try {
+            return Math.max(0, Integer.parseInt(value));
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
     private static double distanceValue(Object value) {
         Double number = number(value);
         return number == null ? Double.MAX_VALUE : number;
@@ -1250,6 +1845,11 @@ public class GeoapifyAttractionService {
         if (value == null) return null;
         String result = value.toString().trim();
         return result.isEmpty() ? null : result;
+    }
+
+    private static String lowerText(Object value) {
+        String valueText = text(value);
+        return valueText == null ? "" : valueText.toLowerCase(Locale.ROOT);
     }
 
     private static String nonBlank(String value, String fallback) {

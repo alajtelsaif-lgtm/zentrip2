@@ -236,22 +236,52 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                               color: AppColors.textSecondary,
                               fontWeight: FontWeight.w600)));
                 }
-                return GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 260,
-                      childAspectRatio: 0.78,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12),
-                  itemCount: _ctrl.results.length,
-                  itemBuilder: (_, i) => _AttrCard(
-                    attraction: _ctrl.results[i],
-                    index: i,
-                    onTap: () => Navigator.pushNamed(
-                        context, AppRoutes.attractionDetail,
-                        arguments: _ctrl.results[i]),
-                  ).animate(delay: Duration(milliseconds: 60 * i)).fade().scale(
-                      begin: const Offset(0.95, 0.95), end: const Offset(1, 1)),
+                return NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification.metrics.extentAfter < 400 &&
+                        _ctrl.hasMore &&
+                        !_ctrl.isLoadingMore) {
+                      unawaited(_ctrl.loadMore());
+                    }
+                    return false;
+                  },
+                  child: GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 260,
+                            childAspectRatio: 0.78,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12),
+                    itemCount:
+                        _ctrl.results.length + (_ctrl.isLoadingMore ? 1 : 0),
+                    itemBuilder: (_, i) {
+                      if (i >= _ctrl.results.length) {
+                        return const Center(
+                          child: SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.accentPurple,
+                            ),
+                          ),
+                        );
+                      }
+                      return _AttrCard(
+                        attraction: _ctrl.results[i],
+                        index: i,
+                        onTap: () => Navigator.pushNamed(
+                            context, AppRoutes.attractionDetail,
+                            arguments: _ctrl.results[i]),
+                      )
+                          .animate(delay: Duration(milliseconds: 60 * i))
+                          .fade()
+                          .scale(
+                              begin: const Offset(0.95, 0.95),
+                              end: const Offset(1, 1));
+                    },
+                  ),
                 );
               },
             ),

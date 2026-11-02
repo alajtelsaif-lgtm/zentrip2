@@ -19,6 +19,8 @@ import '../../models/hotel_model.dart';
 import '../../models/car_model.dart';
 import '../../models/attraction_model.dart';
 import '../../models/attraction_place_suggestion.dart';
+import '../../models/attraction_search_page.dart';
+import '../../models/attraction_recent_destination.dart';
 import '../../models/transfer_model.dart';
 import '../../models/trip_model.dart';
 import '../../models/user_model.dart';
@@ -1636,23 +1638,61 @@ class ApiService {
     String? category,
     String? country,
     String? language,
+  }) async =>
+      (await searchAttractionPage(
+        city: city,
+        category: category,
+        country: country,
+        language: language,
+      ))
+          .attractions;
+
+  Future<AttractionSearchPage> searchAttractionPage({
+    required String city,
+    String? category,
+    String? country,
+    String? language,
+    double? latitude,
+    double? longitude,
+    double? south,
+    double? west,
+    double? north,
+    double? east,
+    String? placeId,
+    int limit = 40,
+    int offset = 0,
   }) async {
     if (useMockMode) {
       await Future.delayed(_mockDelay);
-      final all = MockDataService.attractions()
-          .where(_isLandmarkCategory)
-          .toList();
-      return category == null
+      final all =
+          MockDataService.attractions().where(_isLandmarkCategory).toList();
+      final filtered = category == null || category == 'all'
           ? all
           : all.where((a) => a.category == category).toList();
+      final start = offset.clamp(0, filtered.length);
+      final end = (start + limit).clamp(0, filtered.length);
+      return AttractionSearchPage(
+        attractions: filtered.sublist(start, end),
+        totalCount: filtered.length,
+        hasMore: end < filtered.length,
+      );
     }
     final res = await _dio.get(
       '/attractions/search',
       queryParameters: {
         'city': city,
-        if (category != null) 'category': category,
+        if (category != null && category != 'all') 'category': category,
         if (country != null && country.isNotEmpty) 'country': country,
         if (language != null && language.isNotEmpty) 'lang': language,
+        if (latitude != null) 'lat': latitude,
+        if (longitude != null) 'lon': longitude,
+        if (south != null) 'bbox_south': south,
+        if (west != null) 'bbox_west': west,
+        if (north != null) 'bbox_north': north,
+        if (east != null) 'bbox_east': east,
+        if (placeId != null && placeId.isNotEmpty) 'place_id': placeId,
+        'limit': limit,
+        'offset': offset,
       },
     );
     final data = res.data;
@@ -1662,16 +1702,29 @@ class ApiService {
     if (data is! Map || data['attractions'] is! List) {
       throw const FormatException('Unexpected attractions response');
     }
-    return (data['attractions'] as List)
-        .whereType<Map>()
-        .map((item) => AttractionModel.fromJson(
-            Map<String, dynamic>.from(item)))
-        .where(_isLandmarkCategory)
-        .toList();
+    final page = AttractionSearchPage.fromJson(
+      Map<String, dynamic>.from(data),
+    );
+    return AttractionSearchPage(
+      attractions: page.attractions.where(_isLandmarkCategory).toList(),
+      totalCount: page.totalCount,
+      hasMore: page.hasMore,
+      warnings: page.warnings,
+    );
   }
 
-  bool _isLandmarkCategory(AttractionModel attraction) =>
-      const {
+  Future<AttractionRecentDestination?> recentAttractionDestination() async {
+    if (useMockMode) return null;
+    final response = await _dio.get('/attractions/recent-destination');
+    final data = response.data;
+    if (data is! Map || data['destination'] is! Map) return null;
+    final destination = AttractionRecentDestination.fromJson(
+      Map<String, dynamic>.from(data['destination'] as Map),
+    );
+    return destination.city.isEmpty ? null : destination;
+  }
+
+  bool _isLandmarkCategory(AttractionModel attraction) => const {
         'historical',
         'natural',
         'cultural',
@@ -1699,8 +1752,8 @@ class ApiService {
     if (data is! Map || data['suggestions'] is! List) return const [];
     return (data['suggestions'] as List)
         .whereType<Map>()
-        .map((item) => AttractionPlaceSuggestion.fromJson(
-            Map<String, dynamic>.from(item)))
+        .map((item) =>
+            AttractionPlaceSuggestion.fromJson(Map<String, dynamic>.from(item)))
         .where((item) => item.label.isNotEmpty)
         .toList();
   }

@@ -457,9 +457,12 @@ class PostgresMigrationIntegrationTest {
         String firstPlace = "visit-" + UUID.randomUUID();
         String secondPlace = "visit-" + UUID.randomUUID();
         jdbc.update("""
-                INSERT INTO tourist_monuments (id, title, location, category, description, tags)
-                VALUES (?, 'Visit fixture one', 'Tripoli, Libya', 'landmark', 'Fixture', '[]'::jsonb),
-                       (?, 'Visit fixture two', 'Benghazi, Libya', 'landmark', 'Fixture', '[]'::jsonb)
+                INSERT INTO tourist_monuments
+                    (id, title, location, category, description, image_url, tags)
+                VALUES (?, 'Visit fixture one', 'Tripoli, Libya', 'landmark', 'Fixture',
+                        'https://example.invalid/visit-fixture-one.jpg', '[]'::jsonb),
+                       (?, 'Visit fixture two', 'Benghazi, Libya', 'landmark', 'Fixture',
+                        'https://example.invalid/visit-fixture-two.jpg', '[]'::jsonb)
                 """, firstPlace, secondPlace);
 
         assertVisitCounted(firstPlace, "a".repeat(32), true);
