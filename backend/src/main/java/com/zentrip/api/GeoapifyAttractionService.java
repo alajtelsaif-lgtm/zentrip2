@@ -388,6 +388,15 @@ public class GeoapifyAttractionService {
                 suggestion.put("latitude", latitude);
                 suggestion.put("longitude", longitude);
                 suggestion.put("result_type", type);
+                String placeId = text(result.get("place_id"));
+                if (placeId != null) suggestion.put("place_id", placeId);
+                Bounds resultBounds = bounds(map(result.get("bbox")));
+                if (resultBounds != null) {
+                    suggestion.put("bbox_south", resultBounds.minLatitude());
+                    suggestion.put("bbox_west", resultBounds.minLongitude());
+                    suggestion.put("bbox_north", resultBounds.maxLatitude());
+                    suggestion.put("bbox_east", resultBounds.maxLongitude());
+                }
                 suggestions.add(suggestion);
             }
             List<Map<String, Object>> immutableSuggestions = List.copyOf(suggestions);
@@ -415,11 +424,29 @@ public class GeoapifyAttractionService {
         try {
             GeoPoint center = new GeoPoint(
                     latitude, longitude, null, city, country, null);
-            List<Map<?, ?>> features = fetchPlaces(center, language);
-            List<Map<String, Object>> places = List.copyOf(normalize(features,
-                    fetchWikidataEnrichment(features), city, country, language, center).places());
+            ProviderResult<List<Map<?, ?>>> geo = fetchPlaces(center, language);
+            ProviderResult<Map<String, PlaceEnrichment>> wikidataResult =
+                    fetchWikidataPlaces(center, language);
+            NormalizationResult geoNormalized = normalize(
+                    geo.value(), wikidataResult.value(), city, country, language,
+                    center, "geoapify");
+            NormalizationResult wikidataNormalized = normalizeWikidata(
+                    wikidataResult.value(), city, country, language, center);
+            Map<String, Integer> dropped = new LinkedHashMap<>();
+            mergeDropCounts(dropped, geoNormalized.droppedByReason());
+            mergeDropCounts(dropped, wikidataNormalized.droppedByReason());
+            List<RejectedItem> rejected = new ArrayList<>(geoNormalized.droppedItems());
+            rejected.addAll(wikidataNormalized.droppedItems());
+            List<Map<String, Object>> merged = mergeProviders(
+                    geoNormalized.places(), wikidataNormalized.places(), dropped, rejected);
+            List<Map<String, Object>> places = merged.stream()
+                    .sorted(notabilityComparator()).limit(40).toList();
             cache.put(cacheKey, new CacheEntry(
-                    places, null, Map.of(), features.size(), now.plus(CACHE_TTL)));
+                    places, null, dropped,
+                    geo.value().size() + wikidataResult.value().size(),
+                    mergeWarnings(geo.warnings(), wikidataResult.warnings()),
+                    rejected,
+                    now.plus(CACHE_TTL)));
             return places;
         } catch (RestClientException exception) {
             LOG.warn("Geoapify coordinate landmark lookup unavailable.");
@@ -1105,23 +1132,42 @@ public class GeoapifyAttractionService {
             List<Map<String, Object>> places,
             Boolean cityFound,
             Map<String, Integer> droppedByReason,
-            int candidateCount) {
+            int candidateCount,
+            List<String> warnings,
+            List<RejectedItem> droppedItems) {
         public SearchOutcome(List<Map<String, Object>> places, Boolean cityFound) {
-            this(places, cityFound, Map.of(), 0);
+            this(places, cityFound, Map.of(), 0, List.of(), List.of());
         }
 
         public SearchOutcome(
                 List<Map<String, Object>> places,
                 Boolean cityFound,
                 Map<String, Integer> droppedByReason) {
-            this(places, cityFound, droppedByReason, 0);
+            this(places, cityFound, droppedByReason, 0, List.of(), List.of());
+        }
+
+        public SearchOutcome(
+                List<Map<String, Object>> places,
+                Boolean cityFound,
+                Map<String, Integer> droppedByReason,
+                int candidateCount) {
+            this(places, cityFound, droppedByReason, candidateCount, List.of(), List.of());
         }
 
         public SearchOutcome {
             places = List.copyOf(places);
             droppedByReason = Map.copyOf(droppedByReason);
+            warnings = List.copyOf(warnings);
+            droppedItems = List.copyOf(droppedItems);
         }
     }
+
+    public record RejectedItem(String name, String id, String category, String source, String reason) {}
+
+    public record DestinationBounds(
+            Double south, Double west, Double north, Double east) {}
+
+    record LandmarkValidation(boolean accepted, String reason) {}
 
     private record GeoPoint(
             double latitude,
@@ -1143,10 +1189,18 @@ public class GeoapifyAttractionService {
     }
 
     private record PlaceBatch(
-            String city, String country, GeoPoint location, List<Map<?, ?>> features) {}
+            String city,
+            String country,
+            GeoPoint location,
+            List<Map<String, Object>> features,
+            Map<String, Integer> droppedByReason,
+            List<RejectedItem> droppedItems,
+            int candidateCount) {}
 
     private record NormalizationResult(
-            List<Map<String, Object>> places, Map<String, Integer> droppedByReason) {}
+            List<Map<String, Object>> places,
+            Map<String, Integer> droppedByReason,
+            List<RejectedItem> droppedItems) {}
 
     private record PlaceEnrichment(
             String landmarkType,
@@ -1160,15 +1214,24 @@ public class GeoapifyAttractionService {
             String arwiki,
             String imageUrl,
             String enWikiImage,
-            String arWikiImage) {}
+            String arWikiImage,
+            int sitelinks) {}
 
     private record CacheEntry(
             List<Map<String, Object>> places,
             Boolean cityFound,
             Map<String, Integer> droppedByReason,
             int candidateCount,
+            List<String> warnings,
+            List<RejectedItem> droppedItems,
             Instant expiresAt) {}
 
     private record SuggestionCacheEntry(
             List<Map<String, Object>> suggestions, Instant expiresAt) {}
+
+    private record ProviderResult<T>(T value, List<String> warnings) {
+        private ProviderResult {
+            warnings = List.copyOf(warnings);
+        }
+    }
 }
