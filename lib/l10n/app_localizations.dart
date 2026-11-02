@@ -2589,6 +2589,12 @@ abstract class AppLocalizations {
   /// **'تعذر تحميل الأماكن. تحقق من الاتصال وحاول مرة أخرى.'**
   String get attractionCountryLoadError;
 
+  /// No description provided for @attractionCityNotFound.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم نعثر على هذه المدينة. تحقق من كتابة الاسم وحاول مرة أخرى.'**
+  String get attractionCityNotFound;
+
   /// No description provided for @attractionCategoryAll.
   ///
   /// In ar, this message translates to:

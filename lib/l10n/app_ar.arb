@@ -437,6 +437,7 @@
   "attractionSearchHint": "ابحث عن وجهة أو معلم...",
   "attractionCountryFilter": "ابحث عن الأماكن حسب الدولة",
   "attractionCountryLoadError": "تعذر تحميل الأماكن. تحقق من الاتصال وحاول مرة أخرى.",
+  "attractionCityNotFound": "لم نعثر على هذه المدينة. تحقق من كتابة الاسم وحاول مرة أخرى.",
   "attractionCategoryAll": "الكل",
   "attractionTicketBookedSuccess": "🎫 تم حجز التذكرة بنجاح!",
   "attractionAbout": "عن المكان",

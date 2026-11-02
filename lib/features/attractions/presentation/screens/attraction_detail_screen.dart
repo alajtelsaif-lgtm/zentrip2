@@ -213,7 +213,7 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
                         const Icon(Icons.place_rounded,
                             color: AppColors.accentPurple, size: 16),
                         const SizedBox(width: 4),
-                        Text('${a.city}, ${a.country}',
+                         Text(a.location,
                             style: const TextStyle(
                                 color: AppColors.textSecondary, fontSize: 13))
                       ]),

@@ -5,7 +5,7 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.sql.SQLException;
+import java.text.Normalizer;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -354,71 +354,36 @@ public class ApiController {
             @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "") String country,
             @RequestParam(defaultValue = "en") String lang) {
-        String locationFilter = (city.isBlank() ? country : city)
-                .trim().toLowerCase(Locale.ROOT);
         String categoryFilter = category == null ? "" : category.trim();
-        List<Map<String, Object>> monuments;
-        try {
-            monuments = jdbc.queryForList("""
-                    SELECT id, title, location, category_tag, category, rating,
-                           review_count, description, working_hours,
-                           best_time_to_visit, entry_fee, image_url, tags,
-                           COALESCE(visit_counts.visit_count, 0) AS visit_count,
-                           COALESCE(country_counts.country_visit_count, 0) AS country_visit_count
-                    FROM tourist_monuments
-                    LEFT JOIN attraction_visit_counts visit_counts
-                        ON visit_counts.attraction_id = tourist_monuments.id
-                    LEFT JOIN (
-                        SELECT LOWER(TRIM(SPLIT_PART(monuments.location, ',', 2))) AS country_key,
-                               SUM(COALESCE(counts.visit_count, 0)) AS country_visit_count
-                        FROM tourist_monuments monuments
-                        LEFT JOIN attraction_visit_counts counts
-                            ON counts.attraction_id = monuments.id
-                        WHERE monuments.is_active = TRUE
-                        GROUP BY LOWER(TRIM(SPLIT_PART(monuments.location, ',', 2)))
-                    ) country_counts
-                        ON country_counts.country_key =
-                           LOWER(TRIM(SPLIT_PART(tourist_monuments.location, ',', 2)))
-                    WHERE is_active = TRUE
-                      AND (? = '' OR LOWER(location) LIKE ?)
-                      AND (? = '' OR category = ?)
-                    ORDER BY sort_order ASC, title ASC
-                    LIMIT 100
-                    """,
-                    locationFilter,
-                    "%" + locationFilter + "%",
-                    categoryFilter,
-                    categoryFilter);
-        } catch (BadSqlGrammarException exception) {
-            if (!isMissingVisitCountSchema(exception)) throw exception;
-            LOG.warn("Attraction visit-count tables are missing; using provider places until migration is applied.");
-            return discoveredAttractions(city, country, lang, categoryFilter);
-        }
-        if (monuments.isEmpty()) {
-            return discoveredAttractions(city, country, lang, categoryFilter);
-        }
-        List<Map<String, Object>> payload = monuments.stream().map(row -> {
-            Map<String, Object> attraction = new LinkedHashMap<>(row);
-            String[] location = String.valueOf(row.get("location")).split(",", 2);
-            attraction.put("name", row.get("title"));
-            attraction.put("city", location[0].trim());
-            attraction.put("country", location.length > 1 ? location[1].trim() : "");
-            attraction.put("latitude", 0);
-            attraction.put("longitude", 0);
-            attraction.put("opening_hours", row.get("working_hours"));
-            attraction.put("tags", parseHighlights(row.get("tags")));
-            return attraction;
-        }).toList();
-        return Map.of("attractions", payload);
+        return discoveredAttractions(city, country, lang, categoryFilter);
+    }
+
+    @GetMapping("/attractions/suggestions")
+    public Map<String, Object> suggestAttractionPlaces(
+            @RequestParam(defaultValue = "") String query,
+            @RequestParam(defaultValue = "en") String lang) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("suggestions", geoapifyAttractionService.suggestPlaces(query, lang));
+        return response;
     }
 
     private Map<String, Object> discoveredAttractions(
             String city, String country, String language, String category) {
-        List<Map<String, Object>> discovered =
-                geoapifyAttractionService.searchAttractions(city, country, language);
-        if ((city == null || city.isBlank()) && country != null && !country.isBlank()
-                && discovered.isEmpty()) {
-            discovered = discoverCountryAttractionsFromAirportCities(country, language);
+        boolean citySearch = city != null && !city.isBlank();
+        List<Map<String, Object>> discovered;
+        Boolean cityFound = null;
+        if (citySearch) {
+            GeoapifyAttractionService.SearchOutcome outcome =
+                    geoapifyAttractionService.searchAttractionsWithStatus(
+                            city, country, language);
+            discovered = outcome.places();
+            cityFound = outcome.cityFound();
+        } else {
+            discovered = geoapifyAttractionService.searchAttractions(
+                    city, country, language);
+            if (discovered.isEmpty() && country != null && !country.isBlank()) {
+                discovered = discoverCountryAttractionsFromAirportCities(country, language);
+            }
         }
         if (!category.isBlank()) {
             discovered = discovered.stream()
@@ -426,7 +391,11 @@ public class ApiController {
                             String.valueOf(place.get("category"))))
                     .toList();
         }
-        return Map.of("attractions", discovered, "source", "geoapify");
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("attractions", discovered);
+        response.put("source", "geoapify");
+        if (cityFound != null) response.put("city_found", cityFound);
+        return response;
     }
 
     private List<Map<String, Object>> discoverCountryAttractionsFromAirportCities(
@@ -457,24 +426,36 @@ public class ApiController {
         for (String city : cities) {
             for (Map<String, Object> place :
                     geoapifyAttractionService.searchAttractions(city, country, language)) {
-                String id = String.valueOf(place.getOrDefault(
-                        "id", place.getOrDefault("name", place)));
-                uniquePlaces.putIfAbsent(id, place);
+                uniquePlaces.putIfAbsent(attractionDeduplicationKey(place), place);
             }
         }
         return uniquePlaces.values().stream().limit(50).toList();
     }
 
-    private static boolean isMissingVisitCountSchema(Throwable exception) {
-        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
-            if (cause instanceof SQLException sql
-                    && "42P01".equals(sql.getSQLState())
-                    && sql.getMessage() != null
-                    && sql.getMessage().contains("attraction_visit_counts")) {
-                return true;
+    private static String attractionDeduplicationKey(Map<String, Object> place) {
+        String name = String.valueOf(place.getOrDefault("name", ""))
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("\\s+", " ")
+                .trim();
+        name = Normalizer.normalize(name, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replaceAll("[^\\p{L}\\p{N}]+", " ")
+                .trim();
+        double latitude = safeCoordinate(place.get("latitude"));
+        double longitude = safeCoordinate(place.get("longitude"));
+        return name + "|" + String.format(Locale.ROOT, "%.4f|%.4f", latitude, longitude);
+    }
+
+    private static double safeCoordinate(Object value) {
+        if (value instanceof Number number) return number.doubleValue();
+        if (value instanceof String text) {
+            try {
+                return Double.parseDouble(text);
+            } catch (NumberFormatException ignored) {
+                return 0;
             }
         }
-        return false;
+        return 0;
     }
 
     @PostMapping("/attractions/{id}/visits")

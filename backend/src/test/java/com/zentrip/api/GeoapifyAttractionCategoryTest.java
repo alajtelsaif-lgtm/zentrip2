@@ -30,7 +30,10 @@ class GeoapifyAttractionCategoryTest {
         for (String category : List.of(
                 "commercial.shopping_mall",
                 "commercial.supermarket",
+                "commercial.marketplace",
+                "shop.clothes",
                 "catering.restaurant",
+                "catering.cafe",
                 "office",
                 "accommodation.hotel",
                 "tourism.museum",

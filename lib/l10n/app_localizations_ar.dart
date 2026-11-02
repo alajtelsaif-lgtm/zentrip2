@@ -1306,6 +1306,10 @@ class AppLocalizationsAr extends AppLocalizations {
       'تعذر تحميل الأماكن. تحقق من الاتصال وحاول مرة أخرى.';
 
   @override
+  String get attractionCityNotFound =>
+      'لم نعثر على هذه المدينة. تحقق من كتابة الاسم وحاول مرة أخرى.';
+
+  @override
   String get attractionCategoryAll => 'الكل';
 
   @override

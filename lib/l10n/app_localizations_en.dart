@@ -1317,6 +1317,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Places could not be loaded. Check your connection and try again.';
 
   @override
+  String get attractionCityNotFound =>
+      'We couldn\'t find that city. Check the spelling and try again.';
+
+  @override
   String get attractionCategoryAll => 'All';
 
   @override

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../global_widgets/app_network_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/attraction_model.dart';
+import '../../../../models/attraction_place_suggestion.dart';
 import '../../../../routes/app_routes.dart';
 import '../../logic/attractions_controller.dart';
 import '../attraction_category.dart';
@@ -18,6 +21,7 @@ class AttractionsScreen extends StatefulWidget {
 class _AttractionsScreenState extends State<AttractionsScreen> {
   final _ctrl = AttractionsController();
   final _searchCtrl = TextEditingController();
+  TextEditingController? _autocompleteController;
   bool _loaded = false;
 
   @override
@@ -25,12 +29,24 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
     super.didChangeDependencies();
     if (_loaded) return;
     _loaded = true;
-    // ممكن تفتح الشاشة من الرئيسية مع فئة معيّنة (String) كـ route argument.
-    final arg = ModalRoute.of(context)?.settings.arguments;
-    _ctrl.load(
-      country: _ctrl.selectedCountry,
+    unawaited(_loadDefaultPlace());
+  }
+
+  Future<void> _loadDefaultPlace() async {
+    final query = await _ctrl.loadDefault(
       language: Localizations.localeOf(context).languageCode,
-      initialCategory: arg is String ? arg : null,
+    );
+    if (!mounted || query == null || query.isEmpty) return;
+    _setSearchText(query);
+  }
+
+  void _setSearchText(String value) {
+    _searchCtrl.text = value;
+    final controller = _autocompleteController;
+    if (controller == null) return;
+    controller.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
     );
   }
 
@@ -50,42 +66,10 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
       appBar: AppBar(title: Text(l10n.attractionsTitle)),
       body: Column(
         children: [
-          // ── Search + filter ─────────────────────────────────────────
+          // ── Search ──────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Column(children: [
-              DropdownButtonFormField<String>(
-                initialValue: _ctrl.selectedCountry,
-                decoration: InputDecoration(
-                  labelText: l10n.attractionCountryFilter,
-                  prefixIcon: const Icon(Icons.public_rounded),
-                  filled: true,
-                  fillColor: isDark
-                      ? AppColors.darkSurfaceSecondary
-                      : AppColors.surfaceSecondary,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(
-                      color: isDark ? AppColors.darkBorder : AppColors.border,
-                    ),
-                  ),
-                ),
-                items: AttractionsController.countryOptions
-                    .map((country) => DropdownMenuItem(
-                          value: country,
-                          child: Text(country),
-                        ))
-                    .toList(),
-                onChanged: (country) {
-                  if (country == null) return;
-                  _ctrl.load(
-                    country: country,
-                    language: Localizations.localeOf(context).languageCode,
-                    initialCategory: _ctrl.selectedCategory,
-                  );
-                },
-              ),
-              const SizedBox(height: 10),
               Container(
                 height: 46,
                 decoration: BoxDecoration(
@@ -96,17 +80,75 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                     border: Border.all(
                         color:
                             isDark ? AppColors.darkBorder : AppColors.border)),
-                child: TextField(
-                  controller: _searchCtrl,
-                  onChanged: _ctrl.search,
-                  decoration: InputDecoration(
-                    hintText: l10n.attractionSearchHint,
-                    prefixIcon: const Icon(Icons.search_rounded,
-                        color: AppColors.textSecondary, size: 20),
-                    border: InputBorder.none,
-                    filled: false,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
+                child: Autocomplete<AttractionPlaceSuggestion>(
+                  initialValue: TextEditingValue(text: _searchCtrl.text),
+                  displayStringForOption: (suggestion) => suggestion.label,
+                  optionsBuilder: (value) => _ctrl.suggestionsFor(
+                    value.text,
+                    language: Localizations.localeOf(context).languageCode,
+                  ),
+                  onSelected: (suggestion) {
+                    _setSearchText(suggestion.label);
+                    unawaited(_ctrl.loadSuggestion(
+                      suggestion,
+                      language: Localizations.localeOf(context).languageCode,
+                    ));
+                  },
+                  optionsViewBuilder: (context, onSelected, options) => Align(
+                    alignment: AlignmentDirectional.topStart,
+                    child: Material(
+                      elevation: 5,
+                      borderRadius: BorderRadius.circular(12),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 240),
+                        child: ListView(
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          children: options.map((suggestion) {
+                            final location = [
+                              suggestion.city,
+                              suggestion.country,
+                            ].where((part) => part.isNotEmpty).join(', ');
+                            return ListTile(
+                              dense: true,
+                              leading: const Icon(Icons.place_outlined),
+                              title: Text(suggestion.label),
+                              subtitle: location.isEmpty ? null : Text(location),
+                              onTap: () => onSelected(suggestion),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  fieldViewBuilder:
+                      (context, controller, focusNode, onFieldSubmitted) {
+                    _autocompleteController = controller;
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (query) {
+                        _searchCtrl.text = query;
+                        if (query.trim().isEmpty) {
+                          unawaited(_loadDefaultPlace());
+                        }
+                      },
+                      onSubmitted: (query) => unawaited(_ctrl.searchPlace(
+                        query,
+                        language:
+                            Localizations.localeOf(context).languageCode,
+                      )),
+                      decoration: InputDecoration(
+                        hintText: l10n.attractionSearchHint,
+                        prefixIcon: const Icon(Icons.search_rounded,
+                            color: AppColors.textSecondary, size: 20),
+                        border: InputBorder.none,
+                        filled: false,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                      ),
+                    );
                   ),
                 ),
               ),
@@ -168,6 +210,18 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                   return Center(
                     child: Text(
                       l10n.attractionCountryLoadError,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+                if (_ctrl.cityNotFound) {
+                  return Center(
+                    child: Text(
+                      l10n.attractionCityNotFound,
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w600,
@@ -282,7 +336,7 @@ class _AttrCard extends StatelessWidget {
                                   fontSize: 14,
                                   color: Colors.white)),
                           const SizedBox(height: 2),
-                          Text('${attraction.city}, ${attraction.country}',
+                           Text(attraction.location,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(

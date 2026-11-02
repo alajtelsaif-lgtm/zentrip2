@@ -17,8 +17,9 @@ class CurrentLocationException implements Exception {
 class CurrentPlace {
   final Position position;
   final String? city;
+  final String? country;
 
-  const CurrentPlace({required this.position, this.city});
+  const CurrentPlace({required this.position, this.city, this.country});
 }
 
 class CurrentLocationService {
@@ -82,6 +83,9 @@ class CurrentLocationService {
       return CurrentPlace(
         position: position,
         city: city.isEmpty ? null : city,
+        country: placemark.country?.trim().isEmpty == true
+            ? null
+            : placemark.country?.trim(),
       );
     } catch (_) {
       return CurrentPlace(position: position);

@@ -18,6 +18,7 @@ import '../../models/flight_booking_model.dart';
 import '../../models/hotel_model.dart';
 import '../../models/car_model.dart';
 import '../../models/attraction_model.dart';
+import '../../models/attraction_place_suggestion.dart';
 import '../../models/transfer_model.dart';
 import '../../models/trip_model.dart';
 import '../../models/user_model.dart';
@@ -1638,28 +1639,70 @@ class ApiService {
   }) async {
     if (useMockMode) {
       await Future.delayed(_mockDelay);
-      final all = MockDataService.attractions();
+      final all = MockDataService.attractions()
+          .where(_isLandmarkCategory)
+          .toList();
       return category == null
           ? all
           : all.where((a) => a.category == category).toList();
     }
-    try {
-      final res = await _dio.get(
-        '/attractions/search',
-        queryParameters: {
-          'city': city,
-          if (category != null) 'category': category,
-          if (country != null && country.isNotEmpty) 'country': country,
-          if (language != null && language.isNotEmpty) 'lang': language,
-        },
-      );
-      final attractions = (res.data['attractions'] as List)
-          .map((a) => AttractionModel.fromJson(a as Map<String, dynamic>))
-          .toList();
-      return attractions;
-    } catch (_) {
-      rethrow;
+    final res = await _dio.get(
+      '/attractions/search',
+      queryParameters: {
+        'city': city,
+        if (category != null) 'category': category,
+        if (country != null && country.isNotEmpty) 'country': country,
+        if (language != null && language.isNotEmpty) 'lang': language,
+      },
+    );
+    final data = res.data;
+    if (data is Map && data['city_found'] == false) {
+      throw const AttractionCityNotFoundException();
     }
+    if (data is! Map || data['attractions'] is! List) {
+      throw const FormatException('Unexpected attractions response');
+    }
+    return (data['attractions'] as List)
+        .whereType<Map>()
+        .map((item) => AttractionModel.fromJson(
+            Map<String, dynamic>.from(item)))
+        .where(_isLandmarkCategory)
+        .toList();
+  }
+
+  bool _isLandmarkCategory(AttractionModel attraction) =>
+      const {
+        'historical',
+        'natural',
+        'cultural',
+        'architecture',
+        'landmark',
+        'museum',
+        'park',
+        'beach',
+      }.contains(attraction.category.toLowerCase());
+
+  Future<List<AttractionPlaceSuggestion>> searchAttractionSuggestions(
+    String query, {
+    String? language,
+  }) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.length < 2) return const [];
+    final response = await _dio.get(
+      '/attractions/suggestions',
+      queryParameters: {
+        'query': normalizedQuery,
+        if (language != null && language.isNotEmpty) 'lang': language,
+      },
+    );
+    final data = response.data;
+    if (data is! Map || data['suggestions'] is! List) return const [];
+    return (data['suggestions'] as List)
+        .whereType<Map>()
+        .map((item) => AttractionPlaceSuggestion.fromJson(
+            Map<String, dynamic>.from(item)))
+        .where((item) => item.label.isNotEmpty)
+        .toList();
   }
 
   /// Records one anonymous place visit per device and UTC day.
@@ -2125,3 +2168,7 @@ class ApiService {
 // Typedef لـ onSessionExpired callback (اسم مختلف عن VoidCallback بتاع Flutter
 // عشان مايحصلش تعارض في الملفات اللي بتعمل import للاتنين مع بعض).
 typedef SessionExpiredCallback = void Function();
+
+class AttractionCityNotFoundException implements Exception {
+  const AttractionCityNotFoundException();
+}

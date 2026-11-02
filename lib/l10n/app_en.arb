@@ -451,6 +451,7 @@
   "attractionSearchHint": "Search for a destination or attraction...",
   "attractionCountryFilter": "Search places by country",
   "attractionCountryLoadError": "Places could not be loaded. Check your connection and try again.",
+  "attractionCityNotFound": "We couldn't find that city. Check the spelling and try again.",
   "attractionCategoryAll": "All",
   "attractionTicketBookedSuccess": "🎫 Ticket booked successfully!",
   "attractionAbout": "About This Place",

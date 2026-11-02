@@ -159,86 +159,52 @@ class ApiControllerTest {
         }
 
     @Test
-    void monumentSearchMapsAdminCatalogDataToAttractionContract() {
-        when(jdbc.queryForList(contains("FROM tourist_monuments"),
-                eq("khoms"), eq("%khoms%"), eq(""), eq("")))
-                .thenReturn(List.of(Map.ofEntries(
-                        Map.entry("id", "monument-1"),
-                        Map.entry("title", "Leptis Magna"),
-                        Map.entry("location", "Khoms, Libya"),
-                        Map.entry("category_tag", "Historical"),
-                        Map.entry("category", "landmark"),
-                        Map.entry("rating", new BigDecimal("4.90")),
-                        Map.entry("review_count", 3120),
-                        Map.entry("description", "A Roman city"),
-                        Map.entry("working_hours", "8:00 AM - 5:00 PM"),
-                        Map.entry("best_time_to_visit", "Oct - Apr"),
-                        Map.entry("entry_fee", new BigDecimal("5.00")),
-                        Map.entry("image_url", "https://example.com/leptis.jpg"),
-                        Map.entry("tags", "[\"Theatre\",\"Market\"]"),
-                        Map.entry("visit_count", 41L),
-                        Map.entry("country_visit_count", 72L))));
+    void monumentSearchReturnsVerifiedProviderPlacesAndCityStatus() {
+        when(geoapifyAttractionService.searchAttractionsWithStatus(
+                "Khoms", "Libya", "en"))
+                .thenReturn(new GeoapifyAttractionService.SearchOutcome(
+                        List.of(Map.of(
+                                "id", "geoapify:leptis",
+                                "name", "Leptis Magna",
+                                "city", "Khoms",
+                                "country", "Libya",
+                                "category_tag", "historical",
+                                "source_provider", "geoapify",
+                                "wikidata_id", "Q183733")),
+                        true));
 
-        Map<String, Object> response = controller.searchMonuments("Khoms", null, "Libya", "en");
+        Map<String, Object> response =
+                controller.searchMonuments("Khoms", null, "Libya", "en");
         Map<?, ?> monument = (Map<?, ?>) ((List<?>) response.get("attractions")).getFirst();
 
         assertEquals("Leptis Magna", monument.get("name"));
         assertEquals("Khoms", monument.get("city"));
         assertEquals("Libya", monument.get("country"));
-        assertEquals("Historical", monument.get("category_tag"));
-        assertEquals("8:00 AM - 5:00 PM", monument.get("opening_hours"));
-        assertEquals(List.of("Theatre", "Market"), monument.get("tags"));
-        assertEquals(41L, monument.get("visit_count"));
-        assertEquals(72L, monument.get("country_visit_count"));
-    }
-
-    @Test
-    void emptyAttractionCatalogUsesGeoapifyResultsForHomeDiscovery() {
-        when(jdbc.queryForList(
-                contains("FROM tourist_monuments"),
-                eq("tripoli"), eq("%tripoli%"), eq(""), eq("")))
-                .thenReturn(List.of());
-        when(geoapifyAttractionService.searchAttractions("Tripoli", "Libya", "ar"))
-                .thenReturn(List.of(Map.of(
-                        "id", "geoapify:test-place",
-                        "name", "متحف طرابلس",
-                        "country", "Libya")));
-
-        Map<String, Object> response =
-                controller.searchMonuments("Tripoli", null, "Libya", "ar");
-
-        assertEquals("geoapify", response.get("source"));
-        assertEquals(1, ((List<?>) response.get("attractions")).size());
+        assertEquals("historical", monument.get("category_tag"));
+        assertEquals("Q183733", monument.get("wikidata_id"));
+        assertEquals(true, response.get("city_found"));
         verify(geoapifyAttractionService)
-                .searchAttractions("Tripoli", "Libya", "ar");
+                .searchAttractionsWithStatus("Khoms", "Libya", "en");
     }
 
     @Test
-    void missingVisitCountMigrationStillAllowsProviderPlacesToLoad() {
-        when(jdbc.queryForList(
-                contains("FROM tourist_monuments"),
-                eq("tripoli"), eq("%tripoli%"), eq(""), eq("")))
-                .thenThrow(new BadSqlGrammarException(
-                        "attraction lookup",
-                        "SELECT ...",
-                        new SQLException(
-                                "relation \"attraction_visit_counts\" does not exist", "42P01")));
-        when(geoapifyAttractionService.searchAttractions("Tripoli", "Libya", "en"))
-                .thenReturn(List.of(Map.of("id", "geoapify:test-place", "name", "Museum")));
+    void cityNotFoundIsDistinguishedFromAnEmptyLandmarkResult() {
+        when(geoapifyAttractionService.searchAttractionsWithStatus(
+                "No Such City", "Libya", "ar"))
+                .thenReturn(new GeoapifyAttractionService.SearchOutcome(List.of(), false));
 
         Map<String, Object> response =
-                controller.searchMonuments("Tripoli", null, "Libya", "en");
+                controller.searchMonuments("No Such City", null, "Libya", "ar");
 
         assertEquals("geoapify", response.get("source"));
-        assertEquals(1, ((List<?>) response.get("attractions")).size());
+        assertEquals(false, response.get("city_found"));
+        assertEquals(List.of(), response.get("attractions"));
+        verify(geoapifyAttractionService)
+                .searchAttractionsWithStatus("No Such City", "Libya", "ar");
     }
 
     @Test
     void countryOnlySearchFiltersTheLocalCatalogAndQueriesTheProvider() {
-        when(jdbc.queryForList(
-                contains("FROM tourist_monuments"),
-                eq("indonesia"), eq("%indonesia%"), eq(""), eq("")))
-                .thenReturn(List.of());
         when(geoapifyAttractionService.searchAttractions("", "Indonesia", "en"))
                 .thenReturn(List.of(Map.of("id", "geoapify:bali", "name", "Bali place")));
 
@@ -251,10 +217,6 @@ class ApiControllerTest {
 
     @Test
     void countrySearchDiscoversCitiesFromTheGlobalAirportDirectory() {
-        when(jdbc.queryForList(
-                contains("FROM tourist_monuments"),
-                eq("japan"), eq("%japan%"), eq(""), eq("")))
-                .thenReturn(List.of());
         when(geoapifyAttractionService.searchAttractions("", "Japan", "en"))
                 .thenReturn(List.of());
         when(jdbc.queryForList(
