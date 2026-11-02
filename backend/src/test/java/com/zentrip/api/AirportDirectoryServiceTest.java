@@ -15,7 +15,7 @@ class AirportDirectoryServiceTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final GeoapifyAirportService geocoder = mock(GeoapifyAirportService.class);
     private final AirportDirectoryService directory = new AirportDirectoryService(
-            jdbc, geocoder, mock(GeoapifyAttractionService.class));
+            jdbc, geocoder, mock(OpenTripMapAttractionService.class));
 
     @Test
     void categoryWithoutLocationDoesNotQueryExternalServices() {

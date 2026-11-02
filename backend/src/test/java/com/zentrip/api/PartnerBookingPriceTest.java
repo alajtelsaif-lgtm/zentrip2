@@ -31,7 +31,7 @@ class PartnerBookingPriceTest {
             "",
             mock(ProfilePhotoStorage.class),
                 mock(PasswordResetService.class),
-                mock(GeoapifyAttractionService.class));
+                mock(OpenTripMapAttractionService.class));
 
     @Test
     void hotelBookingUsesCurrentPartnerRateAndStayLength() throws Exception {

@@ -66,7 +66,7 @@ public class ApiController {
     private final JdbcTemplate jdbc;
     private final ProfilePhotoStorage profilePhotoStorage;
     private final PasswordResetService passwordResetService;
-    private final GeoapifyAttractionService geoapifyAttractionService;
+    private final OpenTripMapAttractionService openTripMapAttractionService;
     private final PasswordEncoder passwords = new BCryptPasswordEncoder();
     private final RestClient http = RestClient.create();
     private final String serpApiKey;
@@ -77,12 +77,12 @@ public class ApiController {
                          @Value("${serpapi.key:}") String serpApiKey,
                          ProfilePhotoStorage profilePhotoStorage,
                          PasswordResetService passwordResetService,
-                         GeoapifyAttractionService geoapifyAttractionService) {
+                          OpenTripMapAttractionService openTripMapAttractionService) {
         this.jdbc = jdbc;
         this.serpApiKey = serpApiKey;
         this.profilePhotoStorage = profilePhotoStorage;
         this.passwordResetService = passwordResetService;
-        this.geoapifyAttractionService = geoapifyAttractionService;
+        this.openTripMapAttractionService = openTripMapAttractionService;
     }
 
     @PostMapping("/auth/register")
@@ -381,10 +381,17 @@ public class ApiController {
     @GetMapping("/attractions/suggestions")
     public Map<String, Object> suggestAttractionPlaces(
             @RequestParam(defaultValue = "") String query,
-            @RequestParam(defaultValue = "en") String lang) {
+            @RequestParam(defaultValue = "en") String lang,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lon) {
         Map<String, Object> response = new LinkedHashMap<>();
-        response.put("suggestions", geoapifyAttractionService.suggestPlaces(query, lang));
+        response.put("suggestions",
+                openTripMapAttractionService.suggestPlaces(query, lang, lat, lon));
         return response;
+    }
+
+    public Map<String, Object> suggestAttractionPlaces(String query, String lang) {
+        return suggestAttractionPlaces(query, lang, null, null);
     }
 
     @GetMapping("/attractions/recent-destination")
@@ -477,69 +484,32 @@ public class ApiController {
             int requestedLimit,
             int requestedOffset,
             boolean diagnostics) {
-        boolean citySearch = city != null && !city.isBlank();
-        List<Map<String, Object>> discovered;
-        Boolean cityFound = null;
-        Integer candidateCount = null;
-        Map<String, Integer> droppedByReason = Map.of();
-        List<String> warnings = List.of();
-        List<GeoapifyAttractionService.RejectedItem> droppedItems = List.of();
-        if (citySearch) {
-            GeoapifyAttractionService.SearchOutcome outcome =
-                    latitude == null && longitude == null && category.isBlank()
-                            ? geoapifyAttractionService.searchAttractionsWithStatus(
-                                    city, country, language)
-                            : geoapifyAttractionService.searchAttractionsWithStatus(
-                                    city, country, language, category, latitude, longitude,
-                                    bboxSouth, bboxWest, bboxNorth, bboxEast, placeId);
-            discovered = outcome.places();
-            cityFound = outcome.cityFound();
-            candidateCount = outcome.candidateCount();
-            droppedByReason = outcome.droppedByReason();
-            warnings = outcome.warnings();
-            droppedItems = outcome.droppedItems();
-        } else {
-            discovered = geoapifyAttractionService.searchAttractions(
-                    city, country, language);
-            if (discovered.isEmpty() && country != null && !country.isBlank()) {
-                discovered = discoverCountryAttractionsFromAirportCities(country, language);
-            }
-        }
-        discovered = mergeCuratedAttractions(
-                discovered, curatedAttractions(city, country));
-        if (!category.isBlank()) {
-            discovered = discovered.stream()
-                    .filter(place -> category.equalsIgnoreCase(
-                            String.valueOf(place.get("category"))))
-                    .toList();
-        }
-        if (!citySearch && !category.isBlank()) {
-            discovered = discovered.stream()
-                    .filter(place -> category.equalsIgnoreCase(
-                            String.valueOf(place.get("category"))))
-                    .toList();
-        }
-        int totalCount = discovered.size();
+        OpenTripMapAttractionService.SearchOutcome outcome =
+                openTripMapAttractionService.searchAttractionsWithStatus(
+                        city, country, language, category, latitude, longitude,
+                        bboxSouth, bboxWest, bboxNorth, bboxEast, placeId);
+        List<Map<String, Object>> discovered = outcome.places();
+        int totalCount = outcome.totalCount();
         int limit = Math.min(100, Math.max(1, requestedLimit));
         int offset = Math.max(0, requestedOffset);
         List<Map<String, Object>> page = offset >= totalCount ? List.of()
                 : discovered.subList(offset, Math.min(totalCount, offset + limit));
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("attractions", page);
-        response.put("source", "geoapify");
-        response.put("providers", List.of("geoapify", "wikidata"));
+        response.put("source", "opentripmap");
+        response.put("providers", List.of("opentripmap"));
         response.put("total_count", totalCount);
         response.put("limit", limit);
         response.put("offset", offset);
         response.put("has_more", offset + page.size() < totalCount);
-        response.put("dropped_by_reason", droppedByReason);
-        response.put("dropped_count", droppedByReason.values().stream()
+        response.put("dropped_by_reason", outcome.droppedByReason());
+        response.put("dropped_count", outcome.droppedByReason().values().stream()
                 .mapToInt(Integer::intValue).sum());
-        response.put("warnings", warnings);
-        if (candidateCount != null) response.put("candidate_count", candidateCount);
-        if (cityFound != null) response.put("city_found", cityFound);
+        response.put("warnings", outcome.warnings());
+        response.put("candidate_count", outcome.candidateCount());
+        response.put("city_found", outcome.cityFound());
         if (diagnostics) {
-            response.put("dropped_items", droppedItems.stream()
+            response.put("dropped_items", outcome.droppedItems().stream()
                     .map(item -> {
                         Map<String, Object> rejected = new LinkedHashMap<>();
                         rejected.put("name", item.name());
@@ -551,6 +521,23 @@ public class ApiController {
                     })
                     .toList());
         }
+        return response;
+    }
+
+    @GetMapping("/attractions/nearby")
+    public Map<String, Object> nearbyAttractions(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "5000") double radius,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "en") String lang) {
+        List<Map<String, Object>> attractions =
+                openTripMapAttractionService.searchNearby(
+                        lat, lng, radius, category, lang);
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("attractions", attractions);
+        response.put("source", "opentripmap");
+        response.put("providers", List.of("opentripmap"));
         return response;
     }
 
@@ -688,66 +675,6 @@ public class ApiController {
                 .replaceAll("\\p{M}+", "")
                 .replaceAll("[^\\p{L}\\p{N}]+", " ")
                 .trim();
-    }
-
-    private List<Map<String, Object>> discoverCountryAttractionsFromAirportCities(
-            String country, String language) {
-        List<String> cities;
-        try {
-            cities = jdbc.queryForList("""
-                    SELECT MIN(city) AS city
-                    FROM airports
-                    WHERE scheduled_service = TRUE
-                      AND city IS NOT NULL
-                      AND TRIM(city) <> ''
-                      AND (LOWER(country) = LOWER(?)
-                           OR UPPER(TRIM(iso_country)) = UPPER(?))
-                    GROUP BY LOWER(TRIM(city))
-                    ORDER BY MAX(CASE WHEN COALESCE(is_major, FALSE)
-                                      THEN 1 ELSE 0 END) DESC,
-                             COUNT(*) DESC,
-                             MIN(LOWER(TRIM(city)))
-                    LIMIT 3
-                    """, String.class, country, country);
-        } catch (BadSqlGrammarException exception) {
-            LOG.warn("Airport directory unavailable for country attraction discovery.");
-            return List.of();
-        }
-
-        Map<String, Map<String, Object>> uniquePlaces = new LinkedHashMap<>();
-        for (String city : cities) {
-            for (Map<String, Object> place :
-                    geoapifyAttractionService.searchAttractions(city, country, language)) {
-                uniquePlaces.putIfAbsent(attractionDeduplicationKey(place), place);
-            }
-        }
-        return uniquePlaces.values().stream().limit(50).toList();
-    }
-
-    private static String attractionDeduplicationKey(Map<String, Object> place) {
-        String name = String.valueOf(place.getOrDefault("name", ""))
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("\\s+", " ")
-                .trim();
-        name = Normalizer.normalize(name, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "")
-                .replaceAll("[^\\p{L}\\p{N}]+", " ")
-                .trim();
-        double latitude = safeCoordinate(place.get("latitude"));
-        double longitude = safeCoordinate(place.get("longitude"));
-        return name + "|" + String.format(Locale.ROOT, "%.4f|%.4f", latitude, longitude);
-    }
-
-    private static double safeCoordinate(Object value) {
-        if (value instanceof Number number) return number.doubleValue();
-        if (value instanceof String text) {
-            try {
-                return Double.parseDouble(text);
-            } catch (NumberFormatException ignored) {
-                return 0;
-            }
-        }
-        return 0;
     }
 
     @PostMapping("/attractions/{id}/visits")

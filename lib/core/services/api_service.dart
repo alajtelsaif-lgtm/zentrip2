@@ -1663,18 +1663,8 @@ class ApiService {
     int offset = 0,
   }) async {
     if (useMockMode) {
-      await Future.delayed(_mockDelay);
-      final all =
-          MockDataService.attractions().where(_isLandmarkCategory).toList();
-      final filtered = category == null || category == 'all'
-          ? all
-          : all.where((a) => a.category == category).toList();
-      final start = offset.clamp(0, filtered.length);
-      final end = (start + limit).clamp(0, filtered.length);
-      return AttractionSearchPage(
-        attractions: filtered.sublist(start, end),
-        totalCount: filtered.length,
-        hasMore: end < filtered.length,
+      throw StateError(
+        'OpenTripMap landmark search requires the configured live backend.',
       );
     }
     final res = await _dio.get(
@@ -1738,6 +1728,8 @@ class ApiService {
   Future<List<AttractionPlaceSuggestion>> searchAttractionSuggestions(
     String query, {
     String? language,
+    double? latitude,
+    double? longitude,
   }) async {
     final normalizedQuery = query.trim();
     if (normalizedQuery.length < 2) return const [];
@@ -1746,6 +1738,8 @@ class ApiService {
       queryParameters: {
         'query': normalizedQuery,
         if (language != null && language.isNotEmpty) 'lang': language,
+        if (latitude != null) 'lat': latitude,
+        if (longitude != null) 'lon': longitude,
       },
     );
     final data = response.data;
@@ -1799,14 +1793,14 @@ class ApiService {
     String? category,
   }) async {
     if (useMockMode) {
-      await Future.delayed(_mockDelay);
-      final all = MockDataService.attractions();
-      if (category != null) {
+      if (category == 'restaurant' || category == 'cafe') {
+        await Future.delayed(_mockDelay);
+        final all = MockDataService.attractions();
         return all.where((a) => a.category == category).toList();
       }
-      return all
-          .where((a) => a.category != 'restaurant' && a.category != 'cafe')
-          .toList();
+      throw StateError(
+        'OpenTripMap nearby landmarks require the configured live backend.',
+      );
     }
     try {
       final res = await _dio.get(
@@ -1823,12 +1817,11 @@ class ApiService {
           .toList();
       return attractions;
     } catch (_) {
-      final all = MockDataService.attractions();
-      return category != null
-          ? all.where((a) => a.category == category).toList()
-          : all
-              .where((a) => a.category != 'restaurant' && a.category != 'cafe')
-              .toList();
+      if (category == 'restaurant' || category == 'cafe') {
+        final all = MockDataService.attractions();
+        return all.where((a) => a.category == category).toList();
+      }
+      rethrow;
     }
   }
 

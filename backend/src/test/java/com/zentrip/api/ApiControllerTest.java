@@ -35,10 +35,10 @@ class ApiControllerTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final ProfilePhotoStorage photoStorage = mock(ProfilePhotoStorage.class);
     private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
-    private final GeoapifyAttractionService geoapifyAttractionService =
-            mock(GeoapifyAttractionService.class);
+    private final OpenTripMapAttractionService openTripMapAttractionService =
+            mock(OpenTripMapAttractionService.class);
     private final ApiController controller = new ApiController(
-            jdbc, "", photoStorage, passwordResetService, geoapifyAttractionService);
+            jdbc, "", photoStorage, passwordResetService, openTripMapAttractionService);
 
     @BeforeEach
     void stubExistingBookingForeignKeyTargets() {
@@ -190,18 +190,19 @@ class ApiControllerTest {
 
     @Test
     void monumentSearchReturnsVerifiedProviderPlacesAndCityStatus() {
-        when(geoapifyAttractionService.searchAttractionsWithStatus(
-                "Khoms", "Libya", "en"))
-                .thenReturn(new GeoapifyAttractionService.SearchOutcome(
+        when(openTripMapAttractionService.searchAttractionsWithStatus(
+                eq("Khoms"), eq("Libya"), eq("en"), eq(""), any(), any(), any(),
+                any(), any(), any(), any()))
+                .thenReturn(new OpenTripMapAttractionService.SearchOutcome(
                         List.of(Map.of(
-                                "id", "geoapify:leptis",
+                                "id", "N12345",
                                 "name", "Leptis Magna",
                                 "city", "Khoms",
                                 "country", "Libya",
                                 "category_tag", "historical",
-                                "source_provider", "geoapify",
+                                "source_provider", "opentripmap",
                                 "wikidata_id", "Q183733")),
-                        true));
+                        true, 1, Map.of(), List.of(), List.of(), 1));
 
         Map<String, Object> response =
                 controller.searchMonuments("Khoms", null, "Libya", "en");
@@ -213,71 +214,57 @@ class ApiControllerTest {
         assertEquals("historical", monument.get("category_tag"));
         assertEquals("Q183733", monument.get("wikidata_id"));
         assertEquals(true, response.get("city_found"));
-        verify(geoapifyAttractionService)
-                .searchAttractionsWithStatus("Khoms", "Libya", "en");
+        assertEquals("opentripmap", response.get("source"));
+        assertEquals(List.of("opentripmap"), response.get("providers"));
+        verify(openTripMapAttractionService).searchAttractionsWithStatus(
+                "Khoms", "Libya", "en", "", null, null, null, null, null, null, null);
     }
 
     @Test
     void cityNotFoundIsDistinguishedFromAnEmptyLandmarkResult() {
-        when(geoapifyAttractionService.searchAttractionsWithStatus(
-                "No Such City", "Libya", "ar"))
-                .thenReturn(new GeoapifyAttractionService.SearchOutcome(List.of(), false));
+        when(openTripMapAttractionService.searchAttractionsWithStatus(
+                eq("No Such City"), eq("Libya"), eq("ar"), eq(""), any(), any(), any(),
+                any(), any(), any(), any()))
+                .thenReturn(new OpenTripMapAttractionService.SearchOutcome(
+                        List.of(), false, 0, Map.of(), List.of(), List.of(), 0));
 
         Map<String, Object> response =
                 controller.searchMonuments("No Such City", null, "Libya", "ar");
 
-        assertEquals("geoapify", response.get("source"));
+        assertEquals("opentripmap", response.get("source"));
         assertEquals(false, response.get("city_found"));
         assertEquals(List.of(), response.get("attractions"));
-        verify(geoapifyAttractionService)
-                .searchAttractionsWithStatus("No Such City", "Libya", "ar");
+        verify(openTripMapAttractionService).searchAttractionsWithStatus(
+                "No Such City", "Libya", "ar", "", null, null, null, null, null, null, null);
     }
 
     @Test
-    void attractionSuggestionsUseTheGeoapifyServerAdapter() {
-        when(geoapifyAttractionService.suggestPlaces("Trip", "ar"))
+    void attractionSuggestionsUseTheOpenTripMapServerAdapter() {
+        when(openTripMapAttractionService.suggestPlaces("Trip", "ar", null, null))
                 .thenReturn(List.of(Map.of("label", "طرابلس", "result_type", "city")));
 
         Map<String, Object> response =
                 controller.suggestAttractionPlaces("Trip", "ar");
 
         assertEquals(1, ((List<?>) response.get("suggestions")).size());
-        verify(geoapifyAttractionService).suggestPlaces("Trip", "ar");
+        verify(openTripMapAttractionService).suggestPlaces("Trip", "ar", null, null);
     }
 
     @Test
-    void countryOnlySearchFiltersTheLocalCatalogAndQueriesTheProvider() {
-        when(geoapifyAttractionService.searchAttractions("", "Indonesia", "en"))
-                .thenReturn(List.of(Map.of("id", "geoapify:bali", "name", "Bali place")));
+    void countryOnlySearchUsesOnlyOpenTripMap() {
+        when(openTripMapAttractionService.searchAttractionsWithStatus(
+                eq(""), eq("Indonesia"), eq("en"), eq(""), any(), any(), any(),
+                any(), any(), any(), any()))
+                .thenReturn(new OpenTripMapAttractionService.SearchOutcome(
+                        List.of(Map.of("id", "N6789", "name", "Bali place")),
+                        true, 1, Map.of(), List.of(), List.of(), 1));
 
         Map<String, Object> response =
                 controller.searchMonuments("", null, "Indonesia", "en");
 
-        assertEquals("geoapify", response.get("source"));
-        verify(geoapifyAttractionService).searchAttractions("", "Indonesia", "en");
-    }
-
-    @Test
-    void countrySearchDiscoversCitiesFromTheGlobalAirportDirectory() {
-        when(geoapifyAttractionService.searchAttractions("", "Japan", "en"))
-                .thenReturn(List.of());
-        when(jdbc.queryForList(
-                contains("FROM airports"), eq(String.class), eq("Japan"), eq("Japan")))
-                .thenReturn(List.of("Tokyo", "Osaka"));
-        when(geoapifyAttractionService.searchAttractions("Tokyo", "Japan", "en"))
-                .thenReturn(List.of(Map.of(
-                        "id", "geoapify:tokyo-place", "name", "Tokyo landmark")));
-        when(geoapifyAttractionService.searchAttractions("Osaka", "Japan", "en"))
-                .thenReturn(List.of(Map.of(
-                        "id", "geoapify:osaka-place", "name", "Osaka landmark")));
-
-        Map<String, Object> response =
-                controller.searchMonuments("", null, "Japan", "en");
-
-        List<?> attractions = (List<?>) response.get("attractions");
-        assertEquals(2, attractions.size());
-        verify(geoapifyAttractionService).searchAttractions("Tokyo", "Japan", "en");
-        verify(geoapifyAttractionService).searchAttractions("Osaka", "Japan", "en");
+        assertEquals("opentripmap", response.get("source"));
+        verify(openTripMapAttractionService).searchAttractionsWithStatus(
+                "", "Indonesia", "en", "", null, null, null, null, null, null, null);
     }
 
     @Test
@@ -326,7 +313,7 @@ class ApiControllerTest {
     void attractionVisitBlocksBurstsOfDistinctAnonymousVisitors() {
         ApiController rateLimitedController =
                 new ApiController(
-                        jdbc, "", photoStorage, passwordResetService, geoapifyAttractionService);
+                        jdbc, "", photoStorage, passwordResetService, openTripMapAttractionService);
         when(jdbc.queryForObject(
                 contains("FROM tourist_monuments"), eq(Boolean.class), eq("place-1")))
                 .thenReturn(true);

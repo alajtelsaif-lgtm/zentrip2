@@ -36,11 +36,11 @@ class SecurityConfigIntegrationTest {
     private PasswordResetService passwordResetService;
 
     @MockBean
-    private GeoapifyAttractionService geoapifyAttractionService;
+    private OpenTripMapAttractionService openTripMapAttractionService;
 
     @Test
     void placeSuggestionsArePublicAndDoNotRequireALogin() throws Exception {
-        when(geoapifyAttractionService.suggestPlaces("Trip", "en"))
+        when(openTripMapAttractionService.suggestPlaces("Trip", "en", null, null))
                 .thenReturn(List.of(Map.of("label", "Tripoli", "result_type", "city")));
 
         mockMvc.perform(get("/api/attractions/suggestions")

@@ -41,15 +41,15 @@ public class AirportDirectoryService {
 
     private final JdbcTemplate jdbc;
     private final GeoapifyAirportService geoapifyAirportService;
-    private final GeoapifyAttractionService geoapifyAttractionService;
+    private final OpenTripMapAttractionService openTripMapAttractionService;
 
     public AirportDirectoryService(
             JdbcTemplate jdbc,
             GeoapifyAirportService geoapifyAirportService,
-            GeoapifyAttractionService geoapifyAttractionService) {
+            OpenTripMapAttractionService openTripMapAttractionService) {
         this.jdbc = jdbc;
         this.geoapifyAirportService = geoapifyAirportService;
-        this.geoapifyAttractionService = geoapifyAttractionService;
+        this.openTripMapAttractionService = openTripMapAttractionService;
     }
 
     public Map<String, Object> search(String requestedQuery) {
@@ -278,7 +278,7 @@ public class AirportDirectoryService {
                 nearestAirports(location.latitude(), location.longitude(), NEAREST_LIMIT);
         List<Map<String, Object>> landmarks = new ArrayList<>();
         if (hasText(location.city()) && hasText(location.country())) {
-            List<Map<String, Object>> places = geoapifyAttractionService.searchAtCoordinates(
+            List<Map<String, Object>> places = openTripMapAttractionService.searchAtCoordinates(
                     location.latitude(), location.longitude(),
                     location.city(), location.country(), "en");
             String normalizedSearch = normalize(originalQuery);
@@ -287,7 +287,6 @@ public class AirportDirectoryService {
                             .contains(normalizedSearch)
                             || normalizedSearch.contains(
                                     normalize(String.valueOf(place.get("name")))))
-                    .filter(AirportDirectoryService::hasVerifiedImage)
                     .limit(1)
                     .map(place -> withNearestAirport(
                             place, nearestAirports(
@@ -320,13 +319,13 @@ public class AirportDirectoryService {
                     "Add a city or place after the category.", 0);
         }
 
-        List<Map<String, Object>> places = geoapifyAttractionService.searchAtCoordinates(
+        List<Map<String, Object>> places = openTripMapAttractionService.searchAtCoordinates(
                 location.latitude(), location.longitude(),
                 hasText(location.city()) ? location.city()
-                        : splitCityCountry(searchText)[0], location.country(), "en");
+                        : splitCityCountry(searchText)[0], location.country(), "en",
+                openTripMapCategory(category));
         List<Map<String, Object>> landmarks = places.stream()
                 .filter(place -> matchesHighlightCategory(place, category))
-                .filter(AirportDirectoryService::hasVerifiedImage)
                 .limit(12)
                 .map(place -> withNearestAirport(
                         place, nearestAirports(
@@ -379,12 +378,11 @@ public class AirportDirectoryService {
             String resolvedCountry = parts.length > 1 ? parts[1] : country;
             if (!country.isBlank() && !matchesCountry(resolvedCountry, country)) continue;
             List<Map<String, Object>> places =
-                    geoapifyAttractionService.searchAttractions(
+                    openTripMapAttractionService.searchAttractions(
                             resolvedCity, resolvedCountry, "en");
             places.stream()
                     .filter(place -> category == null
                             || matchesHighlightCategory(place, category))
-                    .filter(AirportDirectoryService::hasVerifiedImage)
                     .limit(4)
                     .map(place -> withNearestAirport(
                             place, nearestAirports(
@@ -425,24 +423,31 @@ public class AirportDirectoryService {
         return result;
     }
 
-    private static boolean hasVerifiedImage(Map<String, Object> place) {
-        Object image = place.get("image_url");
-        return image instanceof String value && value.startsWith("https://");
-    }
-
     private static boolean matchesHighlightCategory(
             Map<String, Object> place, String category) {
         String requested = normalize(category).replace("&", "")
                 .replace(" and ", " ").replaceAll("\\s+", " ");
-        String actual = normalize(String.valueOf(place.get("highlight_category")))
+        String actual = normalize(String.valueOf(place.get("category")))
                 .replace("&", "").replace(" and ", " ").replaceAll("\\s+", " ");
         return switch (requested) {
             case "historical", "history" -> actual.equals("historical");
-            case "nature", "natural" -> actual.equals("nature");
-            case "shopping", "shops" -> actual.equals("shopping");
+            case "nature", "natural" -> actual.equals("natural");
+            case "shopping", "shops" -> false;
             case "architecture", "architectural" -> actual.equals("architecture");
-            case "family culture", "culture", "family" -> actual.equals("family culture");
+            case "family culture", "culture", "family" ->
+                    Set.of("historical", "museum", "architecture").contains(actual);
             default -> false;
+        };
+    }
+
+    private static String openTripMapCategory(String category) {
+        return switch (normalize(category)) {
+            case "historical", "history" -> "historical";
+            case "nature", "natural" -> "natural";
+            case "architecture", "architectural" -> "architecture";
+            case "family culture", "culture", "family" -> "cultural";
+            case "shopping", "shops" -> "shopping";
+            default -> null;
         };
     }
 
@@ -606,7 +611,8 @@ public class AirportDirectoryService {
         result.put("has_more", total > airports.size());
         result.put("source", "OurAirports");
         result.put("airport_attribution", "OurAirports public-domain airport data");
-        result.put("landmark_attribution", "Geoapify · © OpenStreetMap contributors");
+        result.put("landmark_attribution",
+                "OpenTripMap · follow each place’s source and image attribution.");
         if (message != null) result.put("message", message);
         if (resolvedLocation != null) result.put("resolved_location", resolvedLocation);
         return result;

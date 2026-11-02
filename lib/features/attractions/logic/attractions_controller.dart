@@ -78,9 +78,7 @@ class AttractionsController extends ChangeNotifier {
                       hasMore: false,
                     );
                   }),
-        _searchSuggestions = searchSuggestions ??
-            ((query, {language}) => ApiService.instance
-                .searchAttractionSuggestions(query, language: language)),
+        _searchSuggestions = searchSuggestions,
         _loadCurrentPlace = loadCurrentPlace ??
             (() => const CurrentLocationService().getCurrentPlace()),
         _loadPreferences = loadPreferences ?? SharedPreferences.getInstance,
@@ -98,7 +96,7 @@ class AttractionsController extends ChangeNotifier {
 
   final AttractionSearchPageFunction _searchPage;
   final bool _supportsPaging;
-  final AttractionSuggestionsFunction _searchSuggestions;
+  final AttractionSuggestionsFunction? _searchSuggestions;
   final CurrentPlaceLoader _loadCurrentPlace;
   final AttractionPreferencesLoader _loadPreferences;
   final RecentAttractionDestinationLoader _loadRecentDestination;
@@ -376,10 +374,17 @@ class AttractionsController extends ChangeNotifier {
     if (debounce) await Future<void>.delayed(_suggestionDebounce);
     if (generation != _suggestionGeneration) return const [];
     try {
-      final suggestions = await _searchSuggestions(
-        normalizedQuery,
-        language: language,
-      );
+      final suggestions = _searchSuggestions == null
+          ? await ApiService.instance.searchAttractionSuggestions(
+              normalizedQuery,
+              language: language,
+              latitude: _lastLatitude,
+              longitude: _lastLongitude,
+            )
+          : await _searchSuggestions!(
+              normalizedQuery,
+              language: language,
+            );
       return generation == _suggestionGeneration ? suggestions : const [];
     } catch (_) {
       return const [];
