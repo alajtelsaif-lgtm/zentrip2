@@ -31,7 +31,6 @@ class PartnerControllerTest {
             mock(AirportDirectoryService.class);
     private final DuffelFlightService duffelFlightService = mock(DuffelFlightService.class);
     private final DuffelStayService duffelStayService = mock(DuffelStayService.class);
-    private final RapidApiHotelService rapidApiHotelService = mock(RapidApiHotelService.class);
     private final XoteloHotelService xoteloHotelService = mock(XoteloHotelService.class);
     private final PartnerController controller = new PartnerController(
             jdbc,
@@ -40,7 +39,6 @@ class PartnerControllerTest {
             airportDirectoryService,
             duffelFlightService,
             duffelStayService,
-            rapidApiHotelService,
             xoteloHotelService,
             mock(ExchangeRateService.class));
 
@@ -634,45 +632,9 @@ class PartnerControllerTest {
     }
 
     @Test
-    void hotelSearchCombinesPartnerAndDuffelUsingExistingHotelEndpoint() {
+    void hotelSearchUsesXoteloWithoutCallingDuffelStays() {
         when(jdbc.queryForList(contains("WHERE l.type = 'hotel'")))
                 .thenReturn(List.of());
-        when(airportDirectoryService.search("London")).thenReturn(Map.of(
-                "airports", List.of(Map.of(
-                        "latitude", 51.5072,
-                        "longitude", -0.1276))));
-        when(duffelStayService.isConfigured()).thenReturn(true);
-        Map<String, Object> duffelHotel = Map.of(
-                "id", "duffel-srr-search-result",
-                "source", "duffel",
-                "name", "Duffel Test Hotel",
-                "price_currency", "GBP");
-        when(duffelStayService.searchHotelsWithAllRatesWithWarnings(
-                eq("London"),
-                eq(51.5072),
-                eq(-0.1276),
-                eq(java.time.LocalDate.parse("2026-12-01")),
-                eq(java.time.LocalDate.parse("2026-12-03")),
-                eq(1),
-                eq(2)))
-                .thenReturn(new DuffelStayService.SearchOutcome(
-                        List.of(duffelHotel), List.of()));
-        Map<String, Object> rapidApiHotel = Map.of(
-                "id", "rapidapi-123",
-                "source", "rapidapi",
-                "name", "RapidAPI Test Hotel",
-                "price_currency", "USD");
-        when(rapidApiHotelService.searchHotelsWithWarnings(
-                eq("London"),
-                eq(java.time.LocalDate.parse("2026-12-01")),
-                eq(java.time.LocalDate.parse("2026-12-03")),
-                eq(1),
-                eq(2),
-                eq("USD"),
-                eq(51.5072),
-                eq(-0.1276)))
-                .thenReturn(new RapidApiHotelService.SearchOutcome(
-                        List.of(rapidApiHotel), List.of()));
         Map<String, Object> xoteloHotel = Map.of(
                 "id", "xotelo-g297930-d123",
                 "source", "xotelo",
@@ -698,11 +660,12 @@ class PartnerControllerTest {
                 null);
 
         List<?> hotels = (List<?>) response.get("hotels");
-        assertEquals(3, hotels.size());
+        assertEquals(1, hotels.size());
         assertEquals(Map.of(
-                "partner", 0L, "duffel", 1L, "rapidapi", 1L, "xotelo", 1L),
+                "partner", 0L, "duffel", 0L, "rapidapi", 0L, "xotelo", 1L),
                 response.get("sources"));
         assertEquals(List.of(), response.get("warnings"));
+        verify(duffelStayService, never()).isConfigured();
     }
 
     @Test

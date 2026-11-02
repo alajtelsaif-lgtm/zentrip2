@@ -118,14 +118,8 @@ Authenticated profile updates use `POST /api/profile` with multipart `name`, `ph
 
 The payment endpoints intentionally retain the existing mock checkout behavior; connect a real payment provider before production use. Saved places remain local to the Flutter app, as in the original project.
 
-## RapidAPI hotel search
-
-Hotel searches with check-in and check-out dates also query the RapidAPI `booking-com15.p.rapidapi.com` Booking.com data API. The backend first resolves the city with `/api/v1/hotels/searchDestination`, then requests availability and prices from `/api/v1/hotels/searchHotels`. Set `RAPIDAPI_KEY` as a Replit Secret (or backend environment variable); the key is sent only by the backend. RapidAPI results are merged with partner and Duffel results, and provider failures leave the other sources available.
-
-These RapidAPI results are search-only. Until a provider booking flow is implemented, their detail screen displays the existing unavailable-booking state and does not create a local booking for an external hotel.
-
 ## Xotelo hotel information
 
-Hotel search can also include read-only Xotelo/Tripadvisor hotel data. The free direct Xotelo API's `/api/list` endpoint requires a known Tripadvisor location key; it does not resolve arbitrary city names. A verified Phuket location key is included by default. Add other verified city-to-key entries through the non-secret `XOTELO_LOCATION_KEYS_JSON` environment variable, for example `{"Tripoli":"<verified-tripadvisor-location-key>"}`. The app skips Xotelo when a city is not mapped and continues returning partner and other provider results.
+Hotel search uses partner inventory and read-only Xotelo/Tripadvisor hotel data. Duffel Stays and Booking.com RapidAPI are not queried for hotel search. Duffel flight search is unchanged. The free direct Xotelo API's `/api/list` endpoint requires a known Tripadvisor location key; it does not resolve arbitrary city names. A verified Phuket location key is included by default. Add other verified city-to-key entries through the non-secret `XOTELO_LOCATION_KEYS_JSON` environment variable, for example `{"Tripoli":"<verified-tripadvisor-location-key>"}`. The app skips Xotelo when a city is not mapped and continues returning partner results.
 
 Xotelo results are informational estimates: their listed minimum price is not confirmed availability or a partner rate. They have no `partner_listing_id`; checkout uses Zentrip's existing simulated payment and booking-record flow and does not make a reservation with Xotelo or Tripadvisor. Partner listing prices and inventory are not changed. Add only location keys verified from Tripadvisor/Xotelo, and review Xotelo's current usage and commercial terms before production use.

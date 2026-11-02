@@ -67,7 +67,6 @@ public class PartnerController {
     private final AirportDirectoryService airportDirectoryService;
     private final DuffelFlightService duffelFlightService;
     private final DuffelStayService duffelStayService;
-    private final RapidApiHotelService rapidApiHotelService;
     private final XoteloHotelService xoteloHotelService;
     private final UnifiedInventoryService unifiedInventoryService;
 
@@ -78,7 +77,6 @@ public class PartnerController {
             AirportDirectoryService airportDirectoryService,
             DuffelFlightService duffelFlightService,
             DuffelStayService duffelStayService,
-            RapidApiHotelService rapidApiHotelService,
             XoteloHotelService xoteloHotelService,
             ExchangeRateService exchangeRateService) {
         this.jdbc = jdbc;
@@ -87,7 +85,6 @@ public class PartnerController {
         this.airportDirectoryService = airportDirectoryService;
         this.duffelFlightService = duffelFlightService;
         this.duffelStayService = duffelStayService;
-        this.rapidApiHotelService = rapidApiHotelService;
         this.xoteloHotelService = xoteloHotelService;
         this.unifiedInventoryService = new UnifiedInventoryService(exchangeRateService);
     }
@@ -960,60 +957,7 @@ public class PartnerController {
                         HttpStatus.BAD_REQUEST, "Invalid hotel stay dates");
             }
         }
-        HotelCoordinates center = parsedCheckIn == null
-                ? null
-                : hotelSearchCoordinates(normalizedCity, List.of());
         List<UnifiedInventoryService.ProviderSearch> hotelProviders = List.of(
-                new UnifiedInventoryService.ProviderSearch(
-                        "duffel",
-                        "Duffel hotel results are temporarily unavailable.",
-                        () -> {
-                            if (parsedCheckIn == null) {
-                                return UnifiedInventoryService.SourceOutcome.of(List.of());
-                            }
-                            if (!duffelStayService.isConfigured()) {
-                                return new UnifiedInventoryService.SourceOutcome(
-                                        List.of(),
-                                        List.of("Duffel hotel search is not configured."));
-                            }
-                            if (center == null) {
-                                return new UnifiedInventoryService.SourceOutcome(
-                                        List.of(),
-                                        List.of(
-                                                "Duffel hotel search needs a resolved city location."));
-                            }
-                            DuffelStayService.SearchOutcome provider =
-                                    duffelStayService.searchHotelsWithAllRatesWithWarnings(
-                                            normalizedCity,
-                                            center.latitude(),
-                                            center.longitude(),
-                                            parsedCheckIn,
-                                            parsedCheckOut,
-                                            rooms,
-                                            guests);
-                            return new UnifiedInventoryService.SourceOutcome(
-                                    provider.hotels(), provider.warnings());
-                        }),
-                new UnifiedInventoryService.ProviderSearch(
-                        "rapidapi",
-                        "Booking.com hotel results are temporarily unavailable.",
-                        () -> {
-                            if (parsedCheckIn == null) {
-                                return UnifiedInventoryService.SourceOutcome.of(List.of());
-                            }
-                            RapidApiHotelService.SearchOutcome provider =
-                                    rapidApiHotelService.searchHotelsWithWarnings(
-                                            normalizedCity,
-                                            parsedCheckIn,
-                                            parsedCheckOut,
-                                            rooms,
-                                            guests,
-                                            normalizedCurrency,
-                                            center == null ? null : center.latitude(),
-                                            center == null ? null : center.longitude());
-                            return new UnifiedInventoryService.SourceOutcome(
-                                    provider.hotels(), provider.warnings());
-                        }),
                 new UnifiedInventoryService.ProviderSearch(
                         "xotelo",
                         "Xotelo hotel information is temporarily unavailable.",
@@ -1063,59 +1007,6 @@ public class PartnerController {
                     HttpStatus.BAD_REQUEST, "Invalid hotel search result ID");
         }
         return duffelStayService.fetchAllRates(searchResultId);
-    }
-
-    private HotelCoordinates hotelSearchCoordinates(
-            String city, List<Map<String, Object>> partnerRows) {
-        if (city.isBlank()) return null;
-        try {
-            Map<String, Object> directory = airportDirectoryService.search(city);
-            Object resolved = directory.get("resolved_location");
-            if (resolved instanceof Map<?, ?> location) {
-                HotelCoordinates coordinates = coordinatesFrom(location);
-                if (coordinates != null) return coordinates;
-            }
-            Object airportValues = directory.get("airports");
-            if (airportValues instanceof List<?> airports) {
-                for (Object airport : airports) {
-                    if (airport instanceof Map<?, ?> airportMap) {
-                        HotelCoordinates coordinates = coordinatesFrom(airportMap);
-                        if (coordinates != null) return coordinates;
-                    }
-                }
-            }
-        } catch (RuntimeException exception) {
-            LOG.debug("Airport directory could not resolve hotel search location.");
-        }
-        for (Map<String, Object> row : partnerRows) {
-            HotelCoordinates coordinates = hotelCoordinates(attributes(row.get("attributes")));
-            if (coordinates != null) return coordinates;
-        }
-        return null;
-    }
-
-    private static HotelCoordinates coordinatesFrom(Map<?, ?> location) {
-        Double latitude = coordinateValue(location.get("latitude"));
-        Double longitude = coordinateValue(location.get("longitude"));
-        if (latitude == null || longitude == null
-                || !validCoordinate(latitude, -90, 90)
-                || !validCoordinate(longitude, -180, 180)) {
-            return null;
-        }
-        return new HotelCoordinates(latitude, longitude);
-    }
-
-    private static Double coordinateValue(Object value) {
-        if (value instanceof Number number) {
-            double coordinate = number.doubleValue();
-            return Double.isFinite(coordinate) ? coordinate : null;
-        }
-        try {
-            double coordinate = Double.parseDouble(text(value));
-            return Double.isFinite(coordinate) ? coordinate : null;
-        } catch (NumberFormatException exception) {
-            return null;
-        }
     }
 
     @GetMapping("/hotels/nearby")
