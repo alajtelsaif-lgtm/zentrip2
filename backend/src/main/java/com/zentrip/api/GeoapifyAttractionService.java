@@ -511,29 +511,171 @@ public class GeoapifyAttractionService {
     }
 
     @SuppressWarnings("unchecked")
-    private List<Map<?, ?>> fetchPlaces(GeoPoint center, String language) {
-        Map<?, ?> response = geoapify.get()
-                .uri(uri -> uri.path("/v2/places")
-                        .queryParam("categories",
-                                "tourism.sights,tourism.attraction,entertainment.museum,"
-                                        + "leisure.park,leisure.park.garden,beach,"
-                                        + "heritage,building.historic")
-                        .queryParam("filter", placeFilter(center))
-                        .queryParam("bias", "proximity:" + center.longitude()
-                                + "," + center.latitude())
-                        .queryParam("limit", 20)
-                        .queryParam("lang", language)
-                        .queryParam("apiKey", apiKey)
-                        .build())
-                .retrieve()
-                .body(Map.class);
-
-        List<Map<?, ?>> features = new ArrayList<>();
-        for (Object feature : list(map(response).get("features"))) {
-            Map<?, ?> value = map(feature);
-            if (!value.isEmpty()) features.add(value);
+    private ProviderResult<List<Map<?, ?>>> fetchPlaces(
+            GeoPoint center, String language) {
+        if (apiKey.isBlank()) {
+            return new ProviderResult<>(
+                    List.of(), List.of("Geoapify Places is unavailable because its key is not configured."));
         }
-        return features;
+        List<Map<?, ?>> features = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
+        for (int page = 0; page < MAX_PROVIDER_PAGES; page++) {
+            int offset = page * PROVIDER_PAGE_SIZE;
+            try {
+                Map<?, ?> response = geoapify.get()
+                        .uri(uri -> uri.path("/v2/places")
+                                .queryParam("categories",
+                                        "tourism.sights,tourism.attraction,entertainment.museum,"
+                                                + "leisure.park,leisure.park.garden,beach,"
+                                                + "heritage,building.historic")
+                                .queryParam("filter", placeFilter(center))
+                                .queryParam("bias", "proximity:" + center.longitude()
+                                        + "," + center.latitude())
+                                .queryParam("limit", PROVIDER_PAGE_SIZE)
+                                .queryParam("offset", offset)
+                                .queryParam("lang", language)
+                                .queryParam("apiKey", apiKey)
+                                .build())
+                        .retrieve()
+                        .body(Map.class);
+                List<Map<?, ?>> pageFeatures = new ArrayList<>();
+                for (Object feature : list(map(response).get("features"))) {
+                    Map<?, ?> value = map(feature);
+                    if (!value.isEmpty()) pageFeatures.add(value);
+                }
+                features.addAll(pageFeatures);
+                if (pageFeatures.size() < PROVIDER_PAGE_SIZE) break;
+            } catch (RestClientException exception) {
+                String reason = classifyProviderFailure(exception);
+                LOG.warn("Geoapify Places page failed ({}), retaining {} candidates",
+                        reason, features.size());
+                warnings.add("Geoapify Places results are partially unavailable.");
+                break;
+            }
+        }
+        return new ProviderResult<>(List.copyOf(features), warnings);
+    }
+
+    private ProviderResult<Map<String, PlaceEnrichment>> fetchWikidataPlaces(
+            GeoPoint center, String language) {
+        Map<String, PlaceEnrichment> items = new LinkedHashMap<>();
+        List<String> warnings = new ArrayList<>();
+        for (int page = 0; page < MAX_PROVIDER_PAGES; page++) {
+            int offset = page * PROVIDER_PAGE_SIZE;
+            String query = wikidataAreaQuery(center, language, offset);
+            try {
+                URI requestUri = URI.create("https://query.wikidata.org/sparql?query="
+                        + URLEncoder.encode(query, StandardCharsets.UTF_8)
+                        + "&format=json");
+                Map<?, ?> response = wikidata.get()
+                        .uri(requestUri)
+                        .retrieve()
+                        .body(Map.class);
+                List<?> rows = list(map(map(response).get("results")).get("bindings"));
+                for (Object row : rows) {
+                    Map<?, ?> binding = map(row);
+                    String qid = extractQid(value(binding, "item"));
+                    String type = extractQid(value(binding, "landmarkType"));
+                    GeoPoint coordinates = wikidataPoint(value(binding, "coordinates"));
+                    if (qid == null || !VERIFIED_LANDMARK_TYPES.contains(type)
+                            || coordinates == null) continue;
+                    PlaceEnrichment enrichment = new PlaceEnrichment(
+                            type,
+                            coordinates.latitude(),
+                            coordinates.longitude(),
+                            value(binding, "labelEn"),
+                            value(binding, "labelAr"),
+                            value(binding, "descriptionEn"),
+                            value(binding, "descriptionAr"),
+                            value(binding, "enwiki"),
+                            value(binding, "arwiki"),
+                            value(binding, "image"),
+                            value(binding, "enWikiImage"),
+                            value(binding, "arWikiImage"),
+                            integerValue(value(binding, "sitelinks")));
+                    items.merge(qid, enrichment, GeoapifyAttractionService::mergeEnrichment);
+                }
+                if (rows.size() < PROVIDER_PAGE_SIZE) break;
+            } catch (RestClientException | IllegalArgumentException exception) {
+                String reason = exception instanceof RestClientException restException
+                        ? classifyProviderFailure(restException)
+                        : "invalid SPARQL response";
+                LOG.warn("Wikidata spatial page failed ({}), retaining {} verified items",
+                        reason, items.size());
+                warnings.add("Wikidata landmark results are partially unavailable.");
+                break;
+            }
+        }
+        return new ProviderResult<>(Map.copyOf(items), warnings);
+    }
+
+    private static String wikidataAreaQuery(
+            GeoPoint center, String language, int offset) {
+        String areaConstraint;
+        if (center.bounds() == null) {
+            areaConstraint = """
+                    SERVICE wikibase:around {
+                      ?item wdt:P625 ?coordinates .
+                      bd:serviceParam wikibase:center "%s"^^geo:wktLiteral .
+                      bd:serviceParam wikibase:radius "25" .
+                    }
+                    """.formatted(wktPoint(center.longitude(), center.latitude()));
+        } else {
+            areaConstraint = """
+                    SERVICE wikibase:box {
+                      ?item wdt:P625 ?coordinates .
+                      bd:serviceParam wikibase:cornerSouthWest "%s"^^geo:wktLiteral .
+                      bd:serviceParam wikibase:cornerNorthEast "%s"^^geo:wktLiteral .
+                    }
+                    """.formatted(
+                    wktPoint(center.bounds().minLongitude(), center.bounds().minLatitude()),
+                    wktPoint(center.bounds().maxLongitude(), center.bounds().maxLatitude()));
+        }
+        String labelVariable = "ar".equals(language) ? "?labelAr" : "?labelEn";
+        return """
+                PREFIX wd: <http://www.wikidata.org/entity/>
+                PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+                PREFIX bd: <http://www.bigdata.com/rdf#>
+                PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+                PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+                PREFIX schema: <http://schema.org/>
+                PREFIX wikibase: <http://wikiba.se/ontology#>
+                SELECT ?item ?landmarkType ?coordinates ?labelEn ?labelAr
+                       ?descriptionEn ?descriptionAr ?enwiki ?arwiki ?image
+                       ?enWikiImage ?arWikiImage ?sitelinks
+                WHERE {
+                  %s
+                  VALUES ?landmarkType { %s }
+                  ?item wdt:P31/wdt:P279* ?landmarkType .
+                  ?item wikibase:sitelinks ?sitelinks .
+                  OPTIONAL { ?item rdfs:label ?labelEn . FILTER(LANG(?labelEn) = "en") }
+                  OPTIONAL { ?item rdfs:label ?labelAr . FILTER(LANG(?labelAr) = "ar") }
+                  OPTIONAL { ?item schema:description ?descriptionEn .
+                             FILTER(LANG(?descriptionEn) = "en") }
+                  OPTIONAL { ?item schema:description ?descriptionAr .
+                             FILTER(LANG(?descriptionAr) = "ar") }
+                  OPTIONAL { ?enwiki schema:about ?item ;
+                             schema:isPartOf <https://en.wikipedia.org/> . }
+                  OPTIONAL { ?arwiki schema:about ?item ;
+                             schema:isPartOf <https://ar.wikipedia.org/> . }
+                  OPTIONAL { ?item wdt:P18 ?image . }
+                  OPTIONAL { ?enwiki schema:image ?enWikiImage . }
+                  OPTIONAL { ?arwiki schema:image ?arWikiImage . }
+                  FILTER(BOUND(%s))
+                }
+                ORDER BY DESC(?sitelinks)
+                LIMIT %d OFFSET %d
+                """.formatted(
+                areaConstraint,
+                VERIFIED_LANDMARK_TYPES.stream().sorted()
+                        .map(type -> "wd:" + type).reduce((a, b) -> a + " " + b).orElse(""),
+                labelVariable,
+                PROVIDER_PAGE_SIZE,
+                offset);
+    }
+
+    private static String wktPoint(double longitude, double latitude) {
+        return "Point(" + longitude + " " + latitude + ")";
     }
 
     private Map<String, PlaceEnrichment> fetchWikidataEnrichment(List<Map<?, ?>> features) {
