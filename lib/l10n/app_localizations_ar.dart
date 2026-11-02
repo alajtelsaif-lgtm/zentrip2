@@ -1729,6 +1729,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get hotelNightPrice => 'سعر الليلة';
 
   @override
+  String get hotelXoteloEstimateLabel => 'تقدير Xotelo (غير مؤكد)';
+
+  @override
   String get hotelNightsCount => 'عدد الليالي';
 
   @override

@@ -595,6 +595,7 @@
   "hotelRoomRatesUnavailable": "أسعار الغرف غير متاحة مؤقتًا.",
   "hotelDefaultDescription": "فندق راقٍ يقع في قلب المدينة يوفر أجواءً مريحة ومرافق متكاملة للضيوف.",
   "hotelNightPrice": "سعر الليلة",
+  "hotelXoteloEstimateLabel": "تقدير Xotelo (غير مؤكد)",
   "hotelNightsCount": "عدد الليالي",
   "hotelNightsValue": "{nights} ليال",
   "hotelTaxesFees": "الضرائب والرسوم",

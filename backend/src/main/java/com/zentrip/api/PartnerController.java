@@ -68,6 +68,7 @@ public class PartnerController {
     private final DuffelFlightService duffelFlightService;
     private final DuffelStayService duffelStayService;
     private final RapidApiHotelService rapidApiHotelService;
+    private final XoteloHotelService xoteloHotelService;
     private final UnifiedInventoryService unifiedInventoryService;
 
     public PartnerController(
@@ -78,6 +79,7 @@ public class PartnerController {
             DuffelFlightService duffelFlightService,
             DuffelStayService duffelStayService,
             RapidApiHotelService rapidApiHotelService,
+            XoteloHotelService xoteloHotelService,
             ExchangeRateService exchangeRateService) {
         this.jdbc = jdbc;
         this.imageStorage = imageStorage;
@@ -86,6 +88,7 @@ public class PartnerController {
         this.duffelFlightService = duffelFlightService;
         this.duffelStayService = duffelStayService;
         this.rapidApiHotelService = rapidApiHotelService;
+        this.xoteloHotelService = xoteloHotelService;
         this.unifiedInventoryService = new UnifiedInventoryService(exchangeRateService);
     }
 
@@ -1010,6 +1013,17 @@ public class PartnerController {
                                             center == null ? null : center.longitude());
                             return new UnifiedInventoryService.SourceOutcome(
                                     provider.hotels(), provider.warnings());
+                        }),
+                new UnifiedInventoryService.ProviderSearch(
+                        "xotelo",
+                        "Xotelo hotel information is temporarily unavailable.",
+                        () -> {
+                            XoteloHotelService.SearchOutcome provider =
+                                    xoteloHotelService.searchHotels(normalizedCity);
+                            return provider == null
+                                    ? UnifiedInventoryService.SourceOutcome.of(List.of())
+                                    : new UnifiedInventoryService.SourceOutcome(
+                                            provider.hotels(), provider.warnings());
                         }));
         UnifiedInventoryService.SearchOutcome merged = unifiedInventoryService.merge(
                 "hotel",
@@ -1029,12 +1043,15 @@ public class PartnerController {
                 .filter(hotel -> "duffel".equals(hotel.get("source"))).count();
         long rapidApiCount = filtered.hotels().stream()
                 .filter(hotel -> "rapidapi".equals(hotel.get("source"))).count();
+        long xoteloCount = filtered.hotels().stream()
+                .filter(hotel -> "xotelo".equals(hotel.get("source"))).count();
         return Map.of(
                 "hotels", filtered.hotels(),
                 "sources", Map.of(
                         "partner", partnerCount,
                         "duffel", duffelCount,
-                        "rapidapi", rapidApiCount),
+                        "rapidapi", rapidApiCount,
+                        "xotelo", xoteloCount),
                 "warnings", warnings.stream().distinct().toList());
     }
 

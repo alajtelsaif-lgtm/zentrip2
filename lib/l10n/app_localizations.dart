@@ -3340,6 +3340,12 @@ abstract class AppLocalizations {
   /// **'سعر الليلة'**
   String get hotelNightPrice;
 
+  /// No description provided for @hotelXoteloEstimateLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'تقدير Xotelo (غير مؤكد)'**
+  String get hotelXoteloEstimateLabel;
+
   /// No description provided for @hotelNightsCount.
   ///
   /// In ar, this message translates to:

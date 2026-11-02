@@ -609,6 +609,7 @@
   "hotelRoomRatesUnavailable": "Room rates are temporarily unavailable.",
   "hotelDefaultDescription": "An upscale hotel in the heart of the city offering a comfortable atmosphere and full amenities for guests.",
   "hotelNightPrice": "Price per Night",
+  "hotelXoteloEstimateLabel": "Xotelo estimate (not confirmed)",
   "hotelNightsCount": "Number of Nights",
   "hotelNightsValue": "{nights} nights",
   "hotelTaxesFees": "Taxes & Fees",

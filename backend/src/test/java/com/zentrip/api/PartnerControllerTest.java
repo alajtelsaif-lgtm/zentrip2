@@ -32,6 +32,7 @@ class PartnerControllerTest {
     private final DuffelFlightService duffelFlightService = mock(DuffelFlightService.class);
     private final DuffelStayService duffelStayService = mock(DuffelStayService.class);
     private final RapidApiHotelService rapidApiHotelService = mock(RapidApiHotelService.class);
+    private final XoteloHotelService xoteloHotelService = mock(XoteloHotelService.class);
     private final PartnerController controller = new PartnerController(
             jdbc,
             imageStorage,
@@ -40,6 +41,7 @@ class PartnerControllerTest {
             duffelFlightService,
             duffelStayService,
             rapidApiHotelService,
+            xoteloHotelService,
             mock(ExchangeRateService.class));
 
     @Test
@@ -671,6 +673,15 @@ class PartnerControllerTest {
                 eq(-0.1276)))
                 .thenReturn(new RapidApiHotelService.SearchOutcome(
                         List.of(rapidApiHotel), List.of()));
+        Map<String, Object> xoteloHotel = Map.of(
+                "id", "xotelo-g297930-d123",
+                "source", "xotelo",
+                "name", "Xotelo Data Hotel",
+                "price_currency", "USD",
+                "availability_known", false);
+        when(xoteloHotelService.searchHotels("London"))
+                .thenReturn(new XoteloHotelService.SearchOutcome(
+                        List.of(xoteloHotel), List.of()));
 
         Map<String, Object> response = controller.searchHotels(
                 "London",
@@ -687,9 +698,10 @@ class PartnerControllerTest {
                 null);
 
         List<?> hotels = (List<?>) response.get("hotels");
-        assertEquals(2, hotels.size());
+        assertEquals(3, hotels.size());
         assertEquals(Map.of(
-                "partner", 0L, "duffel", 1L, "rapidapi", 1L), response.get("sources"));
+                "partner", 0L, "duffel", 1L, "rapidapi", 1L, "xotelo", 1L),
+                response.get("sources"));
         assertEquals(List.of(), response.get("warnings"));
     }
 

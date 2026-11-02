@@ -1745,6 +1745,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hotelNightPrice => 'Price per Night';
 
   @override
+  String get hotelXoteloEstimateLabel => 'Xotelo estimate (not confirmed)';
+
+  @override
   String get hotelNightsCount => 'Number of Nights';
 
   @override

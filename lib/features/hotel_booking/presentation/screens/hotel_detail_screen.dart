@@ -512,7 +512,9 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                   ),
                   child: Column(children: [
                     _Row(
-                      l10n.hotelNightPrice,
+                      hotel.source == 'xotelo'
+                          ? l10n.hotelXoteloEstimateLabel
+                          : l10n.hotelNightPrice,
                       _formatAvailablePrice(hotel, hotel.pricePerNight, l10n),
                     ),
                     if (hotel.isDuffelOffer && hotel.offers.isNotEmpty) ...[

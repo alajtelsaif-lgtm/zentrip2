@@ -22,6 +22,7 @@ PriceComparison _comparison() => PriceComparison(
 HotelModel _hotel({
   bool duffel = false,
   bool rapidApi = false,
+  bool xotelo = false,
   String? price,
   String currency = 'USD',
 }) =>
@@ -30,12 +31,16 @@ HotelModel _hotel({
           ? 'duffel-srr_test-1'
           : rapidApi
               ? 'rapidapi-123'
-              : 'partner-hotel-1',
+              : xotelo
+                  ? 'xotelo-g297930-d123'
+                  : 'partner-hotel-1',
       'source': duffel
           ? 'duffel'
           : rapidApi
               ? 'rapidapi'
-              : 'partner',
+              : xotelo
+                  ? 'xotelo'
+                  : 'partner',
       if (duffel) 'provider_search_result_id': 'srr_test-1',
       'name': 'Central Test Hotel',
       'city': 'Tripoli',
@@ -229,6 +234,33 @@ void main() {
     expect(
       tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
       isNull,
+    );
+    _expectNoFlutterException(tester);
+    controller.dispose();
+  });
+
+  testWidgets('Xotelo information uses the existing simulated booking flow',
+      (tester) async {
+    _usePhoneViewport(tester);
+    final controller = await _controllerFor(
+      _hotel(xotelo: true, price: '71'),
+    );
+    await tester.pumpWidget(_app(controller));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final l10n =
+        AppLocalizations.of(tester.element(find.byType(HotelDetailScreen)));
+    expect(find.text('Central Test Hotel'), findsOneWidget);
+    expect(find.text(l10n.hotelXoteloEstimateLabel), findsOneWidget);
+    await tester.drag(
+      find.byType(CustomScrollView),
+      const Offset(0, -900),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(
+      tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
+      isNotNull,
     );
     _expectNoFlutterException(tester);
     controller.dispose();
