@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -31,8 +32,22 @@ public class GeoapifyAttractionService {
     private static final Logger LOG = LoggerFactory.getLogger(GeoapifyAttractionService.class);
     private static final Duration CACHE_TTL = Duration.ofMinutes(30);
     private static final Pattern WIKIDATA_QID = Pattern.compile("\\bQ[1-9][0-9]*\\b");
+    private static final Pattern WIKIDATA_POINT = Pattern.compile(
+            "Point\\s*\\(\\s*([-+]?[0-9]+(?:\\.[0-9]+)?)\\s+"
+                    + "([-+]?[0-9]+(?:\\.[0-9]+)?)\\s*\\)");
     private static final String DEFAULT_CITY = "Tripoli";
     private static final String DEFAULT_COUNTRY = "Libya";
+    private static final Set<String> VERIFIED_LANDMARK_TYPES = Set.of(
+            "Q4989906", // monument
+            "Q839954",  // archaeological site
+            "Q33506",   // museum
+            "Q207694",  // art museum
+            "Q22698",   // park
+            "Q46169",   // national park
+            "Q9259",    // UNESCO World Heritage Site
+            "Q41176",   // building
+            "Q11303",   // skyscraper
+            "Q174782"); // square
     private static final Map<String, List<String>> COUNTRY_SEARCH_CITIES = Map.of(
             "libya", List.of("Tripoli", "Misrata", "Benghazi", "Sebha"),
             "egypt", List.of("Cairo"),
@@ -41,6 +56,16 @@ public class GeoapifyAttractionService {
             "saudi arabia", List.of("Jeddah"),
             "united arab emirates", List.of("Dubai"),
             "indonesia", List.of("Denpasar", "Jakarta"));
+    private static final Map<String, String> COUNTRY_CODES = Map.ofEntries(
+            Map.entry("libya", "ly"),
+            Map.entry("egypt", "eg"),
+            Map.entry("tunisia", "tn"),
+            Map.entry("turkiye", "tr"),
+            Map.entry("turkey", "tr"),
+            Map.entry("saudi arabia", "sa"),
+            Map.entry("united arab emirates", "ae"),
+            Map.entry("uae", "ae"),
+            Map.entry("indonesia", "id"));
 
     private final String apiKey;
     private final RestClient geoapify;
@@ -48,28 +73,48 @@ public class GeoapifyAttractionService {
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
     public GeoapifyAttractionService(@Value("${geoapify.api-key:}") String apiKey) {
+        this(apiKey, geoapifyBuilder(), wikidataBuilder());
+    }
+
+    GeoapifyAttractionService(
+            String apiKey,
+            RestClient.Builder geoapifyBuilder,
+            RestClient.Builder wikidataBuilder) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
-
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(Duration.ofSeconds(3));
-        requestFactory.setReadTimeout(Duration.ofSeconds(5));
-
-        this.geoapify = RestClient.builder()
-                .baseUrl("https://api.geoapify.com")
-                .requestFactory(requestFactory)
-                .build();
-        this.wikidata = RestClient.builder()
-                .baseUrl("https://query.wikidata.org")
-                .requestFactory(requestFactory)
+        this.geoapify = geoapifyBuilder.build();
+        this.wikidata = wikidataBuilder
                 .defaultHeader("User-Agent", "ZentripPOI/1.0 (https://zentrip.ly)")
                 .defaultHeader("Accept", "application/sparql-results+json")
                 .build();
     }
 
+    private static RestClient.Builder geoapifyBuilder() {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(3));
+        requestFactory.setReadTimeout(Duration.ofSeconds(5));
+        return RestClient.builder()
+                .baseUrl("https://api.geoapify.com")
+                .requestFactory(requestFactory);
+    }
+
+    private static RestClient.Builder wikidataBuilder() {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(3));
+        requestFactory.setReadTimeout(Duration.ofSeconds(5));
+        return RestClient.builder()
+                .baseUrl("https://query.wikidata.org")
+                .requestFactory(requestFactory);
+    }
+
     public List<Map<String, Object>> searchAttractions(
             String requestedCity, String requestedCountry, String requestedLanguage) {
-        if (apiKey.isBlank()) return List.of();
+        return searchAttractionsWithStatus(
+                requestedCity, requestedCountry, requestedLanguage).places();
+    }
 
+    public SearchOutcome searchAttractionsWithStatus(
+            String requestedCity, String requestedCountry, String requestedLanguage) {
+        if (apiKey.isBlank()) return new SearchOutcome(List.of(), null);
         String city = nonBlank(requestedCity, DEFAULT_CITY).trim();
         String country = nonBlank(requestedCountry, DEFAULT_COUNTRY).trim();
         String language = "ar".equalsIgnoreCase(requestedLanguage) ? "ar" : "en";
@@ -81,7 +126,7 @@ public class GeoapifyAttractionService {
         CacheEntry previous = cache.get(cacheKey);
         Instant now = Instant.now();
         if (previous != null && now.isBefore(previous.expiresAt())) {
-            return previous.places();
+            return new SearchOutcome(previous.places(), previous.cityFound());
         }
 
         try {
@@ -89,20 +134,25 @@ public class GeoapifyAttractionService {
                     ? COUNTRY_SEARCH_CITIES.get(country.toLowerCase(Locale.ROOT))
                     : List.of(city);
             if (searchCities == null || searchCities.isEmpty()) {
-                cache.put(cacheKey, new CacheEntry(List.of(), now.plus(CACHE_TTL)));
-                return List.of();
+                cache.put(cacheKey, new CacheEntry(
+                        List.of(), null, now.plus(CACHE_TTL)));
+                return new SearchOutcome(List.of(), null);
             }
 
             List<PlaceBatch> batches = new ArrayList<>();
             List<Map<?, ?>> allFeatures = new ArrayList<>();
+            boolean cityGeocoded = false;
+            boolean providerFailed = false;
             for (String searchCity : searchCities) {
                 try {
-                    GeoPoint center = geocode(searchCity, country);
+                    GeoPoint center = geocode(searchCity, country, language);
                     if (center == null) continue;
+                    cityGeocoded = true;
                     List<Map<?, ?>> features = fetchPlaces(center, language);
-                    batches.add(new PlaceBatch(searchCity, center, features));
+                    batches.add(new PlaceBatch(searchCity, country, center, features));
                     allFeatures.addAll(features);
                 } catch (RestClientException exception) {
+                    providerFailed = true;
                     String reason = classifyProviderFailure(exception);
                     LOG.warn("Geoapify places unavailable for a destination city ({})", reason);
                 }
@@ -113,23 +163,28 @@ public class GeoapifyAttractionService {
             Map<String, Map<String, Object>> uniquePlaces = new LinkedHashMap<>();
             for (PlaceBatch batch : batches) {
                 for (Map<String, Object> place : normalize(
-                        batch.features(), enrichments, batch.city(), country,
-                        language, batch.center())) {
-                    uniquePlaces.putIfAbsent(String.valueOf(place.get("id")), place);
+                        batch.features(), enrichments, batch.city(), batch.country(),
+                        language, batch.location())) {
+                    uniquePlaces.putIfAbsent(deduplicationKey(place), place);
                 }
             }
             List<Map<String, Object>> places = uniquePlaces.values().stream()
                     .limit(countrySearch ? 50 : 20)
                     .toList();
             List<Map<String, Object>> immutablePlaces = List.copyOf(places);
-            cache.put(cacheKey, new CacheEntry(immutablePlaces, now.plus(CACHE_TTL)));
-            return immutablePlaces;
+            Boolean cityFound = countrySearch ? null
+                    : cityGeocoded ? true : providerFailed ? null : false;
+            cache.put(cacheKey,
+                    new CacheEntry(immutablePlaces, cityFound, now.plus(CACHE_TTL)));
+            return new SearchOutcome(immutablePlaces, cityFound);
         } catch (RestClientException exception) {
             String reason = exception instanceof RestClientResponseException response
                     ? "HTTP " + response.getStatusCode().value()
                     : "network or timeout error";
             LOG.warn("Geoapify attraction search failed ({})", reason);
-            return previous == null ? List.of() : previous.places();
+            return previous == null
+                    ? new SearchOutcome(List.of(), null)
+                    : new SearchOutcome(previous.places(), previous.cityFound());
         }
     }
 
@@ -142,11 +197,12 @@ public class GeoapifyAttractionService {
         CacheEntry previous = cache.get(cacheKey);
         if (previous != null && now.isBefore(previous.expiresAt())) return previous.places();
         try {
-            GeoPoint center = new GeoPoint(latitude, longitude);
+            GeoPoint center = new GeoPoint(
+                    latitude, longitude, null, city, country, null);
             List<Map<?, ?>> features = fetchPlaces(center, language);
             List<Map<String, Object>> places = List.copyOf(normalize(features,
                     fetchWikidataEnrichment(features), city, country, language, center));
-            cache.put(cacheKey, new CacheEntry(places, now.plus(CACHE_TTL)));
+            cache.put(cacheKey, new CacheEntry(places, null, now.plus(CACHE_TTL)));
             return places;
         } catch (RestClientException exception) {
             LOG.warn("Geoapify coordinate landmark lookup unavailable.");
@@ -155,12 +211,19 @@ public class GeoapifyAttractionService {
     }
 
     @SuppressWarnings("unchecked")
-    private GeoPoint geocode(String city, String country) {
+    private GeoPoint geocode(String city, String country, String language) {
+        String countryCode = COUNTRY_CODES.get(normalizeCountry(country));
         Map<?, ?> response = geoapify.get()
                 .uri(uri -> uri.path("/v1/geocode/search")
-                        .queryParam("text", city + ", " + country)
+                        .queryParam("text", countryCode == null ? city + ", " + country : city)
+                        .queryParamIfPresent(
+                                "filter",
+                                countryCode == null
+                                        ? java.util.Optional.empty()
+                                        : java.util.Optional.of("countrycode:" + countryCode))
                         .queryParam("format", "json")
                         .queryParam("limit", 1)
+                        .queryParam("lang", language)
                         .queryParam("apiKey", apiKey)
                         .build())
                 .retrieve()
@@ -173,6 +236,11 @@ public class GeoapifyAttractionService {
         if (geocodedCountry != null && !sameCountry(geocodedCountry, country)) {
             return null;
         }
+        String resultCountryCode = text(result.get("country_code"));
+        if (countryCode != null && resultCountryCode != null
+                && !countryCode.equalsIgnoreCase(resultCountryCode)) {
+            return null;
+        }
         Double latitude = number(result.get("lat"));
         Double longitude = number(result.get("lon"));
         if (latitude == null || longitude == null
@@ -180,7 +248,18 @@ public class GeoapifyAttractionService {
                 || longitude < -180 || longitude > 180) {
             return null;
         }
-        return new GeoPoint(latitude, longitude);
+        String cityLabel = firstNonBlank(
+                text(result.get("city")),
+                text(result.get("town")),
+                text(result.get("village")),
+                city);
+        return new GeoPoint(
+                latitude,
+                longitude,
+                bounds(map(result.get("bbox"))),
+                cityLabel,
+                firstNonBlank(geocodedCountry, country),
+                firstNonBlank(resultCountryCode, countryCode));
     }
 
     @SuppressWarnings("unchecked")
@@ -190,8 +269,7 @@ public class GeoapifyAttractionService {
                         .queryParam("categories",
                                 "tourism.sights,tourism.attraction,entertainment.museum,"
                                         + "leisure.park,heritage,building.historic")
-                        .queryParam("filter", "circle:" + center.longitude()
-                                + "," + center.latitude() + ",25000")
+                        .queryParam("filter", placeFilter(center))
                         .queryParam("bias", "proximity:" + center.longitude()
                                 + "," + center.latitude())
                         .queryParam("limit", 20)
@@ -224,10 +302,18 @@ public class GeoapifyAttractionService {
                 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
                 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
                 PREFIX schema: <http://schema.org/>
-                SELECT ?item ?labelEn ?labelAr ?descriptionEn ?descriptionAr
-                       ?enwiki ?arwiki ?image ?wikiImage
+                SELECT ?item ?landmarkType ?coordinates
+                       ?labelEn ?labelAr ?descriptionEn ?descriptionAr
+                       ?enwiki ?arwiki ?image ?enWikiImage ?arWikiImage
                 WHERE {
                   VALUES ?item { %s }
+                  VALUES ?landmarkType {
+                    wd:Q4989906 wd:Q839954 wd:Q33506 wd:Q207694
+                    wd:Q22698 wd:Q46169 wd:Q9259 wd:Q41176
+                    wd:Q11303 wd:Q174782
+                  }
+                  ?item wdt:P31/wdt:P279* ?landmarkType .
+                  ?item wdt:P625 ?coordinates .
                   OPTIONAL { ?item rdfs:label ?labelEn . FILTER(LANG(?labelEn) = "en") }
                   OPTIONAL { ?item rdfs:label ?labelAr . FILTER(LANG(?labelAr) = "ar") }
                   OPTIONAL { ?item schema:description ?descriptionEn .
@@ -239,7 +325,8 @@ public class GeoapifyAttractionService {
                   OPTIONAL { ?arwiki schema:about ?item ;
                              schema:isPartOf <https://ar.wikipedia.org/> . }
                   OPTIONAL { ?item wdt:P18 ?image . }
-                  OPTIONAL { ?enwiki schema:image ?wikiImage . }
+                  OPTIONAL { ?enwiki schema:image ?enWikiImage . }
+                  OPTIONAL { ?arwiki schema:image ?arWikiImage . }
                 }
                 """.formatted(values);
 
@@ -256,8 +343,17 @@ public class GeoapifyAttractionService {
             for (Object row : list(results.get("bindings"))) {
                 Map<?, ?> binding = map(row);
                 String qid = extractQid(value(binding, "item"));
-                if (qid == null) continue;
-                enrichments.put(qid, new PlaceEnrichment(
+                String landmarkType = extractQid(value(binding, "landmarkType"));
+                GeoPoint coordinates = wikidataPoint(value(binding, "coordinates"));
+                if (qid == null
+                        || !VERIFIED_LANDMARK_TYPES.contains(landmarkType)
+                        || coordinates == null) {
+                    continue;
+                }
+                PlaceEnrichment candidate = new PlaceEnrichment(
+                        landmarkType,
+                        coordinates.latitude(),
+                        coordinates.longitude(),
                         value(binding, "labelEn"),
                         value(binding, "labelAr"),
                         value(binding, "descriptionEn"),
@@ -265,7 +361,9 @@ public class GeoapifyAttractionService {
                         value(binding, "enwiki"),
                         value(binding, "arwiki"),
                         value(binding, "image"),
-                        value(binding, "wikiImage")));
+                        value(binding, "enWikiImage"),
+                        value(binding, "arWikiImage"));
+                enrichments.merge(qid, candidate, GeoapifyAttractionService::mergeEnrichment);
             }
             return enrichments;
         } catch (RestClientException exception) {
