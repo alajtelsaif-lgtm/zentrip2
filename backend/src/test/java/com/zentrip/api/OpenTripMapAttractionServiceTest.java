@@ -142,6 +142,55 @@ class OpenTripMapAttractionServiceTest {
     }
 
     @Test
+    void usesTheLinkedWikipediaImageOnlyWhenOpenTripMapHasNoImage() {
+        RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        RestClient.Builder wikipediaBuilder = RestClient.builder();
+        MockRestServiceServer wikipediaServer =
+                MockRestServiceServer.bindTo(wikipediaBuilder).build();
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/geoname")))
+                .andRespond(withSuccess(
+                        """
+                        {"name":"Rome","country":"IT","lat":41.9,"lon":12.5}
+                        """, APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/radius")))
+                .andRespond(withSuccess(
+                        """
+                        [{"xid":"N333","name":"Test Landmark","kinds":"historic",
+                          "rate":"3","point":{"lat":41.9,"lon":12.5}}]
+                        """, APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/N333")))
+                .andRespond(withSuccess(
+                        """
+                        {"xid":"N333","name":"Test Landmark","kinds":"historic",
+                         "rate":"3","wikipedia":"en:Test_Landmark",
+                         "point":{"lat":41.9,"lon":12.5}}
+                        """, APPLICATION_JSON));
+        wikipediaServer.expect(requestTo(org.hamcrest.Matchers.containsString(
+                        "https://en.wikipedia.org/api/rest_v1/page/summary/Test_Landmark")))
+                .andRespond(withSuccess(
+                        """
+                        {"thumbnail":{"source":
+                          "https://upload.wikimedia.org/test-landmark.jpg"}}
+                        """, APPLICATION_JSON));
+
+        OpenTripMapAttractionService service = new OpenTripMapAttractionService(
+                "test-key", false, false, builder.build(), wikipediaBuilder.build());
+        var result = service.searchAttractionsWithStatus("Rome", "IT", "en");
+
+        assertEquals(
+                "https://upload.wikimedia.org/test-landmark.jpg",
+                result.places().getFirst().get("image_url"));
+        assertEquals(
+                "https://en.wikipedia.org/wiki/Test_Landmark",
+                result.places().getFirst().get("wikipedia_url"));
+        assertTrue(String.valueOf(result.places().getFirst().get("image_attribution"))
+                .contains("Wikipedia"));
+        server.verify();
+        wikipediaServer.verify();
+    }
+
+    @Test
     void refusesToReturnMockLandmarksWhenTheServerKeyIsMissing() {
         OpenTripMapAttractionService service = new OpenTripMapAttractionService(
                 "", false, true, RestClient.builder().baseUrl(BASE_URL).build());

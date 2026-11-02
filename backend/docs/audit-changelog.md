@@ -52,9 +52,8 @@ Supabase client, or storage mechanism.
 - `flight_search_screen.dart` — backend-backed, debounced airport search.
 - `car_rental_screen.dart` and `car_detail_screen.dart` — align car-rental
   accent color with the transfer screen.
-- `GeoapifyAttractionService.java` — landmark-only category filtering and
-  sanitized provider failure diagnostics, including rejection reasons without
-  logging provider response bodies.
+- `OpenTripMapAttractionService.java` — current landmark provider implementation;
+  the former Geoapify/Wikidata landmark service is retired.
 - `currency_service.dart`, `price_comparison.dart`, and `money_format.dart` —
   supported display currencies and formatting.
 - `flight_results_screen.dart`, `flight_controller.dart`,
@@ -151,3 +150,21 @@ commit an `.env` file.
    offers only USD, EUR, and GBP.
 6. Run `bash scripts/test-postgres.sh` only after configuring its disposable,
    loopback PostgreSQL test database. Do not point it at production.
+
+## OpenTripMap landmark source
+
+- `OpenTripMapAttractionService.java` — destination geoname/autosuggest,
+  radius/bbox search, xid details, strict allowlist/business/identity/location
+  filtering, deduplication, ranking, caching, bounded detail concurrency,
+  rate spacing, retry/backoff, and provider-only normalized results.
+- `ApiController.java` and `AirportDirectoryService.java` — landmark search and
+  airport-associated landmark suggestions now use OpenTripMap; airport search
+  remains available when landmark results are unavailable.
+- Removed `GeoapifyAttractionService.java` and its Geoapify POI search,
+  Wikidata SPARQL/enrichment, cache, filtering, and fallback helper functions.
+  Removed `GeoapifyAttractionServiceTest.java` and
+  `GeoapifyAttractionCategoryTest.java`; OpenTripMap contract/filter tests now
+  cover the replacement.
+- Geoapify airport/geocoding remains unchanged. Wikipedia is queried only for
+  an article image when the OpenTripMap detail has no image; it is not used as a
+  POI source.

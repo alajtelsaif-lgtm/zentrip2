@@ -435,13 +435,16 @@ public class ApiController {
 
                     SELECT
                         COALESCE(
+                            NULLIF(b.details ->> 'arrival_city', ''),
                             NULLIF(b.details ->> 'destination_city', ''),
+                            NULLIF(b.details ->> 'destination_airport_city', ''),
                             NULLIF(b.details ->> 'hotel_city', ''),
                             NULLIF(b.details ->> 'city', ''),
                             NULLIF(split_part(COALESCE(b.subtitle, ''), ',', 1), ''),
                             NULLIF(b.subtitle, '')
                         ) AS destination_city,
                         COALESCE(
+                            NULLIF(b.details ->> 'arrival_country', ''),
                             NULLIF(b.details ->> 'destination_country', ''),
                             NULLIF(b.details ->> 'country', ''),
                             NULLIF(NULLIF(TRIM(split_part(COALESCE(b.subtitle, ''), ',', 2)), ''), '')
@@ -449,7 +452,8 @@ public class ApiController {
                         b.created_at
                     FROM bookings b
                     WHERE b.user_id = ?
-                      AND LOWER(COALESCE(b.type, '')) IN ('hotel', 'package', 'attraction')
+                      AND LOWER(COALESCE(b.type, '')) IN
+                          ('flight', 'hotel', 'package', 'attraction')
                       AND COALESCE(LOWER(b.status), '') NOT IN
                           ('cancelled', 'canceled', 'completed')
                 ) recent

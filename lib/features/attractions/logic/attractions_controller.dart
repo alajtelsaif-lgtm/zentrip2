@@ -381,7 +381,7 @@ class AttractionsController extends ChangeNotifier {
               latitude: _lastLatitude,
               longitude: _lastLongitude,
             )
-          : await _searchSuggestions!(
+          : await _searchSuggestions(
               normalizedQuery,
               language: language,
             );

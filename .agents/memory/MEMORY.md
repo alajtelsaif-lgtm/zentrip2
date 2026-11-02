@@ -13,5 +13,4 @@
 - [UI styling preservation](ui-styling-preservation.md) — keep existing screen design intact during backend and data integrations.
 - [Duffel stay inventory boundary](duffel-stay-inventory.md) — treat Duffel stay search as read-only and fetched rates as authoritative display prices.
 - [Xotelo hotel data boundary](xotelo-hotel-data-boundary.md) — direct listing and rate calls need known TripAdvisor keys; hotel search is RapidAPI-only, not a booking API.
-- [Geoapify Places categories](geoapify-place-categories.md) — use exact provider taxonomy; guessed category paths can silently return no landmarks.
-- [Wikidata SPARQL fallback](wikidata-availability.md) — when public SPARQL times out, enrich Geoapify QIDs through batched Wikidata entity requests and retain partial-result warnings.
+- [OpenTripMap landmark source](opentripmap-landmarks.md) — keep landmark records on OpenTripMap, with only the requested Wikipedia image fallback; preserve Geoapify for airport/geocoding use.

@@ -1,9 +1,12 @@
 package com.zentrip.api;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -17,6 +20,7 @@ import java.util.regex.Pattern;
 
 @Service
 public class AirportDirectoryService {
+    private static final Logger LOG = LoggerFactory.getLogger(AirportDirectoryService.class);
     private static final int DEFAULT_LIMIT = 50;
     private static final int COUNTRY_LIMIT = 1_000;
     private static final int NEAREST_LIMIT = 5;
@@ -114,13 +118,24 @@ public class AirportDirectoryService {
             return landmarkSearch(originalQuery, searchText);
         }
 
-        List<Map<String, Object>> landmarks = "city".equals(queryType)
-                ? cityLandmarks(city, country, airports, null)
-                : List.of();
+        List<Map<String, Object>> landmarks = List.of();
+        String landmarkWarning = null;
+        if ("city".equals(queryType)) {
+            try {
+                landmarks = cityLandmarks(city, country, airports, null);
+            } catch (ResponseStatusException exception) {
+                if (exception.getStatusCode().value() != 503) throw exception;
+                LOG.warn("OpenTripMap landmarks unavailable in airport search (HTTP 503)");
+                landmarkWarning = "Landmark results are temporarily unavailable.";
+            }
+        }
         int total = isCountryQuery(searchText)
                 ? Math.max(airports.size(), countryCount(searchText))
                 : airports.size();
-        return response(originalQuery, queryType, airports, landmarks, null, total);
+        Map<String, Object> result =
+                response(originalQuery, queryType, airports, landmarks, null, total);
+        if (landmarkWarning != null) result.put("landmark_warning", landmarkWarning);
+        return result;
     }
 
     private List<Map<String, Object>> exactAirport(String query) {

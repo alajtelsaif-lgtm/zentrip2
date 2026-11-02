@@ -3,8 +3,8 @@
 ## Data sources and coverage
 
 - **Airport directory:** OurAirports public-domain CSV data. The import accepts only airports marked for scheduled service with a valid three-letter IATA code, four-letter ICAO code, municipality, country, and coordinates. `large_airport` is marked major; medium and small airports are marked minor. The source is updated nightly and explicitly carries no accuracy guarantee.
-- **Place geocoding and POIs:** Geoapify Places, backed by OpenStreetMap. Place results include Geoapify/OpenStreetMap attribution.
-- **Images and deep metadata:** Wikidata/Wikipedia enrichment. Image links are returned only when a Wikidata or English Wikipedia image property points to Wikimedia Commons. A landmark without a verifiable image remains without a photo; the app must not substitute a fabricated image.
+- **Landmarks and destination POIs:** OpenTripMap only. The backend resolves destinations with OpenTripMap geoname/autosuggest, searches its radius/bounding-box endpoints, then enriches candidates with its xid details endpoint. Geoapify is retained for its existing airport/geocoding use, not landmark POI retrieval.
+- **Images and metadata:** OpenTripMap image/preview, description, Wikipedia URL, and optional Wikidata ID fields. If OpenTripMap has no image, the backend requests only the linked Wikipedia page's image; all place records still come from OpenTripMap. Results are filtered to verified tourism kinds, and the app's existing placeholder remains for missing images. The backend does not query Geoapify Places for landmarks or Wikidata Query Service/SPARQL.
 
 The directory is intentionally strict about fields required by the booking picker. The import excludes records that lack an IATA/ICAO code, coordinates, city, or country rather than inventing those values. A source snapshot checked on 2026-11-01 contained 3,858 qualifying airports across 233 countries. Counts change as OurAirports data changes.
 
@@ -45,7 +45,7 @@ The API retains a legacy-column fallback if the additive migration has not been 
   "total": 1,
   "has_more": false,
   "airport_attribution": "OurAirports public-domain airport data",
-  "landmark_attribution": "Geoapify · © OpenStreetMap contributors"
+  "landmark_attribution": "OpenTripMap · follow each place’s source and image attribution."
 }
 ```
 
@@ -117,18 +117,26 @@ Landmark suggestion objects use:
 2. Exact country name or ISO country code returns that country's scheduled-service airports, major hubs first.
 3. Exact city (optionally `City, Country`) returns all matching airports, major hubs first, plus photo-backed landmark suggestions when available.
 4. Airport names, city names, country names, and source keywords are searched as text.
-5. If there is no airport-directory match, Geoapify geocodes the text. The API calculates the nearest scheduled-service airports with the Haversine distance formula and includes a matching photo-backed landmark when one is verified.
-6. Category queries use `Historical in Cairo, Egypt`, `Nature in Bali, Indonesia`, `Shopping in London`, `Architecture in Paris`, or `Family & Culture in Rome`. A category without a place asks the user to add a city/place.
+5. If there is no airport-directory match, Geoapify geocodes the text for the existing airport lookup. Landmark suggestions and details for that location come only from OpenTripMap; the API calculates the nearest scheduled-service airports separately.
+6. The attractions screen's category chips map to OpenTripMap's allowed historic, natural, architecture, museum, park, and beach kinds. Unsupported categories such as shopping produce no POIs. A category without a place asks the user to add a city/place.
 
 Search results are suggestions only. Selecting an airport does not imply that a partner flight or airline schedule exists for it.
 
 ## Provider requests
 
-Geoapify airport/place lookup uses the configured server-side key. Do not expose it in Flutter code:
+Geoapify airport/geocoding lookup uses the configured server-side key. Do not expose it in Flutter code. Its airport-category Places lookup remains separate from landmark data:
 
 ```http
 GET https://api.geoapify.com/v1/geocode/search?text=Eiffel%20Tower&format=json&apiKey={server-side-key}
-GET https://api.geoapify.com/v2/places?categories=tourism.sights,tourism.attraction&filter=circle:2.2945,48.8584,5000&limit=20&apiKey={server-side-key}
+GET https://api.geoapify.com/v2/places?categories=airport&filter=circle:2.2945,48.8584,5000&limit=20&apiKey={server-side-key}
 ```
 
-Wikidata image and bilingual metadata are optional enrichments. A failed or empty Wikidata response does not invalidate airport search; image fields stay null rather than being guessed.
+Landmark requests use `OPENTRIPMAP_API_KEY` from the backend environment only:
+
+```http
+GET https://api.opentripmap.com/0.1/en/places/geoname?name=Rome&apikey={server-side-key}
+GET https://api.opentripmap.com/0.1/en/places/radius?radius=25000&lon=12.4964&lat=41.9028&kinds=museums,castles,beaches&limit=250&format=json&apikey={server-side-key}
+GET https://api.opentripmap.com/0.1/en/places/xid/N12345?apikey={server-side-key}
+```
+
+OpenTripMap documents English and Russian responses; Arabic app requests use English for the entire card rather than mixing languages. Its free tier is non-commercial (5,000 requests/day and 10 requests/second); the backend logs a warning when a commercial deployment is configured with that tier. Confirm a commercial plan with OpenTripMap before production use.

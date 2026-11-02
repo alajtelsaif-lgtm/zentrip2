@@ -1,5 +1,8 @@
 package com.zentrip.api;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -21,6 +24,7 @@ import java.util.regex.Pattern;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -100,15 +104,19 @@ public class OpenTripMapAttractionService {
     private final boolean commercialUse;
     private final boolean freePlan;
     private final RestClient client;
+    private final RestClient wikipediaClient;
     private final Map<String, TimedEntry<SearchOutcome>> searchCache =
             new ConcurrentHashMap<>();
     private final Map<String, TimedEntry<Map<String, Object>>> detailCache =
+            new ConcurrentHashMap<>();
+    private final Map<String, TimedEntry<String>> wikipediaImageCache =
             new ConcurrentHashMap<>();
     private final Map<String, TimedEntry<List<Map<String, Object>>>> suggestionCache =
             new ConcurrentHashMap<>();
     private final Object requestGate = new Object();
     private long nextRequestNanos;
 
+    @Autowired
     public OpenTripMapAttractionService(
             @Value("${opentripmap.api-key:}") String apiKey,
             @Value("${app.commercial-use:true}") boolean commercialUse,
@@ -121,10 +129,20 @@ public class OpenTripMapAttractionService {
             boolean commercialUse,
             boolean freePlan,
             RestClient client) {
+        this(apiKey, commercialUse, freePlan, client, createWikipediaClient());
+    }
+
+    OpenTripMapAttractionService(
+            String apiKey,
+            boolean commercialUse,
+            boolean freePlan,
+            RestClient client,
+            RestClient wikipediaClient) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.commercialUse = commercialUse;
         this.freePlan = freePlan;
         this.client = client;
+        this.wikipediaClient = wikipediaClient;
     }
 
     private static RestClient createClient() {
@@ -134,6 +152,16 @@ public class OpenTripMapAttractionService {
         requestFactory.setReadTimeout(Duration.ofSeconds(8));
         return RestClient.builder()
                 .baseUrl(BASE_URL)
+                .requestFactory(requestFactory)
+                .build();
+    }
+
+    private static RestClient createWikipediaClient() {
+        SimpleClientHttpRequestFactory requestFactory =
+                new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(2));
+        requestFactory.setReadTimeout(Duration.ofSeconds(3));
+        return RestClient.builder()
                 .requestFactory(requestFactory)
                 .build();
     }
@@ -249,11 +277,6 @@ public class OpenTripMapAttractionService {
             eligible.sort(candidateComparator(center));
             List<Candidate> detailCandidates =
                     eligible.stream().limit(DETAILS_LIMIT).toList();
-            Map<String, Object> resolvedCenter = Map.of(
-                    "city", nonBlank(center.city(), ""),
-                    "country", nonBlank(center.country(), ""),
-                    "latitude", center.latitude(),
-                    "longitude", center.longitude());
             List<CompletableFuture<DetailResult>> detailFutures = detailCandidates.stream()
                     .map(candidate -> CompletableFuture.supplyAsync(
                             () -> fetchDetailResult(candidate, apiLanguage),
@@ -269,10 +292,18 @@ public class OpenTripMapAttractionService {
                 Candidate candidate = detailResult.candidate();
                 if (detailResult.details() == null) {
                     warnings.add("Some OpenTripMap place details could not be loaded.");
-                    reject(candidate, "details_unavailable", droppedCounts, dropped);
                     continue;
                 }
-                Candidate enriched = enrich(candidate, detailResult.details());
+            Map<String, Object> details = detailResult.details();
+            if (clean(text(details.get("image"))) == null
+                    && clean(text(asMap(details.get("preview")).get("source"))) == null) {
+                String wikipediaImage = wikipediaImage(
+                        text(details.get("wikipedia")), language);
+                if (wikipediaImage != null) {
+                    details.put("_wikipedia_image_url", wikipediaImage);
+                }
+            }
+            Candidate enriched = enrich(candidate, details);
                 Validation validation = isRealLandmark(
                         enriched, center, south, west, north, east);
                 if (!validation.accepted()) {
@@ -342,6 +373,8 @@ public class OpenTripMapAttractionService {
             double radiusMeters,
             String category,
             String language) {
+        String normalizedCategory = normalizeCategory(category);
+        if ("unsupported".equals(normalizedCategory)) return List.of();
         if (!validCoordinates(latitude, longitude)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Valid latitude and longitude are required.");
@@ -353,10 +386,10 @@ public class OpenTripMapAttractionService {
         String apiLanguage = apiLanguage(language);
         try {
             List<Map<?, ?>> candidates =
-                    fetchCandidates(center, apiLanguage, normalizeCategory(category),
+                    fetchCandidates(center, apiLanguage, normalizedCategory,
                             null, null, null, null, radius);
             return enrichAndFilter(
-                    candidates, center, apiLanguage, normalizeCategory(category),
+                    candidates, center, apiLanguage, normalizedCategory,
                     null, null, null, null);
         } catch (ResponseStatusException exception) {
             throw exception;
@@ -484,7 +517,8 @@ public class OpenTripMapAttractionService {
         if (popularity(candidate.rate()) < 2
                 && clean(candidate.wikidataId()) == null
                 && clean(candidate.wikipediaUrl()) == null
-                && clean(candidate.imageUrl()) == null) {
+                && clean(candidate.imageUrl()) == null
+                && clean(candidate.previewUrl()) == null) {
             return Validation.reject("no_identity");
         }
         return Validation.accept(category);
@@ -592,7 +626,8 @@ public class OpenTripMapAttractionService {
 
     private Map<String, Object> getDetails(String xid, String language) {
         if (xid == null || !XID.matcher(xid).matches()) return null;
-        TimedEntry<Map<String, Object>> cached = detailCache.get(xid);
+        String cacheKey = language + "|" + xid;
+        TimedEntry<Map<String, Object>> cached = detailCache.get(cacheKey);
         Instant now = Instant.now();
         if (cached != null && now.isBefore(cached.expiresAt())) return cached.value();
         try {
@@ -604,7 +639,7 @@ public class OpenTripMapAttractionService {
                     .body(Map.class));
             if (response == null) return null;
             Map<String, Object> details = stringMap(response);
-            detailCache.put(xid, new TimedEntry<>(details, now.plus(DETAILS_TTL)));
+            detailCache.put(cacheKey, new TimedEntry<>(details, now.plus(DETAILS_TTL)));
             return details;
         } catch (RestClientResponseException exception) {
             if (exception.getStatusCode().value() == 404) return null;
@@ -619,6 +654,83 @@ public class OpenTripMapAttractionService {
             LOG.debug("OpenTripMap details unavailable for xid {} ({})",
                     candidate.xid(), providerFailure(exception));
             return new DetailResult(candidate, null);
+        }
+    }
+
+    private String wikipediaImage(String article, String language) {
+        String title = wikipediaTitle(article);
+        if (title == null) return null;
+        String apiLanguage = apiLanguage(language);
+        String cacheKey = apiLanguage + "|" + title.toLowerCase(Locale.ROOT);
+        Instant now = Instant.now();
+        TimedEntry<String> cached = wikipediaImageCache.get(cacheKey);
+        if (cached != null && now.isBefore(cached.expiresAt())) {
+            return cached.value().isBlank() ? null : cached.value();
+        }
+
+        String encodedTitle = URLEncoder.encode(
+                title.replace(' ', '_'), StandardCharsets.UTF_8).replace("+", "%20");
+        String endpoint = "https://" + apiLanguage
+                + ".wikipedia.org/api/rest_v1/page/summary/" + encodedTitle;
+        String image = null;
+        try {
+            Map<?, ?> summary = wikipediaClient.get()
+                    .uri(URI.create(endpoint))
+                    .retrieve()
+                    .body(Map.class);
+            if (summary != null) {
+                image = firstNonBlank(
+                        text(asMap(summary.get("original")).get("source")),
+                        text(asMap(summary.get("thumbnail")).get("source")));
+                if (!isHttpUrl(image)) image = null;
+            }
+        } catch (RestClientException | IllegalArgumentException exception) {
+            LOG.debug("Wikipedia image fallback unavailable for OpenTripMap article {}",
+                    article);
+        }
+        wikipediaImageCache.put(cacheKey, new TimedEntry<>(
+                image == null ? "" : image, now.plus(DETAILS_TTL)));
+        return image;
+    }
+
+    private static String wikipediaTitle(String article) {
+        String value = clean(article);
+        if (value == null) return null;
+        if (value.startsWith("https://") || value.startsWith("http://")) {
+            try {
+                String path = URI.create(value).getPath();
+                int wikiIndex = path == null ? -1 : path.indexOf("/wiki/");
+                if (wikiIndex >= 0) value = path.substring(wikiIndex + 6);
+            } catch (IllegalArgumentException ignored) {
+                return null;
+            }
+        } else if (value.matches("(?i)^[a-z]{2,3}:.*")) {
+            value = value.substring(value.indexOf(':') + 1);
+        }
+        value = value.replace('_', ' ').trim();
+        return value.isBlank() ? null : value;
+    }
+
+    private static String wikipediaUrl(String article, String language) {
+        String value = clean(article);
+        if (value == null) return null;
+        if (isHttpUrl(value)) return value;
+        String title = wikipediaTitle(value);
+        if (title == null) return null;
+        String encodedTitle = URLEncoder.encode(
+                title.replace(' ', '_'), StandardCharsets.UTF_8).replace("+", "%20");
+        return "https://" + apiLanguage(language) + ".wikipedia.org/wiki/" + encodedTitle;
+    }
+
+    private static boolean isHttpUrl(String value) {
+        if (value == null || value.isBlank()) return false;
+        try {
+            URI uri = URI.create(value);
+            return ("https".equalsIgnoreCase(uri.getScheme())
+                    || "http".equalsIgnoreCase(uri.getScheme()))
+                    && uri.getHost() != null;
+        } catch (IllegalArgumentException ignored) {
+            return false;
         }
     }
 
@@ -724,7 +836,8 @@ public class OpenTripMapAttractionService {
                 text(raw.get("country")),
                 center == null ? null : center.country(),
                 "");
-        String image = firstNonBlank(item.imageUrl(), item.previewUrl());
+        String wikipediaImage = text(raw.get("_wikipedia_image_url"));
+        String image = firstNonBlank(item.imageUrl(), item.previewUrl(), wikipediaImage);
         String description = firstNonBlank(item.description(), item.infoDescription(), "");
         place.put("id", item.xid());
         place.put("xid", item.xid());
@@ -750,9 +863,11 @@ public class OpenTripMapAttractionService {
         place.put("tags", splitKinds(item.kinds()));
         place.put("source_provider", "opentripmap");
         place.put("source_attribution", sourceAttribution(raw));
-        place.put("image_attribution", "OpenTripMap; follow the linked source attribution.");
+        place.put("image_attribution", wikipediaImage == null
+                ? "OpenTripMap; follow the linked source attribution."
+                : "Wikipedia article image; check the linked source for author and license.");
         place.put("source_url", text(raw.get("otm")));
-        place.put("wikipedia_url", item.wikipediaUrl());
+        place.put("wikipedia_url", wikipediaUrl(item.wikipediaUrl(), language));
         place.put("wikidata_id", item.wikidataId());
         place.put("distance_km", center == null ? null
                 : distanceMeters(center.latitude(), center.longitude(),
@@ -812,7 +927,8 @@ public class OpenTripMapAttractionService {
         String name = normalize(candidate.name());
         return name.matches(".*\\b(shop|store|market|restaurant|cafe|café|hotel|hostel|"
                 + "bank|pharmacy|clinic|school|gas station|parking|gym|salon|bar|club|"
-                + "office|apartment|residential|bus stop|street|neighborhood|district)\\b.*");
+                + "office|company|companies|business|service|apartment|residential|"
+                + "bus stop|street|neighborhood|district)\\b.*");
     }
 
     private static String categoryForKinds(String kindsValue) {
@@ -885,6 +1001,8 @@ public class OpenTripMapAttractionService {
                                 existingLatitude, existingLongitude) <= 100;
             });
             if (duplicate) {
+                LOG.debug("Dropped OpenTripMap place xid={} name={} reason=duplicate",
+                        candidate.get("id"), candidate.get("name"));
                 addCount(droppedCounts, "duplicate", 1);
                 addDroppedExample(dropped, new RejectedItem(
                         text(candidate.get("name")), text(candidate.get("id")),
@@ -913,6 +1031,10 @@ public class OpenTripMapAttractionService {
             String reason,
             Map<String, Integer> counts,
             List<RejectedItem> dropped) {
+        LOG.debug("Dropped OpenTripMap place xid={} name={} reason={}",
+                candidate == null ? null : candidate.xid(),
+                candidate == null ? null : candidate.name(),
+                reason);
         addCount(counts, reason, 1);
         addDroppedExample(dropped, new RejectedItem(
                 candidate == null ? null : candidate.name(),
@@ -933,6 +1055,8 @@ public class OpenTripMapAttractionService {
     private static Comparator<Candidate> candidateComparator(GeoPoint center) {
         return Comparator.comparingInt((Candidate item) -> popularity(item.rate()))
                 .reversed()
+                .thenComparing(item -> clean(item.imageUrl()) == null
+                        && clean(item.previewUrl()) == null)
                 .thenComparingDouble(item -> center == null ? 0
                         : distanceMeters(center.latitude(), center.longitude(),
                                 item.latitude(), item.longitude()));
