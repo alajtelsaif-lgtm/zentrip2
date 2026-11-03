@@ -37,7 +37,7 @@ psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_te
   > "$cluster/landmark-migration.log"
 export ZENTRIP_POSTGRES_TEST_URL="jdbc:postgresql://127.0.0.1:$port/zentrip_test"
 export ZENTRIP_POSTGRES_TEST_USER=zentrip_test
-mvn -B -f backend/pom.xml \
+mvn -B -f backend/pom.xml clean \
   -Dspring.datasource.url="$ZENTRIP_POSTGRES_TEST_URL" \
   -Dspring.datasource.username="$ZENTRIP_POSTGRES_TEST_USER" \
   -Dspring.datasource.password= -Dapp.bootstrap.enabled=false test

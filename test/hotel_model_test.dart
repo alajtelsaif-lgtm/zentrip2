@@ -192,13 +192,12 @@ void main() {
         '(8240) 4.9');
   });
 
-  test('Duffel hotel data uses the shared model without partner availability',
+  test('Hotelbeds hotel data uses shared offers without partner ownership',
       () {
     final hotel = HotelModel.fromJson({
-      'id': 'duffel-srr-test-result',
-      'source': 'duffel',
-      'provider_search_result_id': 'srr-test-result',
-      'provider_accommodation_id': 'acc-test-hotel',
+      'id': 'hotelbeds-123',
+      'source': 'hotelbeds',
+      'provider_accommodation_id': '123',
       'name': 'Example London Hotel',
       'city': 'London',
       'country': 'GB',
@@ -208,21 +207,29 @@ void main() {
       'price_per_night': '200.00',
       'price_currency': 'GBP',
       'tax_and_fees_percentage': 0,
-      'available_rooms': null,
-      'availability_known': false,
+      'available_rooms': 3,
+      'availability_known': true,
       'image_url': 'https://example.com/hotel.jpg',
       'gallery_images': ['https://example.com/hotel.jpg'],
       'amenities': ['Wi-Fi'],
+      'offers': [
+        {
+          'room_name': 'Double Room',
+          'price_per_night': 100,
+          'stay_total': 200,
+          'currency': 'GBP',
+        },
+      ],
     });
 
-    expect(hotel.isDuffelOffer, isTrue);
-    expect(hotel.source, 'duffel');
-    expect(hotel.providerSearchResultId, 'srr-test-result');
-    expect(hotel.providerAccommodationId, 'acc-test-hotel');
+    expect(hotel.isHotelbedsOffer, isTrue);
+    expect(hotel.source, 'hotelbeds');
+    expect(hotel.providerAccommodationId, '123');
     expect(hotel.priceCurrencyCode, 'GBP');
     expect(hotel.pricePerNight, 200);
-    expect(hotel.availableRooms, 0);
-    expect(hotel.availabilityKnown, isFalse);
+    expect(hotel.availableRooms, 3);
+    expect(hotel.availabilityKnown, isTrue);
+    expect(hotel.offers.single['stay_total'], 200);
     expect(hotel.googleRating, 4.4);
     expect(hotel.photos, ['https://example.com/hotel.jpg']);
   });

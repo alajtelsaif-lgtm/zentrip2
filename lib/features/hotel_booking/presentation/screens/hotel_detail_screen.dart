@@ -21,13 +21,10 @@ class HotelDetailScreen extends StatefulWidget {
   const HotelDetailScreen({
     super.key,
     this.loadReviews,
-    this.loadDuffelRates,
   });
 
   final Future<ApiResult<List<ReviewModel>>> Function(String itemId)?
       loadReviews;
-  final Future<ApiResult<Map<String, dynamic>>> Function(String searchResultId)?
-      loadDuffelRates;
 
   @override
   State<HotelDetailScreen> createState() => _HotelDetailScreenState();
@@ -38,10 +35,6 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
   bool _isBooking = false;
   int _photoIndex = 0;
   Future<ApiResult<List<ReviewModel>>>? _hotelReviewsFuture;
-  HotelModel? _hotelWithRates;
-  String? _ratesRequestId;
-  bool _ratesLoading = false;
-  bool _ratesUnavailable = false;
 
   String _formatPrice(HotelModel hotel, double amount, {int decimals = 0}) =>
       '${hotel.priceCurrencyCode} ${amount.toStringAsFixed(decimals)}';
@@ -56,46 +49,6 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
           ? l10n.priceUnavailable
           : _formatPrice(hotel, amount, decimals: decimals);
 
-  Map<String, Object>? _bestDisplayRate(
-    List<Map<String, dynamic>> offers,
-    String preferredCurrency,
-  ) {
-    final candidates = <Map<String, Object>>[];
-    for (final offer in offers) {
-      final rawPrice = offer['price_per_night'] ?? offer['price'];
-      final price = rawPrice is num
-          ? rawPrice.toDouble()
-          : double.tryParse(rawPrice?.toString() ?? '');
-      final currency = (offer['price_currency'] ?? offer['currency'] ?? '')
-          .toString()
-          .trim()
-          .toUpperCase();
-      if (price == null ||
-          !price.isFinite ||
-          price < 0 ||
-          !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
-        continue;
-      }
-      candidates.add({'price': price, 'currency': currency});
-    }
-    if (candidates.isEmpty) return null;
-
-    final preferred = preferredCurrency.trim().toUpperCase();
-    var eligible = candidates
-        .where((candidate) => candidate['currency'] == preferred)
-        .toList();
-    if (eligible.isEmpty) {
-      final fallbackCurrency = candidates.first['currency'];
-      eligible = candidates
-          .where((candidate) => candidate['currency'] == fallbackCurrency)
-          .toList();
-    }
-    eligible.sort(
-      (a, b) => (a['price'] as double).compareTo(b['price'] as double),
-    );
-    return eligible.first;
-  }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -103,75 +56,14 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
         ModalRoute.of(context)?.settings.arguments as HotelController?;
     if (_ctrl != controller) {
       _ctrl = controller;
-      _hotelWithRates = null;
-      _ratesRequestId = null;
-      _ratesUnavailable = false;
       final hotel = controller?.selectedHotel;
       if (hotel != null) {
         final loadReviews = widget.loadReviews;
         _hotelReviewsFuture = loadReviews == null
             ? ApiService.instance.getReviews(itemId: hotel.id)
             : loadReviews(hotel.id);
-        _loadDuffelRates(hotel);
       }
     }
-  }
-
-  void _loadDuffelRates(HotelModel hotel) {
-    final searchResultId = hotel.providerSearchResultId;
-    if (!hotel.isDuffelOffer ||
-        searchResultId == null ||
-        searchResultId.isEmpty ||
-        _ratesRequestId == searchResultId) {
-      return;
-    }
-    if (hotel.offers.isNotEmpty) {
-      _hotelWithRates = hotel;
-      _ratesLoading = false;
-      _ratesUnavailable = false;
-      _ratesRequestId = searchResultId;
-      return;
-    }
-    _ratesRequestId = searchResultId;
-    _ratesLoading = true;
-    _fetchDuffelRates(hotel, searchResultId);
-  }
-
-  Future<void> _fetchDuffelRates(
-    HotelModel hotel,
-    String searchResultId,
-  ) async {
-    final loadDuffelRates = widget.loadDuffelRates;
-    final result = loadDuffelRates == null
-        ? await ApiService.instance.fetchDuffelHotelRates(searchResultId)
-        : await loadDuffelRates(searchResultId);
-    if (!mounted) return;
-    final payload = result.data;
-    final offers = payload?['offers'] is List
-        ? (payload!['offers'] as List)
-            .whereType<Map>()
-            .map((value) => Map<String, dynamic>.from(value))
-            .toList(growable: false)
-        : const <Map<String, dynamic>>[];
-    final roomTypes = payload?['room_types'] is List
-        ? (payload!['room_types'] as List)
-            .whereType<Map>()
-            .map((value) => Map<String, dynamic>.from(value))
-            .toList(growable: false)
-        : const <Map<String, dynamic>>[];
-    final displayRate = _bestDisplayRate(offers, hotel.priceCurrencyCode);
-    setState(() {
-      _ratesLoading = false;
-      _ratesUnavailable = result.isFailure || offers.isEmpty;
-      if (result.isSuccess && payload != null) {
-        _hotelWithRates = hotel.withRoomOffers(
-          roomTypes: roomTypes,
-          offers: offers,
-          pricePerNight: displayRate?['price'] as double?,
-          priceCurrencyCode: displayRate?['currency'] as String?,
-        );
-      }
-    });
   }
 
   void _writeHotelReview(HotelModel hotel) {
@@ -193,22 +85,9 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
     final l10n = AppLocalizations.of(context);
     final ctrl = _ctrl;
     final selectedHotel = ctrl?.selectedHotel;
-    final hotel = selectedHotel != null &&
-            _hotelWithRates != null &&
-            _hotelWithRates?.providerSearchResultId ==
-                selectedHotel.providerSearchResultId
-        ? _hotelWithRates
-        : selectedHotel;
+    final hotel = selectedHotel;
     if (hotel == null) {
       AppSnackbar.error(context, l10n.genericError);
-      return;
-    }
-    if (hotel.isDuffelOffer) {
-      AppSnackbar.warning(context, l10n.hotelDuffelBookingUnavailable);
-      return;
-    }
-    if (hotel.isRapidApiOffer) {
-      AppSnackbar.warning(context, l10n.hotelExternalBookingUnavailable);
       return;
     }
     final rooms = ctrl?.searchParams?.rooms ?? 1;
@@ -315,15 +194,7 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context);
     final ctrl = _ctrl;
-    final selectedHotel = ctrl?.selectedHotel;
-    final loadedRatesHotel = _hotelWithRates;
-    final hotel = selectedHotel != null &&
-            loadedRatesHotel != null &&
-            selectedHotel.providerSearchResultId != null &&
-            loadedRatesHotel.providerSearchResultId ==
-                selectedHotel.providerSearchResultId
-        ? loadedRatesHotel
-        : selectedHotel;
+    final hotel = ctrl?.selectedHotel;
     final nights = ctrl?.searchParams?.nights ?? 1;
     final rooms = ctrl?.searchParams?.rooms ?? 1;
     if (hotel == null) return const BookingLoadError();
@@ -512,12 +383,12 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                   ),
                   child: Column(children: [
                     _Row(
-                      hotel.source == 'xotelo'
-                          ? l10n.hotelXoteloEstimateLabel
+                      hotel.isHotelbedsOffer
+                          ? '${l10n.hotelNightPrice} · Hotelbeds'
                           : l10n.hotelNightPrice,
                       _formatAvailablePrice(hotel, hotel.pricePerNight, l10n),
                     ),
-                    if (hotel.isDuffelOffer && hotel.offers.isNotEmpty) ...[
+                    if (hotel.offers.isNotEmpty) ...[
                       const Divider(height: 20),
                       Align(
                         alignment: AlignmentDirectional.centerStart,
@@ -534,16 +405,7 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                           _offerName(offer, l10n.hotelRoomRatesTitle),
                           _offerPrice(offer, hotel.priceCurrencyCode),
                         ),
-                    ] else if (hotel.isDuffelOffer && _ratesLoading)
-                      _Row(
-                        l10n.hotelRoomRatesTitle,
-                        l10n.hotelRoomRatesLoading,
-                      )
-                    else if (hotel.isDuffelOffer && _ratesUnavailable)
-                      _Row(
-                        l10n.hotelRoomRatesTitle,
-                        l10n.hotelRoomRatesUnavailable,
-                      ),
+                    ],
                     _Row(l10n.hotelNightsCount, l10n.hotelNightsValue(nights)),
                     _Row(
                       l10n.hotelSubtotal,
@@ -562,12 +424,7 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                 ).animate().fade(delay: 200.ms),
                 const SizedBox(height: 28),
                 ElevatedButton.icon(
-                  onPressed: _isBooking ||
-                          isSoldOut ||
-                          hotel.isDuffelOffer ||
-                          hotel.isRapidApiOffer
-                      ? null
-                      : _book,
+                  onPressed: _isBooking || isSoldOut ? null : _book,
                   icon: _isBooking
                       ? const SizedBox(
                           width: 18,
@@ -575,15 +432,11 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.hotel_rounded),
-                  label: Text(hotel.isDuffelOffer
-                      ? l10n.hotelDuffelBookingUnavailable
-                      : hotel.isRapidApiOffer
-                          ? l10n.hotelExternalBookingUnavailable
-                          : isSoldOut
-                              ? l10n.hotelSoldOut
-                              : _isBooking
-                                  ? l10n.hotelBookingInProgress
-                                  : l10n.hotelBookNow),
+                  label: Text(isSoldOut
+                      ? l10n.hotelSoldOut
+                      : _isBooking
+                          ? l10n.hotelBookingInProgress
+                          : l10n.hotelBookNow),
                 ).animate().fade(delay: 280.ms),
                 const SizedBox(height: 20),
               ]),
@@ -603,10 +456,15 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
   }
 
   String _offerPrice(Map<String, dynamic> offer, String fallbackCurrency) {
-    final amount = double.tryParse('${offer['total_amount'] ?? ''}');
+    final amount = double.tryParse(
+      '${offer['total_amount'] ?? offer['stay_total'] ?? ''}',
+    );
     if (amount == null || !amount.isFinite) return '—';
     final currency =
-        (offer['total_currency'] ?? offer['price_currency'] ?? fallbackCurrency)
+        (offer['total_currency'] ??
+                offer['price_currency'] ??
+                offer['currency'] ??
+                fallbackCurrency)
             .toString();
     return '$currency ${amount.toStringAsFixed(2)}';
   }

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zentrip/core/services/api_result.dart';
@@ -20,28 +18,13 @@ PriceComparison _comparison() => PriceComparison(
     );
 
 HotelModel _hotel({
-  bool duffel = false,
-  bool rapidApi = false,
-  bool xotelo = false,
+  bool hotelbeds = false,
   String? price,
   String currency = 'USD',
 }) =>
     HotelModel.fromJson({
-      'id': duffel
-          ? 'duffel-srr_test-1'
-          : rapidApi
-              ? 'rapidapi-123'
-              : xotelo
-                  ? 'xotelo-g297930-d123'
-                  : 'partner-hotel-1',
-      'source': duffel
-          ? 'duffel'
-          : rapidApi
-              ? 'rapidapi'
-              : xotelo
-                  ? 'xotelo'
-                  : 'partner',
-      if (duffel) 'provider_search_result_id': 'srr_test-1',
+      'id': hotelbeds ? 'hotelbeds-123' : 'partner-hotel-1',
+      'source': hotelbeds ? 'hotelbeds' : 'partner',
       'name': 'Central Test Hotel',
       'city': 'Tripoli',
       'country': 'Libya',
@@ -49,8 +32,18 @@ HotelModel _hotel({
       'description': 'A quiet hotel in the city centre.',
       'price_per_night': price,
       'price_currency': currency,
-      'availability_known': !duffel,
-      'available_rooms': duffel ? null : 4,
+      'availability_known': true,
+      'available_rooms': 4,
+      if (hotelbeds)
+        'offers': <Map<String, dynamic>>[
+          {
+            'name': 'Breakfast included',
+            'room_name': 'Double Room',
+            'price_per_night': 125.0,
+            'stay_total': '250.00',
+            'currency': currency,
+          },
+        ],
       'image_url': 'https://images.example.test/hotel.jpg',
       'gallery_images': <String>[],
       'amenities': <String>['Wi-Fi'],
@@ -72,9 +65,8 @@ Future<HotelController> _controllerFor(HotelModel hotel) async {
 }
 
 Widget _app(
-  HotelController controller, {
-  Future<ApiResult<Map<String, dynamic>>> Function(String)? loadRates,
-}) =>
+  HotelController controller,
+) =>
     MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -83,7 +75,6 @@ Widget _app(
         builder: (_) => HotelDetailScreen(
           loadReviews: (_) async =>
               ApiResult<List<ReviewModel>>.success(<ReviewModel>[]),
-          loadDuffelRates: loadRates,
         ),
       ),
     );
@@ -126,133 +117,42 @@ void main() {
     controller.dispose();
   });
 
-  testWidgets('Duffel rate loading and success render rate and currency',
+  testWidgets('Hotelbeds data renders room rate and keeps simulated booking',
       (tester) async {
     _usePhoneViewport(tester);
-    final pendingRates = Completer<ApiResult<Map<String, dynamic>>>();
     final controller = await _controllerFor(
-      _hotel(duffel: true, price: null, currency: 'GBP'),
+      _hotel(hotelbeds: true, price: '125', currency: 'GBP'),
     );
-    await tester.pumpWidget(
-      _app(controller, loadRates: (_) => pendingRates.future),
-    );
-    await tester.pump();
-    final l10n =
-        AppLocalizations.of(tester.element(find.byType(HotelDetailScreen)));
-
-    expect(find.text(l10n.hotelRoomRatesLoading), findsOneWidget);
-    expect(find.text(l10n.priceUnavailable), findsAtLeastNWidgets(1));
-
-    pendingRates.complete(ApiResult<Map<String, dynamic>>.success({
-      'room_types': <Map<String, dynamic>>[],
-      'offers': <Map<String, dynamic>>[
-        {
-          'name': 'Breakfast included',
-          'price_per_night': 125.0,
-          'price_currency': 'GBP',
-          'total_amount': '250.00',
-          'total_currency': 'GBP',
-        },
-      ],
-    }));
+    await tester.pumpWidget(_app(controller));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('GBP 125'), findsOneWidget);
     expect(find.text('GBP 250.00'), findsOneWidget);
+    expect(find.text('Double Room · Breakfast included'), findsOneWidget);
     await tester.drag(
       find.byType(CustomScrollView),
       const Offset(0, -900),
     );
     await tester.pump(const Duration(milliseconds: 500));
     final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
-    expect(button.onPressed, isNull);
+    expect(button.onPressed, isNotNull);
     _expectNoFlutterException(tester);
     controller.dispose();
   });
 
-  testWidgets('empty and failed Duffel rates display unavailable state',
-      (tester) async {
-    _usePhoneViewport(tester);
-    for (final result in <ApiResult<Map<String, dynamic>>>[
-      ApiResult<Map<String, dynamic>>.success({
-        'room_types': <Map<String, dynamic>>[],
-        'offers': <Map<String, dynamic>>[],
-      }),
-      ApiResult<Map<String, dynamic>>.failure('rate service unavailable'),
-    ]) {
-      final controller = await _controllerFor(
-        _hotel(duffel: true, price: null, currency: 'GBP'),
-      );
-      await tester.pumpWidget(
-        _app(controller, loadRates: (_) async => result),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
-
-      final l10n =
-          AppLocalizations.of(tester.element(find.byType(HotelDetailScreen)));
-      expect(find.text(l10n.hotelRoomRatesUnavailable), findsOneWidget);
-      expect(find.text(l10n.priceUnavailable), findsAtLeastNWidgets(1));
-      await tester.drag(
-        find.byType(CustomScrollView),
-        const Offset(0, -900),
-      );
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(
-        tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
-        isNull,
-      );
-      _expectNoFlutterException(tester);
-      controller.dispose();
-    }
-  });
-
-  testWidgets('RapidAPI hotel details do not offer unsupported in-app booking',
+  testWidgets('Hotelbeds result without optional content remains bookable',
       (tester) async {
     _usePhoneViewport(tester);
     final controller = await _controllerFor(
-      _hotel(rapidApi: true, price: '120'),
+      _hotel(hotelbeds: true, price: '71', currency: 'EUR'),
     );
     await tester.pumpWidget(_app(controller));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    final l10n =
-        AppLocalizations.of(tester.element(find.byType(HotelDetailScreen)));
     expect(find.text('Central Test Hotel'), findsOneWidget);
-    expect(find.text('USD 120'), findsOneWidget);
-    await tester.drag(
-      find.byType(CustomScrollView),
-      const Offset(0, -900),
-    );
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(
-      find.text(l10n.hotelExternalBookingUnavailable),
-      findsOneWidget,
-    );
-    expect(
-      tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
-      isNull,
-    );
-    _expectNoFlutterException(tester);
-    controller.dispose();
-  });
-
-  testWidgets('Xotelo information uses the existing simulated booking flow',
-      (tester) async {
-    _usePhoneViewport(tester);
-    final controller = await _controllerFor(
-      _hotel(xotelo: true, price: '71'),
-    );
-    await tester.pumpWidget(_app(controller));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    final l10n =
-        AppLocalizations.of(tester.element(find.byType(HotelDetailScreen)));
-    expect(find.text('Central Test Hotel'), findsOneWidget);
-    expect(find.text(l10n.hotelXoteloEstimateLabel), findsOneWidget);
+    expect(find.text('EUR 71'), findsOneWidget);
     await tester.drag(
       find.byType(CustomScrollView),
       const Offset(0, -900),

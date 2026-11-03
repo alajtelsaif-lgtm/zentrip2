@@ -59,7 +59,6 @@ not listed here are denied by default.
 | `GET /api/flights/search` | Public |
 | `GET /api/hotels/locations` | Public |
 | `GET /api/hotels/search` | Public |
-| `POST /api/hotels/search-results/{searchResultId}/rates` | User |
 | `GET /api/hotels/nearby` | Public |
 | `GET /api/cars/locations` | Public |
 | `GET /api/cars/nearby` | Public |

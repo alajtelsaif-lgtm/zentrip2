@@ -10,4 +10,4 @@ flutter pub get
 flutter build web --release --no-wasm-dry-run
 # Test in an isolated environment; never pass the live connection into test contexts.
 bash scripts/test-backend.sh
-mvn -B -f backend/pom.xml -DskipTests package
+mvn -B -f backend/pom.xml clean -DskipTests package

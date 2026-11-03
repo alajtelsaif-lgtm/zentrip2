@@ -407,7 +407,7 @@ class _HotelCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${hotel.source == 'xotelo' ? l10n.hotelXoteloEstimateLabel : '${l10n.providerPrice} · ${hotel.isDuffelOffer ? l10n.offerSourceDuffel : l10n.offerSourcePartner}'}: ${hotel.comparisonNightlyPrice == null ? l10n.priceUnavailable : formatProviderMoney(hotel.pricePerNight, hotel.priceCurrencyCode)}',
+                          '${l10n.providerPrice} · ${hotel.isHotelbedsOffer ? 'Hotelbeds' : l10n.offerSourcePartner}: ${hotel.comparisonNightlyPrice == null ? l10n.priceUnavailable : formatProviderMoney(hotel.pricePerNight, hotel.priceCurrencyCode)}',
                           style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,

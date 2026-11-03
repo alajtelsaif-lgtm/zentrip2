@@ -66,8 +66,7 @@ public class SecurityConfig {
                     "/api/maps/**",
                     "/api/ai", "/api/ai/**",
                     "/api/preferences/travel", "/api/preferences/travel/**",
-                    "/api/profile", "/api/profile/**",
-                    "/api/hotels/search-results/*/rates"
+                    "/api/profile", "/api/profile/**"
                 ).hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.GET, "/api/reviews").permitAll()
                 .requestMatchers(
@@ -77,7 +76,6 @@ public class SecurityConfig {
                     "/api/hotels/locations",
                     "/api/hotels/search",
                     "/api/hotels/nearby",
-                    "/api/hotels/search-results/*/rates",
                     "/api/cars/locations",
                     "/api/cars/nearby",
                     "/api/inventory/**",

@@ -7,6 +7,8 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -17,7 +19,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,6 +44,9 @@ public class HotelbedsHotelService {
     private static final int MAX_HOTELS = 30;
     private static final int MAX_OFFERS_PER_HOTEL = 5;
     private static final int SEARCH_RADIUS_KM = 20;
+    private static final Duration CONTENT_CACHE_TTL = Duration.ofHours(24);
+    private static final String HOTEL_IMAGE_BASE =
+            "https://photos.hotelbeds.com/giata/bigger/";
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final String apiKey;
@@ -47,7 +54,10 @@ public class HotelbedsHotelService {
     private final GeoapifyAirportService geocoder;
     private final RestClient client;
     private final Clock clock;
+    private final ConcurrentMap<String, CachedHotelContent> contentCache =
+            new ConcurrentHashMap<>();
 
+    @Autowired
     public HotelbedsHotelService(
             @Value("${hotelbeds.api-key:}") String apiKey,
             @Value("${hotelbeds.api-secret:}") String apiSecret,
@@ -121,8 +131,17 @@ public class HotelbedsHotelService {
                 return unavailable("Hotelbeds hotel inventory is temporarily unavailable.");
             }
 
-            List<JsonNode> availabilityHotels =
+            List<JsonNode> rawAvailabilityHotels =
                     hotelNodes(response.path("hotels"));
+            Map<String, JsonNode> uniqueAvailabilityHotels = new LinkedHashMap<>();
+            for (JsonNode hotel : rawAvailabilityHotels) {
+                String code = firstText(hotel, "code", "hotelCode");
+                if (code.matches("\\d{1,10}")) {
+                    uniqueAvailabilityHotels.putIfAbsent(code, hotel);
+                }
+            }
+            List<JsonNode> availabilityHotels =
+                    List.copyOf(uniqueAvailabilityHotels.values());
             if (availabilityHotels.isEmpty()) {
                 return UnifiedInventoryService.SourceOutcome.of(List.of());
             }
@@ -136,7 +155,8 @@ public class HotelbedsHotelService {
             List<Map<String, Object>> hotels = new ArrayList<>();
             for (JsonNode availabilityHotel : availabilityHotels) {
                 String code = firstText(availabilityHotel, "code", "hotelCode");
-                JsonNode detail = detailsByCode.getOrDefault(code, JSON.nullNode());
+                JsonNode detail = detailsByCode.getOrDefault(
+                        code, JSON.getNodeFactory().nullNode());
                 Map<String, Object> normalized = normalizeHotel(
                         availabilityHotel, detail, normalizedCity, location,
                         checkIn, checkOut, rooms);
@@ -146,10 +166,11 @@ public class HotelbedsHotelService {
             return new UnifiedInventoryService.SourceOutcome(hotels, List.of());
         } catch (RestClientResponseException exception) {
             logProviderFailure("availability search", exception);
-            String warning = exception.getStatusCode().value() == 403
-                    || exception.getStatusCode().value() == 401
-                    ? "Hotelbeds access was denied. Verify the API key, API secret, and account access."
-                    : "Hotelbeds hotel inventory is temporarily unavailable.";
+            String warning = switch (exception.getStatusCode().value()) {
+                case 401 -> "Hotelbeds authentication failed. Verify the API key and secret pair and test environment.";
+                case 403 -> "Hotelbeds access was denied. Verify account access for hotel availability.";
+                default -> "Hotelbeds hotel inventory is temporarily unavailable.";
+            };
             return unavailable(warning);
         } catch (ResourceAccessException exception) {
             LOG.warn("Hotelbeds availability search timed out or could not connect");
@@ -169,10 +190,25 @@ public class HotelbedsHotelService {
                 .limit(MAX_HOTELS)
                 .toList();
         if (codes.isEmpty()) return List.of();
+
+        Instant now = clock.instant();
+        List<String> uncachedCodes = new ArrayList<>();
+        Map<String, JsonNode> detailsByCode = new LinkedHashMap<>();
+        for (String code : codes) {
+            CachedHotelContent cached = contentCache.get(code);
+            if (cached != null && now.isBefore(cached.expiresAt())) {
+                if (!cached.hotel().isNull()) detailsByCode.put(code, cached.hotel());
+            } else {
+                if (cached != null) contentCache.remove(code, cached);
+                uncachedCodes.add(code);
+            }
+        }
+        if (uncachedCodes.isEmpty()) return List.copyOf(detailsByCode.values());
+
         try {
             JsonNode response = client.get()
                     .uri(uri -> uri.path("/hotel-content-api/1.0/hotels")
-                            .queryParam("codes", String.join(",", codes))
+                            .queryParam("codes", String.join(",", uncachedCodes))
                             .queryParam("fields", "all")
                             .queryParam("language", "ENG")
                             .queryParam("useSecondaryLanguage", "true")
@@ -183,8 +219,21 @@ public class HotelbedsHotelService {
                     .accept(MediaType.APPLICATION_JSON)
                     .retrieve()
                     .body(JsonNode.class);
-            if (response == null) return List.of();
-            return hotelNodes(response);
+            List<JsonNode> responseHotels =
+                    response == null ? List.of() : hotelNodes(response);
+            for (JsonNode hotel : responseHotels) {
+                String code = firstText(hotel, "code", "hotelCode");
+                if (uncachedCodes.contains(code)) {
+                    detailsByCode.putIfAbsent(code, hotel);
+                }
+            }
+            Instant expiresAt = now.plus(CONTENT_CACHE_TTL);
+            for (String code : uncachedCodes) {
+                JsonNode detail = detailsByCode.getOrDefault(
+                        code, JSON.getNodeFactory().nullNode());
+                contentCache.put(code, new CachedHotelContent(detail, expiresAt));
+            }
+            return List.copyOf(detailsByCode.values());
         } catch (RestClientResponseException exception) {
             logProviderFailure("hotel content lookup", exception);
             return List.of();
@@ -240,16 +289,14 @@ public class HotelbedsHotelService {
         List<Map<String, Object>> offers = extractOffers(
                 availabilityHotel, nights, requestedRooms);
         if (offers.isEmpty()) return null;
-        offers.sort(Comparator.comparing(
-                offer -> (BigDecimal) offer.get("price_per_night")));
-
         Map<String, Object> lowestOffer = offers.getFirst();
         String address = content(detail.path("address"));
         String city = content(detail.path("city"));
         if (city.isBlank()) city = searchedLocation.city();
         if (city.isBlank()) city = searchedCity;
         JsonNode countryNode = detail.path("country");
-        String country = firstText(countryNode, "description", "name", "code");
+        String country = content(countryNode.path("description"));
+        if (country.isBlank()) country = firstText(countryNode, "name", "code");
         if (country.isBlank()) country = searchedLocation.country();
         String locationName = address.isBlank() ? city : address + ", " + city;
 
@@ -330,7 +377,7 @@ public class HotelbedsHotelService {
                 String currency = firstText(rate, "currency");
                 if (total == null || total.signum() <= 0
                         || !currency.matches("(?i)[a-z]{3}")) continue;
-                int rateRooms = positiveInt(rate.path("rooms"), requestedRooms);
+                int rateRooms = requestedRooms;
                 BigDecimal nightly = total.divide(
                         BigDecimal.valueOf(Math.max(1, nights) * rateRooms),
                         2,
@@ -379,31 +426,62 @@ public class HotelbedsHotelService {
     }
 
     private void logProviderFailure(String operation, RestClientResponseException exception) {
+        String responseBody = exception.getResponseBodyAsString();
+        JsonNode body = null;
+        String code = "";
+        String message = "";
+        try {
+            if (!responseBody.isBlank()) body = JSON.readTree(responseBody);
+        } catch (Exception ignored) {
+            // Keep the bounded response text available for non-JSON provider errors.
+        }
+        if (body != null) {
+            JsonNode error = body.path("error");
+            if (error.isMissingNode() || error.isNull()) error = body;
+            code = redact(firstText(error, "code", "errorCode", "statusCode"));
+            message = safeMessage(redact(
+                    firstText(error, "message", "description", "error")));
+        }
+        if (exception.getResponseHeaders() != null) {
+            code = redact(firstNonBlank(
+                    code,
+                    exception.getResponseHeaders().getFirst("X-Error-Code"),
+                    exception.getResponseHeaders().getFirst("Error-Code")));
+        }
+        if (message.isBlank() && !responseBody.isBlank()) {
+            message = safeMessage(redact(responseBody));
+        }
+        if (message.isBlank()) {
+            message = "No provider error body was returned";
+        }
         String requestId = "";
         if (exception.getResponseHeaders() != null) {
             requestId = firstNonBlank(
                     exception.getResponseHeaders().getFirst("X-Request-Id"),
                     exception.getResponseHeaders().getFirst("X-Request-ID"),
-                    exception.getResponseHeaders().getFirst("X-Correlation-Id"));
+                    exception.getResponseHeaders().getFirst("X-Correlation-Id"),
+                    exception.getResponseHeaders().getFirst("X-Hotelbeds-Request-Id"));
         }
-        String code = "";
-        String message = "";
-        try {
-            JsonNode body = JSON.readTree(exception.getResponseBodyAsString());
-            JsonNode error = body.path("error");
-            if (error.isMissingNode() || error.isNull()) error = body;
-            code = firstText(error, "code", "errorCode", "statusCode");
-            message = safeMessage(firstText(error, "message", "description", "error"));
-        } catch (Exception ignored) {
-            // Keep provider errors safe and useful even if the response is not JSON.
+        if (requestId.isBlank() && body != null) {
+            requestId = firstNonBlank(
+                    firstText(body, "requestId", "request_id"),
+                    firstText(body.path("auditData"), "transactionId", "requestId"));
         }
-        LOG.warn(
-                "Hotelbeds {} failed: status={}, errorCode={}, message={}, requestId={}",
-                operation,
-                exception.getStatusCode().value(),
-                code,
-                message,
-                requestId);
+        int status = exception.getStatusCode().value();
+        String safeRequestId = redact(requestId);
+        if (status == 403) {
+            LOG.warn(
+                    "Hotelbeds access denied (403) during {}: errorCode={}, message={}, requestId={}",
+                    operation, code, message, safeRequestId);
+        } else if (status == 401) {
+            LOG.warn(
+                    "Hotelbeds authentication failed (401) during {}: errorCode={}, message={}, requestId={}",
+                    operation, code, message, safeRequestId);
+        } else {
+            LOG.warn(
+                    "Hotelbeds {} failed: status={}, errorCode={}, message={}, requestId={}",
+                    operation, status, code, message, safeRequestId);
+        }
     }
 
     private static List<JsonNode> hotelNodes(JsonNode container) {
@@ -422,6 +500,9 @@ public class HotelbedsHotelService {
         for (JsonNode image : images) {
             String path = firstText(image, "path", "url");
             if (path.startsWith("http://")) path = "https://" + path.substring(7);
+            else if (!path.isBlank() && !path.startsWith("https://")) {
+                path = HOTEL_IMAGE_BASE + path.replaceFirst("^/+", "");
+            }
             if (path.startsWith("https://")) urls.add(path);
             if (urls.size() >= 8) break;
         }
@@ -518,10 +599,18 @@ public class HotelbedsHotelService {
 
     private static String safeMessage(String message) {
         if (message == null) return "";
-        return message.replaceAll("[\\r\\n\\t]+", " ")
+        String sanitized = message.replaceAll("[\\r\\n\\t]+", " ")
                 .replaceAll("\\s{2,}", " ")
-                .trim()
-                .substring(0, Math.min(240, message.trim().length()));
+                .trim();
+        return sanitized.substring(0, Math.min(240, sanitized.length()));
+    }
+
+    private String redact(String value) {
+        if (value == null || value.isBlank()) return "";
+        String redacted = value;
+        if (!apiKey.isBlank()) redacted = redacted.replace(apiKey, "[REDACTED]");
+        if (!apiSecret.isBlank()) redacted = redacted.replace(apiSecret, "[REDACTED]");
+        return redacted;
     }
 
     private static String normalizeBaseUrl(String value) {
@@ -537,4 +626,6 @@ public class HotelbedsHotelService {
     private static UnifiedInventoryService.SourceOutcome unavailable(String warning) {
         return new UnifiedInventoryService.SourceOutcome(List.of(), List.of(warning));
     }
+
+    private record CachedHotelContent(JsonNode hotel, Instant expiresAt) {}
 }

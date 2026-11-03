@@ -430,9 +430,9 @@ public class UnifiedInventoryService {
     private static Map<String, Object> normalize(Map<String, Object> original, String type) {
         Map<String, Object> item = new LinkedHashMap<>(original);
         String source = text(item.get("source")).toLowerCase(Locale.ROOT);
-        if (!source.equals("duffel")
-                && !source.equals("rapidapi")
-                && !source.equals("xotelo")) source = "partner";
+        boolean supportedProvider = ("flight".equals(type) && "duffel".equals(source))
+                || ("hotel".equals(type) && "hotelbeds".equals(source));
+        if (!supportedProvider) source = "partner";
         item.put("source", source);
         item.put("type", type);
 

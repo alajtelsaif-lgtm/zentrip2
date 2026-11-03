@@ -1,6 +1,7 @@
 package com.zentrip.api;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -30,16 +32,15 @@ class PartnerControllerTest {
     private final AirportDirectoryService airportDirectoryService =
             mock(AirportDirectoryService.class);
     private final DuffelFlightService duffelFlightService = mock(DuffelFlightService.class);
-    private final DuffelStayService duffelStayService = mock(DuffelStayService.class);
-    private final XoteloHotelService xoteloHotelService = mock(XoteloHotelService.class);
+    private final HotelbedsHotelService hotelbedsHotelService =
+            mock(HotelbedsHotelService.class);
     private final PartnerController controller = new PartnerController(
             jdbc,
             imageStorage,
             mock(GooglePlacesRatingSync.class),
             airportDirectoryService,
             duffelFlightService,
-            duffelStayService,
-            xoteloHotelService,
+            hotelbedsHotelService,
             mock(ExchangeRateService.class));
 
     @Test
@@ -632,18 +633,30 @@ class PartnerControllerTest {
     }
 
     @Test
-    void hotelSearchUsesXoteloWithoutCallingDuffelStays() {
+    void hotelSearchUsesHotelbedsAndPreservesProviderOffers() {
         when(jdbc.queryForList(contains("WHERE l.type = 'hotel'")))
                 .thenReturn(List.of());
-        Map<String, Object> xoteloHotel = Map.of(
-                "id", "xotelo-g297930-d123",
-                "source", "xotelo",
-                "name", "Xotelo Data Hotel",
+        Map<String, Object> hotelbedsHotel = Map.of(
+                "id", "hotelbeds-123",
+                "source", "hotelbeds",
+                "name", "Hotelbeds Data Hotel",
+                "price", new BigDecimal("125.00"),
                 "price_currency", "USD",
-                "availability_known", false);
-        when(xoteloHotelService.searchHotels("London"))
-                .thenReturn(new XoteloHotelService.SearchOutcome(
-                        List.of(xoteloHotel), List.of()));
+                "availability_known", true,
+                "available_rooms", 2,
+                "offers", List.of(Map.of(
+                        "room_name", "Double",
+                        "price_per_night", new BigDecimal("125.00"),
+                        "stay_total", new BigDecimal("250.00"),
+                        "currency", "USD")));
+        when(hotelbedsHotelService.searchHotels(
+                "London",
+                LocalDate.parse("2026-12-01"),
+                LocalDate.parse("2026-12-03"),
+                1,
+                2))
+                .thenReturn(UnifiedInventoryService.SourceOutcome.of(
+                        List.of(hotelbedsHotel)));
 
         Map<String, Object> response = controller.searchHotels(
                 "London",
@@ -662,10 +675,72 @@ class PartnerControllerTest {
         List<?> hotels = (List<?>) response.get("hotels");
         assertEquals(1, hotels.size());
         assertEquals(Map.of(
-                "partner", 0L, "duffel", 0L, "rapidapi", 0L, "xotelo", 1L),
+                "partner", 0L, "hotelbeds", 1L),
                 response.get("sources"));
         assertEquals(List.of(), response.get("warnings"));
-        verify(duffelStayService, never()).isConfigured();
+        verify(hotelbedsHotelService).searchHotels(
+                "London",
+                LocalDate.parse("2026-12-01"),
+                LocalDate.parse("2026-12-03"),
+                1,
+                2);
+    }
+
+    @Test
+    void hotelbedsAccessFailureKeepsPartnerHotelsVisible() {
+        Map<String, Object> partnerHotel = new LinkedHashMap<>(Map.ofEntries(
+                Map.entry("id", 17L),
+                Map.entry("title", "Partner London Hotel"),
+                Map.entry("city", "London"),
+                Map.entry("country", "United Kingdom"),
+                Map.entry("partner_name", "Local Partner"),
+                Map.entry("description", "Partner inventory"),
+                Map.entry("image_url", "https://example.test/hotel.jpg"),
+                Map.entry("price", new BigDecimal("88.00")),
+                Map.entry("attributes", "{}"),
+                Map.entry("location_name", "Central London"),
+                Map.entry("google_maps_url", ""),
+                Map.entry("place_id", ""),
+                Map.entry("google_rating", BigDecimal.ZERO),
+                Map.entry("google_review_count", 0),
+                Map.entry("amenities", List.of("Wi-Fi")),
+                Map.entry("tax_and_fees_percentage", BigDecimal.ZERO),
+                Map.entry("available_rooms", 3),
+                Map.entry("aggregated_rating", BigDecimal.ZERO),
+                Map.entry("aggregated_review_count", 0)));
+        when(jdbc.queryForList(
+                contains("WHERE l.type = 'hotel'"),
+                any(Object[].class)))
+                .thenReturn(List.of(partnerHotel));
+        when(hotelbedsHotelService.searchHotels(
+                eq("London"),
+                eq(LocalDate.parse("2026-12-01")),
+                eq(LocalDate.parse("2026-12-03")),
+                eq(1),
+                eq(2)))
+                .thenReturn(new UnifiedInventoryService.SourceOutcome(
+                        List.of(),
+                        List.of("Hotelbeds access was denied.")));
+
+        Map<String, Object> response = controller.searchHotels(
+                "London",
+                "2026-12-01",
+                "2026-12-03",
+                1,
+                2,
+                "USD",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
+
+        List<?> hotels = (List<?>) response.get("hotels");
+        assertEquals(1, hotels.size());
+        assertEquals("partner", ((Map<?, ?>) hotels.getFirst()).get("source"));
+        assertEquals(Map.of("partner", 1L, "hotelbeds", 0L), response.get("sources"));
+        assertEquals(List.of("Hotelbeds access was denied."), response.get("warnings"));
     }
 
     @Test

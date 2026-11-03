@@ -21,7 +21,7 @@ class UnifiedInventoryServiceTest {
             new UnifiedInventoryService(exchangeRates);
 
     @Test
-    void mergesPartnerAndDuffelResultsIntoTheSameLegacyCompatibleShape() {
+    void mergesPartnerAndHotelbedsResultsIntoTheSameLegacyCompatibleShape() {
         Map<String, Object> partnerHotel = Map.of(
                 "id", "partner-7",
                 "source", "partner",
@@ -32,29 +32,32 @@ class UnifiedInventoryServiceTest {
                 "booking_ref", "must-not-leak",
                 "amenities", List.of("Wi-Fi"),
                 "image_url", "https://example.com/partner.jpg");
-        Map<String, Object> duffelHotel = Map.of(
-                "id", "duffel-srr-8",
-                "source", "duffel",
-                "name", "Duffel Hotel",
+        Map<String, Object> hotelbedsHotel = Map.of(
+                "id", "hotelbeds-8",
+                "source", "hotelbeds",
+                "name", "Hotelbeds Hotel",
                 "city", "Tripoli",
                 "price_per_night", new BigDecimal("100.00"),
                 "price_currency", "GBP",
                 "offers", List.of(
                         Map.of("id", "rate-1", "price_per_night", 100, "price_currency", "GBP"),
                         Map.of("id", "rate-2", "price_per_night", 120, "price_currency", "GBP")),
-                "gallery_images", List.of("https://example.com/duffel.jpg"));
+                "gallery_images", List.of("https://example.com/hotelbeds.jpg"));
 
         UnifiedInventoryService.SearchOutcome result = service.merge(
                 "hotel",
                 () -> List.of(partnerHotel),
-                () -> UnifiedInventoryService.SourceOutcome.of(List.of(duffelHotel)),
-                "Partner inventory unavailable",
-                "Duffel unavailable");
+                List.of(new UnifiedInventoryService.ProviderSearch(
+                        "hotelbeds",
+                        "Hotelbeds unavailable",
+                        () -> UnifiedInventoryService.SourceOutcome.of(
+                                List.of(hotelbedsHotel)))),
+                "Partner inventory unavailable");
 
         assertEquals(2, result.items().size());
-        assertEquals(Map.of("partner", 1L, "duffel", 1L), result.sources());
+        assertEquals(Map.of("partner", 1L, "hotelbeds", 1L), result.sources());
         Map<String, Object> partner = result.items().getFirst();
-        Map<String, Object> duffel = result.items().getLast();
+        Map<String, Object> hotelbeds = result.items().getLast();
         for (Map<String, Object> item : result.items()) {
             for (String key : List.of(
                     "id", "source", "type", "title", "location", "price", "currency",
@@ -65,10 +68,11 @@ class UnifiedInventoryServiceTest {
             assertEquals(null, item.get("booking_ref"));
         }
         assertEquals("Partner Hotel", partner.get("title"));
-        assertEquals(2, ((List<?>) duffel.get("offers")).size());
-        assertEquals("GBP", duffel.get("currency"));
-        assertEquals(List.of("https://example.com/duffel.jpg"), duffel.get("images"));
-        assertTrue(((Map<?, ?>) ((List<?>) duffel.get("offers")).getFirst())
+        assertEquals(2, ((List<?>) hotelbeds.get("offers")).size());
+        assertEquals("GBP", hotelbeds.get("currency"));
+        assertEquals(
+                List.of("https://example.com/hotelbeds.jpg"), hotelbeds.get("images"));
+        assertTrue(((Map<?, ?>) ((List<?>) hotelbeds.get("offers")).getFirst())
                 .containsKey("conditions"));
     }
 
@@ -85,11 +89,11 @@ class UnifiedInventoryServiceTest {
                     throw new IllegalStateException("provider down");
                 },
                 "Partner inventory unavailable",
-                "Duffel unavailable");
+                "Hotelbeds unavailable");
 
         assertEquals(1, result.items().size());
         assertEquals("partner", result.items().getFirst().get("source"));
-        assertTrue(result.warnings().contains("Duffel unavailable"));
+        assertTrue(result.warnings().contains("Hotelbeds unavailable"));
     }
 
     @Test
@@ -102,37 +106,37 @@ class UnifiedInventoryServiceTest {
                         "name", "Partner Hotel")),
                 List.of(
                         new UnifiedInventoryService.ProviderSearch(
-                                "duffel",
-                                "Duffel unavailable",
+                                "hotelbeds",
+                                "Hotelbeds unavailable",
                                 () -> UnifiedInventoryService.SourceOutcome.of(List.of(Map.of(
-                                        "id", "duffel-srr-1",
-                                        "source", "duffel",
-                                        "name", "Duffel Hotel")))),
+                                        "id", "hotelbeds-1",
+                                        "source", "hotelbeds",
+                                        "name", "Hotelbeds Hotel")))),
                         new UnifiedInventoryService.ProviderSearch(
-                                "rapidapi",
-                                "RapidAPI unavailable",
+                                "hotelbeds",
+                                "Hotelbeds secondary lookup unavailable",
                                 () -> {
-                                    throw new IllegalStateException("provider denied");
+                                    throw new IllegalStateException("content provider denied");
                                 })),
                 "Partner unavailable");
 
         assertEquals(2, result.items().size());
         assertEquals(Map.of(
-                "partner", 1L, "duffel", 1L, "rapidapi", 0L), result.sources());
-        assertTrue(result.warnings().contains("RapidAPI unavailable"));
+                "partner", 1L, "hotelbeds", 1L), result.sources());
+        assertTrue(result.warnings().contains("Hotelbeds secondary lookup unavailable"));
     }
 
     @Test
-    void partnerFailureKeepsDuffelResultsAndReturnsAWarning() {
+    void partnerFailureKeepsDuffelFlightResultsAndReturnsAWarning() {
         UnifiedInventoryService.SearchOutcome result = service.merge(
-                "hotel",
+                "flight",
                 () -> {
                     throw new IllegalStateException("database down");
                 },
                 () -> UnifiedInventoryService.SourceOutcome.of(List.of(Map.of(
                         "id", "duffel-srr-1",
                         "source", "duffel",
-                        "name", "Duffel Hotel"))),
+                        "name", "Duffel flight"))),
                 "Partner unavailable",
                 "Duffel unavailable");
 
@@ -148,8 +152,8 @@ class UnifiedInventoryServiceTest {
                         "quote", "GBP",
                         "rate", new BigDecimal("0.80")))));
         Map<String, Object> matches = Map.of(
-                "id", "duffel-srr-1",
-                "source", "duffel",
+                "id", "hotelbeds-1",
+                "source", "hotelbeds",
                 "name", "Family hotel",
                 "description", "Family-friendly accommodation",
                 "price", new BigDecimal("80.00"),
@@ -181,7 +185,7 @@ class UnifiedInventoryServiceTest {
                         "family,breakfast"));
 
         assertEquals(1, result.hotels().size());
-        assertEquals("duffel-srr-1", result.hotels().getFirst().get("id"));
+        assertEquals("hotelbeds-1", result.hotels().getFirst().get("id"));
         assertTrue(result.warnings().isEmpty());
     }
 

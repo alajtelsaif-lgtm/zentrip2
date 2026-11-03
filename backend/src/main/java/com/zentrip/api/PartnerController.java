@@ -66,8 +66,7 @@ public class PartnerController {
     private final GooglePlacesRatingSync googlePlacesRatingSync;
     private final AirportDirectoryService airportDirectoryService;
     private final DuffelFlightService duffelFlightService;
-    private final DuffelStayService duffelStayService;
-    private final XoteloHotelService xoteloHotelService;
+    private final HotelbedsHotelService hotelbedsHotelService;
     private final UnifiedInventoryService unifiedInventoryService;
 
     public PartnerController(
@@ -76,16 +75,14 @@ public class PartnerController {
             GooglePlacesRatingSync googlePlacesRatingSync,
             AirportDirectoryService airportDirectoryService,
             DuffelFlightService duffelFlightService,
-            DuffelStayService duffelStayService,
-            XoteloHotelService xoteloHotelService,
+            HotelbedsHotelService hotelbedsHotelService,
             ExchangeRateService exchangeRateService) {
         this.jdbc = jdbc;
         this.imageStorage = imageStorage;
         this.googlePlacesRatingSync = googlePlacesRatingSync;
         this.airportDirectoryService = airportDirectoryService;
         this.duffelFlightService = duffelFlightService;
-        this.duffelStayService = duffelStayService;
-        this.xoteloHotelService = xoteloHotelService;
+        this.hotelbedsHotelService = hotelbedsHotelService;
         this.unifiedInventoryService = new UnifiedInventoryService(exchangeRateService);
     }
 
@@ -959,16 +956,14 @@ public class PartnerController {
         }
         List<UnifiedInventoryService.ProviderSearch> hotelProviders = List.of(
                 new UnifiedInventoryService.ProviderSearch(
-                        "xotelo",
-                        "Xotelo hotel information is temporarily unavailable.",
-                        () -> {
-                            XoteloHotelService.SearchOutcome provider =
-                                    xoteloHotelService.searchHotels(normalizedCity);
-                            return provider == null
-                                    ? UnifiedInventoryService.SourceOutcome.of(List.of())
-                                    : new UnifiedInventoryService.SourceOutcome(
-                                            provider.hotels(), provider.warnings());
-                        }));
+                        "hotelbeds",
+                        "Hotelbeds hotel inventory is temporarily unavailable.",
+                        () -> hotelbedsHotelService.searchHotels(
+                                normalizedCity,
+                                parsedCheckIn,
+                                parsedCheckOut,
+                                rooms,
+                                guests)));
         UnifiedInventoryService.SearchOutcome merged = unifiedInventoryService.merge(
                 "hotel",
                 () -> hotelSearchRows(normalizedCity).stream()
@@ -983,30 +978,14 @@ public class PartnerController {
         warnings.addAll(filtered.warnings());
         long partnerCount = filtered.hotels().stream()
                 .filter(hotel -> "partner".equals(hotel.get("source"))).count();
-        long duffelCount = filtered.hotels().stream()
-                .filter(hotel -> "duffel".equals(hotel.get("source"))).count();
-        long rapidApiCount = filtered.hotels().stream()
-                .filter(hotel -> "rapidapi".equals(hotel.get("source"))).count();
-        long xoteloCount = filtered.hotels().stream()
-                .filter(hotel -> "xotelo".equals(hotel.get("source"))).count();
+        long hotelbedsCount = filtered.hotels().stream()
+                .filter(hotel -> "hotelbeds".equals(hotel.get("source"))).count();
         return Map.of(
                 "hotels", filtered.hotels(),
                 "sources", Map.of(
                         "partner", partnerCount,
-                        "duffel", duffelCount,
-                        "rapidapi", rapidApiCount,
-                        "xotelo", xoteloCount),
+                        "hotelbeds", hotelbedsCount),
                 "warnings", warnings.stream().distinct().toList());
-    }
-
-    @PostMapping("/hotels/search-results/{searchResultId}/rates")
-    public Map<String, Object> hotelRates(@PathVariable String searchResultId) {
-        if (searchResultId == null
-                || !searchResultId.matches("srr[-_][A-Za-z0-9_-]{2,120}")) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Invalid hotel search result ID");
-        }
-        return duffelStayService.fetchAllRates(searchResultId);
     }
 
     @GetMapping("/hotels/nearby")

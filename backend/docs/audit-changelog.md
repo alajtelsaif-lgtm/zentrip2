@@ -20,10 +20,10 @@ Supabase client, or storage mechanism.
   scheduling additional dates after a rate-limit response, and return sanitized
   warnings alongside any results. Provider failures do not erase partner
   results.
-- **Hotel search:** Partner inventory and Duffel Stays use the existing hotel
-  response contract. Search results include per-source counts and safe
-  warnings when either source is unavailable. The existing endpoint for
-  fetching room rates remains in place.
+- **Hotel search:** Partner inventory and read-only Hotelbeds availability and
+  content results use the existing hotel response contract. Hotelbeds rate keys
+  are not exposed; booking stays in Zentrip's simulated payment flow. Provider
+  failures return safe warnings without removing partner results.
 - **Airport picker:** The flight picker now queries the backend airport
   directory rather than filtering only the built-in list. Input is debounced
   by 350 ms and stale in-flight responses are ignored.
@@ -46,9 +46,10 @@ Supabase client, or storage mechanism.
 
 - `SecurityConfig.java` — role-specific API rules and deny-by-default API
   handling.
-- `DuffelFlightService.java`, `DuffelStayService.java`, and
+- `DuffelFlightService.java`, `HotelbedsHotelService.java`, and
   `PartnerController.java` — provider warnings, safer flexible-search
-  concurrency, and partner/provider result aggregation.
+  concurrency, partner/provider result aggregation, and read-only Hotelbeds
+  hotel inventory.
 - `flight_search_screen.dart` — backend-backed, debounced airport search.
 - `car_rental_screen.dart` and `car_detail_screen.dart` — align car-rental
   accent color with the transfer screen.
