@@ -13,7 +13,10 @@ import '../../../../models/flight_seat_map.dart';
 import '../../../../models/trip_model.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'booking_confirmed_screen.dart';
+import 'flight_checkout_shared_components.dart';
+import 'flight_passengers_screen.dart';
 import 'flight_primary_button.dart';
+import 'flight_review_pay_screen.dart';
 import 'flight_seat_map_view.dart';
 import 'flight_seat_widgets.dart';
 
@@ -42,6 +45,10 @@ class FlightSeatSelectionScreen extends StatefulWidget {
   final FlightSeatMapLoader? seatMapLoader;
   final FlightPaymentLauncher? paymentLauncher;
   final FlightTripCreator? tripCreator;
+  final FlightSeatMap? initialSeatMap;
+  final String? initialFareId;
+  final List<FlightCheckoutPassenger> passengers;
+  final bool reviewFlowEnabled;
 
   const FlightSeatSelectionScreen({
     super.key,
@@ -54,6 +61,10 @@ class FlightSeatSelectionScreen extends StatefulWidget {
     this.seatMapLoader,
     this.paymentLauncher,
     this.tripCreator,
+    this.initialSeatMap,
+    this.initialFareId,
+    this.passengers = const [],
+    this.reviewFlowEnabled = false,
   });
 
   @override
@@ -74,6 +85,9 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
   String? _lostSeatMessage;
   String? _selectedFareId;
   String? _selectedCabinId;
+  bool _acceptedFareRules = false;
+  bool _reviewPushed = false;
+  bool _seatsSkipped = false;
   Timer? _refreshTimer;
 
   String? get _flightId {
@@ -129,7 +143,18 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadSeatMap();
+    final initialMap = widget.initialSeatMap;
+    if (initialMap != null) {
+      _seatMap = initialMap;
+      _selectedFareId =
+          initialMap.fares.any((fare) => fare.id == widget.initialFareId)
+              ? widget.initialFareId
+              : initialMap.fares.first.id;
+      _selectedCabinId = initialMap.cabins.first.id;
+      _loading = false;
+    } else {
+      _loadSeatMap();
+    }
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => _loadSeatMap(),
@@ -282,6 +307,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
     if (_selectedSeats.contains(seat)) {
       HapticFeedback.selectionClick();
       setState(() {
+        _seatsSkipped = false;
         _selectedSeats.remove(seat);
         _heldSeats.remove(seat);
       });
@@ -295,7 +321,109 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       return;
     }
     HapticFeedback.selectionClick();
-    setState(() => _selectedSeats.add(seat));
+    setState(() {
+      _seatsSkipped = false;
+      _selectedSeats.add(seat);
+    });
+  }
+
+  Future<void> _openReview({bool skipSeats = false}) async {
+    final map = _seatMap;
+    final fare = _fare;
+    if (!widget.reviewFlowEnabled ||
+        _loading ||
+        _refreshing ||
+        _seatError != null ||
+        map == null ||
+        fare == null) {
+      return;
+    }
+    if (skipSeats) {
+      setState(() {
+        _selectedSeats.clear();
+        _heldSeats.clear();
+        _seatsSkipped = true;
+      });
+    } else if (_selectedSeats.length != widget.passengerCount) {
+      AppSnackbar.info(
+        context,
+        CheckoutLabels(AppLocalizations.of(context))
+            .chooseSeatsOrSkip(widget.passengerCount),
+      );
+      return;
+    }
+    if (_reviewPushed) return;
+    _reviewPushed = true;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => FlightReviewPayScreen(
+          flight: widget.flight,
+          passengers: widget.passengers,
+          seats: _selectedSeats.toList()..sort(),
+          fareLabel: fare.label,
+          currencyCode: widget.flight.isDuffelOffer
+              ? widget.flight.priceCurrencyCode
+              : 'USD',
+          totalPrice: _totalPrice,
+          priceLines: _reviewPriceLines(map, fare),
+          acceptedFareRules: _acceptedFareRules,
+          onFareRulesChanged: (accepted) =>
+              setState(() => _acceptedFareRules = accepted),
+          onPay: _proceedToPayment,
+          onBack: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+    if (mounted) _reviewPushed = false;
+  }
+
+  List<FlightPriceLine> _reviewPriceLines(
+    FlightSeatMap map,
+    FlightSeatFare fare,
+  ) {
+    final labels = CheckoutLabels(AppLocalizations.of(context));
+    if (widget.flight.isDuffelOffer) {
+      return [
+        FlightPriceLine(
+          label: AppLocalizations.of(context).flightTicketPrice,
+          amount: _totalPrice,
+        ),
+      ];
+    }
+    final fareAmount = fare.price * widget.passengerCount;
+    final premiumCount = _selectedSeats.where((seat) {
+      final row = int.tryParse(seat.substring(0, seat.length - 1));
+      return row != null && map.extraLegroomRows.contains(row);
+    }).length;
+    final seatAmount = premiumCount * map.extraLegroomFee;
+    final extrasAmount = _selectedExtras.fold<double>(
+      0,
+      (sum, key) => sum + (map.extras[key] ?? 0),
+    );
+    final tax = (fareAmount + seatAmount + extrasAmount) * map.taxRate;
+    return [
+      FlightPriceLine(
+        label: AppLocalizations.of(context).flightTicketPrice,
+        amount: fareAmount,
+      ),
+      if (seatAmount > 0)
+        FlightPriceLine(label: labels.seats, amount: seatAmount),
+      if (extrasAmount > 0)
+        FlightPriceLine(
+          label: AppLocalizations.of(context).flightServiceFee,
+          amount: extrasAmount,
+        ),
+      if (tax > 0)
+        FlightPriceLine(
+          label: AppLocalizations.of(context).flightTaxesFees,
+          amount: tax,
+        ),
+      if (map.bookingFee > 0)
+        FlightPriceLine(
+          label: AppLocalizations.of(context).flightServiceFee,
+          amount: map.bookingFee,
+        ),
+    ];
   }
 
   Future<void> _proceedToPayment() async {
@@ -312,7 +440,10 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         _refreshing) {
       return;
     }
-    if (_selectedSeats.length != widget.passengerCount) {
+    if (_selectedSeats.length != widget.passengerCount &&
+        !(widget.reviewFlowEnabled &&
+            _seatsSkipped &&
+            _selectedSeats.isEmpty)) {
       AppSnackbar.error(
         context,
         'Select ${widget.passengerCount} seat${widget.passengerCount == 1 ? '' : 's'} to continue.',
@@ -350,25 +481,27 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         );
         return;
       }
-      final reservation = await ApiService.instance.reserveFlightSeats(
-        flightId: flightId!,
-        seats: selectedSeats,
-      );
-      if (!mounted) return;
-      if (reservation.isFailure) {
-        setState(() => _submitting = false);
-        AppSnackbar.error(
-          context,
-          reservation.errorMessage ?? 'Those seats are no longer available.',
+      if (selectedSeats.isNotEmpty) {
+        final reservation = await ApiService.instance.reserveFlightSeats(
+          flightId: flightId!,
+          seats: selectedSeats,
         );
-        await _loadSeatMap();
-        return;
+        if (!mounted) return;
+        if (reservation.isFailure) {
+          setState(() => _submitting = false);
+          AppSnackbar.error(
+            context,
+            reservation.errorMessage ?? 'Those seats are no longer available.',
+          );
+          await _loadSeatMap();
+          return;
+        }
+        setState(() {
+          _heldSeats
+            ..clear()
+            ..addAll(selectedSeats);
+        });
       }
-      setState(() {
-        _heldSeats
-          ..clear()
-          ..addAll(selectedSeats);
-      });
     }
 
     final requestReference = isDuffel
@@ -466,6 +599,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         totalPrice: bookingTotal,
         extras: selectedExtras,
       );
+      if (_reviewPushed) Navigator.of(context).pop();
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => BookingConfirmedScreen(
@@ -487,6 +621,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       totalPrice: bookingTotal,
       extras: selectedExtras,
     );
+    if (_reviewPushed) Navigator.of(context).pop();
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => BookingConfirmedScreen(draft: draft)),
     );
@@ -495,6 +630,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.reviewFlowEnabled) return _buildCheckoutFlow(context);
     return Scaffold(
       backgroundColor: _page,
       appBar: AppBar(
@@ -576,6 +712,78 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
                       : null,
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCheckoutFlow(BuildContext context) {
+    final labels = CheckoutLabels(AppLocalizations.of(context));
+    final map = _seatMap;
+    final canContinue = map != null &&
+        !_loading &&
+        !_refreshing &&
+        _seatError == null &&
+        (_fare?.availableSeats ?? 0) >= widget.passengerCount &&
+        _selectedSeats.length == widget.passengerCount &&
+        !_submitting;
+    return Scaffold(
+      backgroundColor: _page,
+      body: SafeArea(
+        child: Column(
+          children: [
+            FlightBookingFlowHeader(
+              title: labels.chooseSeats,
+              activeStep: 2,
+              onBack: () => Navigator.of(context).pop(),
+              onSkip: _submitting ? null : () => _openReview(skipSeats: true),
+            ),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                    children: [
+                      if (widget.flight.isDuffelOffer) ...[
+                        Text(
+                          AppLocalizations.of(context)
+                              .flightSimulatedSeatMapNotice,
+                          style: const TextStyle(
+                            color: _ink,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (map != null && map.cabins.length > 1)
+                        _cabinSelector(map),
+                      if (map != null && map.cabins.length > 1)
+                        const SizedBox(height: 12),
+                      _seatMapPanel(),
+                      if (map != null) ...[
+                        const SizedBox(height: 14),
+                        _legend(),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            CheckoutFooter(
+              total: checkoutMoney(
+                widget.flight.isDuffelOffer
+                    ? widget.flight.priceCurrencyCode
+                    : 'USD',
+                _totalPrice,
+              ),
+              caption: labels.travellerPrice(widget.passengerCount),
+              buttonLabel: labels.continueLabel,
+              onPressed: canContinue ? _openReview : null,
+              loading: _submitting,
             ),
           ],
         ),

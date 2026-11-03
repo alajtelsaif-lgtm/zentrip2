@@ -270,18 +270,27 @@ class FlightSeatLegend extends StatelessWidget {
   const FlightSeatLegend({super.key});
 
   @override
-  Widget build(BuildContext context) => const Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 15,
-        runSpacing: 9,
-        children: [
-          _LegendItem(color: Color(0xFFE8ECF5), label: 'Available'),
-          _LegendItem(
-              color: Colors.white, border: _navy, label: 'Extra legroom'),
-          _LegendItem(color: _navy, label: 'Your seat'),
-          _LegendItem(color: Color(0xFFE9EBF0), label: 'Taken'),
-        ],
-      );
+  Widget build(BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 15,
+      runSpacing: 9,
+      children: [
+        _LegendItem(
+            color: const Color(0xFFE8ECF5),
+            label: isArabic ? 'متاح' : 'Available'),
+        _LegendItem(
+            color: Colors.white,
+            border: _navy,
+            label: isArabic ? 'مساحة إضافية للأرجل' : 'Extra legroom'),
+        _LegendItem(color: _navy, label: isArabic ? 'مقعدك' : 'Your seat'),
+        _LegendItem(
+            color: const Color(0xFFE9EBF0),
+            label: isArabic ? 'محجوز' : 'Taken'),
+      ],
+    );
+  }
 }
 
 class _LegendItem extends StatelessWidget {

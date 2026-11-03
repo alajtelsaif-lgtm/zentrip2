@@ -14,7 +14,7 @@ import '../features/trips/presentation/screens/package_detail_screen.dart';
 import '../features/flight_booking/presentation/screens/flight_search_screen.dart';
 import '../features/flight_booking/logic/flight_controller.dart';
 import '../features/flight_booking/presentation/screens/search_flight_screen.dart';
-import '../features/flight_booking/presentation/screens/flight_booking_screen.dart';
+import '../features/flight_booking/presentation/screens/flight_booking_flow_screen.dart';
 import '../features/hotel_booking/presentation/screens/hotel_search_screen.dart';
 import '../features/hotel_booking/presentation/screens/hotel_results_screen.dart';
 import '../features/hotel_booking/presentation/screens/hotel_detail_screen.dart';
@@ -143,7 +143,7 @@ abstract class AppRoutes {
         }
         return _slide(const SearchFlightScreen(), settings);
       case flightBooking:
-        return _slide(const FlightBookingScreen(), settings);
+        return _slide(const FlightBookingFlowScreen(), settings);
       case hotelSearch:
         return _slide(
           HotelSearchScreen(

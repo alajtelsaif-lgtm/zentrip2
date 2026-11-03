@@ -31,6 +31,7 @@ class FlightSeatMapView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final split = seatLetters.length ~/ 2;
     final upper = seatLetters.take(split).toList();
     final lower = seatLetters.skip(split).toList();
@@ -53,79 +54,80 @@ class FlightSeatMapView extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 19, 10, 18),
         child: LayoutBuilder(builder: (context, constraints) {
           final columnWidth = math.max(
-            52.0, (constraints.maxWidth - 70) / math.max(1, rows.length),
+            52.0,
+            (constraints.maxWidth - 70) / math.max(1, rows.length),
           );
           return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 70,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (var index = 0; index < upper.length; index++)
-                      const SizedBox(height: 44),
-                    const SizedBox(height: 3),
-                    const SizedBox(
-                      height: 24,
-                      child: Center(
-                        child: Text('DECK',
-                            style: TextStyle(
-                                color: _seatMuted,
-                                fontSize: 10,
-                                letterSpacing: 1.2,
-                                fontWeight: FontWeight.w900)),
-                      ),
-                    ),
-                    for (var index = 0; index < lower.length; index++)
-                      const SizedBox(height: 44),
-                  ],
-                ),
-              ),
-              for (final row in rows)
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
                 SizedBox(
-                  width: columnWidth,
+                  width: 70,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      for (final letter in upper)
-                        _SeatTile(
-                          seatId: '$row$letter',
-                          letter: letter,
-                          premium: extraLegroomRows.contains(row),
-                          occupied: occupiedSeats.contains('$row$letter'),
-                          selected: selectedSeats.contains('$row$letter'),
-                          enabled: enabled,
-                          onTap: onSeatTap,
-                        ),
+                      for (var index = 0; index < upper.length; index++)
+                        const SizedBox(height: 44),
                       const SizedBox(height: 3),
                       SizedBox(
                         height: 24,
                         child: Center(
-                          child: Text('$row',
+                          child: Text(isArabic ? 'المقصورة' : 'DECK',
                               style: const TextStyle(
                                   color: _seatMuted,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600)),
+                                  fontSize: 10,
+                                  letterSpacing: 1.2,
+                                  fontWeight: FontWeight.w900)),
                         ),
                       ),
-                      for (final letter in lower)
-                        _SeatTile(
-                          seatId: '$row$letter',
-                          letter: letter,
-                          premium: extraLegroomRows.contains(row),
-                          occupied: occupiedSeats.contains('$row$letter'),
-                          selected: selectedSeats.contains('$row$letter'),
-                          enabled: enabled,
-                          onTap: onSeatTap,
-                        ),
+                      for (var index = 0; index < lower.length; index++)
+                        const SizedBox(height: 44),
                     ],
                   ),
                 ),
-            ],
-          ),
+                for (final row in rows)
+                  SizedBox(
+                    width: columnWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final letter in upper)
+                          _SeatTile(
+                            seatId: '$row$letter',
+                            letter: letter,
+                            premium: extraLegroomRows.contains(row),
+                            occupied: occupiedSeats.contains('$row$letter'),
+                            selected: selectedSeats.contains('$row$letter'),
+                            enabled: enabled,
+                            onTap: onSeatTap,
+                          ),
+                        const SizedBox(height: 3),
+                        SizedBox(
+                          height: 24,
+                          child: Center(
+                            child: Text('$row',
+                                style: const TextStyle(
+                                    color: _seatMuted,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                        for (final letter in lower)
+                          _SeatTile(
+                            seatId: '$row$letter',
+                            letter: letter,
+                            premium: extraLegroomRows.contains(row),
+                            occupied: occupiedSeats.contains('$row$letter'),
+                            selected: selectedSeats.contains('$row$letter'),
+                            enabled: enabled,
+                            onTap: onSeatTap,
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           );
         }),
       ),
@@ -179,7 +181,7 @@ class _SeatTile extends StatelessWidget {
         button: true,
         enabled: canSelect,
         selected: selected,
-        label: 'Seat $seatId, ${selected ? 'your seat' : occupied ? 'taken' : premium ? 'extra legroom, available' : 'available'}',
+        label: _seatSemanticLabel(context),
         child: SizedBox(
           width: 42,
           height: 40,
@@ -209,5 +211,27 @@ class _SeatTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _seatSemanticLabel(BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    if (isArabic) {
+      final status = selected
+          ? 'مقعدك'
+          : occupied
+              ? 'محجوز'
+              : premium
+                  ? 'مساحة إضافية للأرجل، متاح'
+                  : 'متاح';
+      return 'المقعد $seatId، $status';
+    }
+    final status = selected
+        ? 'your seat'
+        : occupied
+            ? 'taken'
+            : premium
+                ? 'extra legroom, available'
+                : 'available';
+    return 'Seat $seatId, $status';
   }
 }

@@ -88,7 +88,7 @@ class FlightPassengersScreen extends StatelessWidget {
       footer: CheckoutFooter(
         total: checkoutMoney(currencyCode, totalPrice),
         caption: '$fareLabel · ${labels.travellerPrice(passengers.length)}',
-        buttonLabel: l10n.done,
+        buttonLabel: labels.continueLabel,
         onPressed: onContinue,
       ),
       child: ListView(
@@ -198,8 +198,7 @@ class _PassengerEditorState extends State<_PassengerEditor> {
                 alignment: Alignment.center,
                 child: Text('${widget.index + 1}',
                     style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w800)),
+                        color: AppColors.primary, fontWeight: FontWeight.w800)),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -227,8 +226,7 @@ class _PassengerEditorState extends State<_PassengerEditor> {
                 onPressed: () => setState(() => _editing = !_editing),
                 child: Text(_editing ? l10n.done : l10n.edit,
                     style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w700)),
+                        color: AppColors.primary, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -293,10 +291,8 @@ class _PassengerEditorState extends State<_PassengerEditor> {
             ),
             if (passenger.email.isNotEmpty || passenger.phone.isNotEmpty) ...[
               const Divider(height: 20),
-              CheckoutValueLine(
-                  label: l10n.emailLabel, value: passenger.email),
-              CheckoutValueLine(
-                  label: l10n.phoneLabel, value: passenger.phone),
+              CheckoutValueLine(label: l10n.emailLabel, value: passenger.email),
+              CheckoutValueLine(label: l10n.phoneLabel, value: passenger.phone),
             ],
           ],
         ],

@@ -13,6 +13,7 @@ class FlightChooseFareScreen extends StatelessWidget {
   final int passengerCount;
   final String currencyCode;
   final double? totalPrice;
+  final bool showAvailability;
   final ValueChanged<FlightSeatFare> onFareSelected;
   final VoidCallback? onContinue;
   final VoidCallback? onBack;
@@ -27,6 +28,7 @@ class FlightChooseFareScreen extends StatelessWidget {
     required this.onFareSelected,
     required this.onContinue,
     this.totalPrice,
+    this.showAvailability = true,
     this.onBack,
   });
 
@@ -51,7 +53,7 @@ class FlightChooseFareScreen extends StatelessWidget {
       footer: CheckoutFooter(
         total: checkoutMoney(currencyCode, amount),
         caption: labels.travellerPrice(passengerCount),
-        buttonLabel: l10n.done,
+        buttonLabel: labels.continueLabel,
         onPressed: onContinue,
       ),
       child: ListView(
@@ -88,6 +90,7 @@ class FlightChooseFareScreen extends StatelessWidget {
                               fare: fare,
                               currencyCode: currencyCode,
                               selected: fare.id == selectedFareId,
+                              showAvailability: showAvailability,
                               onTap: () => onFareSelected(fare),
                             ),
                           ))
@@ -118,10 +121,11 @@ class FlightChooseFareScreen extends StatelessWidget {
                     label: labels.farePrice,
                     value: checkoutMoney(currencyCode, selected.price),
                   ),
-                  CheckoutDataRow(
-                    label: labels.availableSeats,
-                    value: selected.availableSeats.toString(),
-                  ),
+                  if (showAvailability)
+                    CheckoutDataRow(
+                      label: labels.availableSeats,
+                      value: selected.availableSeats.toString(),
+                    ),
                 ],
               ),
             ),
@@ -137,12 +141,14 @@ class _FareChoiceCard extends StatelessWidget {
   final FlightSeatFare fare;
   final String currencyCode;
   final bool selected;
+  final bool showAvailability;
   final VoidCallback onTap;
 
   const _FareChoiceCard({
     required this.fare,
     required this.currencyCode,
     required this.selected,
+    required this.showAvailability,
     required this.onTap,
   });
 
@@ -196,11 +202,12 @@ class _FareChoiceCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 3),
-              Text(
-                '${fare.availableSeats}',
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 10),
-              ),
+              if (showAvailability)
+                Text(
+                  '${fare.availableSeats}',
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 10),
+                ),
             ],
           ),
         ),

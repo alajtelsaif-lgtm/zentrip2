@@ -10,8 +10,6 @@ import '../../../../routes/app_routes.dart';
 import '../../logic/flight_controller.dart';
 import 'flight_search_screen.dart';
 import 'flight_primary_button.dart';
-import 'seat_selection16line_screen.dart';
-import 'seat_selection_screen.dart';
 
 class SearchFlightScreen extends StatefulWidget {
   final FlightSearchParams? initialSearch;
@@ -155,22 +153,10 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
     if (controller == null || params == null) return;
 
     controller.selectFlight(flight);
-    final seatScreen = flight.usesTwoByTwoSeatLayout
-        ? SeatSelection16LineScreen(
-            flight: flight,
-            passengerCount: params.passengers,
-            seatClass: params.seatClass,
-            returnDate: params.returnDate,
-            rowCount: flight.seatRows,
-          )
-        : SeatSelectionScreen(
-            flight: flight,
-            passengerCount: params.passengers,
-            seatClass: params.seatClass,
-            returnDate: params.returnDate,
-            rowCount: flight.seatRows,
-          );
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => seatScreen));
+    Navigator.of(context).pushNamed(
+      AppRoutes.flightBooking,
+      arguments: controller,
+    );
   }
 
   @override
@@ -183,56 +169,71 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final controller = _controller;
+    if (controller == null) {
+      return _buildScaffold(context, controller, l10n);
+    }
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => _buildScaffold(context, controller, l10n),
+    );
+  }
 
+  Widget _buildScaffold(
+    BuildContext context,
+    FlightController? controller,
+    AppLocalizations l10n,
+  ) {
+    final hasLoadedSearch = controller != null &&
+        !controller.isLoading &&
+        _params != null &&
+        _error == null;
+    Widget body;
+    if (controller == null || _params == null) {
+      body = _MissingSearch(onSearch: _editSearch);
+    } else if (controller.isLoading) {
+      body = const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    } else if (_error != null) {
+      body = _SearchError(
+        message: _error ?? l10n.flightSearchError,
+        retryLabel: l10n.retry,
+        onRetry: _retry,
+        onEdit: _editSearch,
+        editLabel: l10n.searchFlightsBtn,
+      );
+    } else if (controller.results.isEmpty) {
+      body = _NoFlights(
+        params: _params!,
+        onEdit: _editSearch,
+        onBack: () => Navigator.of(context).maybePop(),
+        onSelectDepartureDate: _selectDepartureDate,
+      );
+    } else {
+      body = _FlightResults(
+        controller: controller,
+        params: _params!,
+        onEdit: _editSearch,
+        onBack: () => Navigator.of(context).maybePop(),
+        onSelect: _selectFlight,
+        onSelectDepartureDate: _selectDepartureDate,
+        l10n: l10n,
+      );
+    }
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.flightSelectTitle),
-        actions: [
-          IconButton(
-            tooltip: l10n.searchFlights,
-            onPressed: _editSearch,
-            icon: const Icon(Icons.tune_rounded),
-          ),
-        ],
-      ),
-      body: controller == null || _params == null
-          ? _MissingSearch(onSearch: _editSearch)
-          : ListenableBuilder(
-              listenable: controller,
-              builder: (context, _) {
-                if (controller.isLoading) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.primary,
-                    ),
-                  );
-                }
-                if (_error != null) {
-                  return _SearchError(
-                    message: _error ?? l10n.flightSearchError,
-                    retryLabel: l10n.retry,
-                    onRetry: _retry,
-                    onEdit: _editSearch,
-                    editLabel: l10n.searchFlightsBtn,
-                  );
-                }
-                if (controller.results.isEmpty) {
-                  return _NoFlights(
-                    params: _params!,
-                    onEdit: _editSearch,
-                    onSelectDepartureDate: _selectDepartureDate,
-                  );
-                }
-                return _FlightResults(
-                  controller: controller,
-                  params: _params!,
-                  onEdit: _editSearch,
-                  onSelect: _selectFlight,
-                  onSelectDepartureDate: _selectDepartureDate,
-                  l10n: l10n,
-                );
-              },
+      appBar: hasLoadedSearch
+          ? null
+          : AppBar(
+              title: Text(l10n.flightSelectTitle),
+              actions: [
+                IconButton(
+                  tooltip: l10n.searchFlights,
+                  onPressed: _editSearch,
+                  icon: const Icon(Icons.tune_rounded),
+                ),
+              ],
             ),
+      body: body,
     );
   }
 }
@@ -241,6 +242,7 @@ class _FlightResults extends StatelessWidget {
   final FlightController controller;
   final FlightSearchParams params;
   final VoidCallback onEdit;
+  final VoidCallback onBack;
   final ValueChanged<FlightModel> onSelect;
   final ValueChanged<DateTime> onSelectDepartureDate;
   final AppLocalizations l10n;
@@ -249,6 +251,7 @@ class _FlightResults extends StatelessWidget {
     required this.controller,
     required this.params,
     required this.onEdit,
+    required this.onBack,
     required this.onSelect,
     required this.onSelectDepartureDate,
     required this.l10n,
@@ -257,54 +260,62 @@ class _FlightResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      children: [
-        _SearchSummary(params: params, onEdit: onEdit, l10n: l10n),
-        FlightDateSelector(
-          departureDate: params.departureDate,
-          lastDate: params.isRoundTrip ? params.returnDate : null,
-          onSelected: onSelectDepartureDate,
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${controller.results.length} ${l10n.flightResults.toLowerCase()}',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-              _SortChip(
-                label: l10n.cheapest,
-                selected: controller.sort == FlightSort.cheapest,
-                onTap: () => controller.setSort(FlightSort.cheapest),
-              ),
-              const SizedBox(width: 8),
-              _SortChip(
-                label: l10n.fastest,
-                selected: controller.sort == FlightSort.fastest,
-                onTap: () => controller.setSort(FlightSort.fastest),
-              ),
-            ],
+    return SafeArea(
+      top: true,
+      child: Column(
+        children: [
+          _SearchSummary(
+            params: params,
+            onEdit: onEdit,
+            onBack: onBack,
+            l10n: l10n,
           ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-            itemCount: controller.results.length,
-            itemBuilder: (context, index) => _FlightCard(
-              flight: controller.results[index],
-              params: params,
-              isDark: isDark,
-              onSelect: () => onSelect(controller.results[index]),
-              l10n: l10n,
+          FlightDateSelector(
+            departureDate: params.departureDate,
+            lastDate: params.isRoundTrip ? params.returnDate : null,
+            onSelected: onSelectDepartureDate,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${controller.results.length} ${l10n.flightResults.toLowerCase()}',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                _SortChip(
+                  label: l10n.cheapest,
+                  selected: controller.sort == FlightSort.cheapest,
+                  onTap: () => controller.setSort(FlightSort.cheapest),
+                ),
+                const SizedBox(width: 8),
+                _SortChip(
+                  label: l10n.fastest,
+                  selected: controller.sort == FlightSort.fastest,
+                  onTap: () => controller.setSort(FlightSort.fastest),
+                ),
+              ],
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              itemCount: controller.results.length,
+              itemBuilder: (context, index) => _FlightCard(
+                flight: controller.results[index],
+                params: params,
+                isDark: isDark,
+                onSelect: () => onSelect(controller.results[index]),
+                l10n: l10n,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -312,11 +323,13 @@ class _FlightResults extends StatelessWidget {
 class _SearchSummary extends StatelessWidget {
   final FlightSearchParams params;
   final VoidCallback onEdit;
+  final VoidCallback onBack;
   final AppLocalizations l10n;
 
   const _SearchSummary({
     required this.params,
     required this.onEdit,
+    required this.onBack,
     required this.l10n,
   });
 
@@ -331,11 +344,13 @@ class _SearchSummary extends StatelessWidget {
             .formatMediumDate(params.returnDate!);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 7, 12, 20),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(30),
+        ),
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: isDark ? 0.12 : 0.2),
@@ -360,22 +375,25 @@ class _SearchSummary extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.calendar_month_rounded,
-                    size: 15,
-                    color: Colors.white.withValues(alpha: 0.78),
+                  IconButton(
+                    tooltip: l10n.goBack,
+                    onPressed: onBack,
+                    style: IconButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.white.withValues(alpha: 0.14),
+                      minimumSize: const Size(38, 38),
+                    ),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
                   ),
-                  const SizedBox(width: 7),
                   Expanded(
                     child: Text(
-                      returnText == null
-                          ? dateText
-                          : '$dateText  ·  $returnText',
+                      l10n.flightSelectTitle,
+                      textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 13,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -389,11 +407,11 @@ class _SearchSummary extends StatelessWidget {
                       backgroundColor: Colors.white.withValues(alpha: 0.14),
                       minimumSize: const Size(36, 36),
                     ),
-                    icon: const Icon(Icons.tune_rounded, size: 19),
+                    icon: const Icon(Icons.more_horiz_rounded, size: 21),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 15),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -405,15 +423,28 @@ class _SearchSummary extends StatelessWidget {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
                     child: Column(
                       children: [
+                        Text(
+                          returnText == null
+                              ? dateText
+                              : '$dateText · $returnText',
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.86),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
                         SizedBox(
-                          width: 56,
-                          height: 20,
+                          width: 58,
+                          height: 30,
                           child: CustomPaint(
                             painter: _RouteLinePainter(
-                              color: Colors.white.withValues(alpha: 0.62),
+                              color: Colors.white.withValues(alpha: 0.72),
                             ),
                           ),
                         ),
@@ -434,7 +465,7 @@ class _SearchSummary extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 13),
               Wrap(
                 spacing: 13,
                 runSpacing: 7,
@@ -1102,11 +1133,13 @@ class _SortChip extends StatelessWidget {
 class _NoFlights extends StatelessWidget {
   final FlightSearchParams params;
   final VoidCallback onEdit;
+  final VoidCallback onBack;
   final ValueChanged<DateTime> onSelectDepartureDate;
 
   const _NoFlights({
     required this.params,
     required this.onEdit,
+    required this.onBack,
     required this.onSelectDepartureDate,
   });
 
@@ -1117,7 +1150,12 @@ class _NoFlights extends StatelessWidget {
         .formatMediumDate(params.departureDate);
     return Column(
       children: [
-        _SearchSummary(params: params, onEdit: onEdit, l10n: l10n),
+        _SearchSummary(
+          params: params,
+          onEdit: onEdit,
+          onBack: onBack,
+          l10n: l10n,
+        ),
         FlightDateSelector(
           departureDate: params.departureDate,
           lastDate: params.isRoundTrip ? params.returnDate : null,

@@ -13,3 +13,4 @@
 - [UI styling preservation](ui-styling-preservation.md) — keep existing screen design intact during backend and data integrations.
 - [LiteAPI hotel-data boundary](liteapi-hotel-data-boundary.md) — LiteAPI provides hotel data only; Zentrip retains simulated booking and partner fallback.
 - [OpenTripMap landmark source](opentripmap-landmarks.md) — keep landmark records on OpenTripMap, with only the requested Wikipedia image fallback; preserve Geoapify for airport/geocoding use.
+- [Flight checkout data boundary](flight-checkout-data-boundary.md) — use only existing trip and booking persistence; passenger passport and payment details remain transient.

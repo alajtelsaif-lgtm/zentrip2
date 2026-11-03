@@ -6,7 +6,7 @@ import '../../../../models/flight_model.dart';
 import 'flight_checkout_shared_components.dart';
 import 'flight_passengers_screen.dart';
 
-class FlightReviewPayScreen extends StatelessWidget {
+class FlightReviewPayScreen extends StatefulWidget {
   final FlightModel flight;
   final List<FlightCheckoutPassenger> passengers;
   final List<String> seats;
@@ -18,7 +18,7 @@ class FlightReviewPayScreen extends StatelessWidget {
   final String? savedPaymentExpiry;
   final bool acceptedFareRules;
   final ValueChanged<bool> onFareRulesChanged;
-  final VoidCallback? onPay;
+  final Future<void> Function()? onPay;
   final bool paying;
   final VoidCallback? onBack;
   final ValueChanged<String>? onPromoCodeChanged;
@@ -43,11 +43,45 @@ class FlightReviewPayScreen extends StatelessWidget {
   });
 
   @override
+  State<FlightReviewPayScreen> createState() => _FlightReviewPayScreenState();
+}
+
+class _FlightReviewPayScreenState extends State<FlightReviewPayScreen> {
+  late bool _acceptedFareRules;
+
+  @override
+  void initState() {
+    super.initState();
+    _acceptedFareRules = widget.acceptedFareRules;
+  }
+
+  @override
+  void didUpdateWidget(covariant FlightReviewPayScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.acceptedFareRules != widget.acceptedFareRules) {
+      _acceptedFareRules = widget.acceptedFareRules;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final labels = CheckoutLabels(l10n);
+    final flight = widget.flight;
+    final passengers = widget.passengers;
+    final seats = widget.seats;
+    final fareLabel = widget.fareLabel;
+    final currencyCode = widget.currencyCode;
+    final totalPrice = widget.totalPrice;
+    final priceLines = widget.priceLines;
+    final savedPaymentLabel = widget.savedPaymentLabel;
+    final savedPaymentExpiry = widget.savedPaymentExpiry;
+    final onPay = widget.onPay;
+    final paying = widget.paying;
+    final onBack = widget.onBack;
+    final onPromoCodeChanged = widget.onPromoCodeChanged;
     final total = checkoutMoney(currencyCode, totalPrice);
-    final canPay = acceptedFareRules && onPay != null;
+    final canPay = _acceptedFareRules && onPay != null;
     return CheckoutScaffold(
       header: FlightBookingFlowHeader(
         title: labels.reviewPay,
@@ -58,7 +92,8 @@ class FlightReviewPayScreen extends StatelessWidget {
         total: total,
         caption: labels.acceptTermsBelow,
         buttonLabel: labels.payAmount(total),
-        onPressed: canPay ? onPay : null,
+        onPressed: null,
+        onAsyncPressed: canPay ? onPay : null,
         loading: paying,
       ),
       child: ListView(
@@ -141,7 +176,7 @@ class FlightReviewPayScreen extends StatelessWidget {
                 ),
                 if (onPromoCodeChanged != null) ...[
                   const Divider(height: 1),
-                  _PromoEntry(onChanged: onPromoCodeChanged!, labels: labels),
+                  _PromoEntry(onChanged: onPromoCodeChanged, labels: labels),
                 ],
               ],
             ),
@@ -163,8 +198,7 @@ class FlightReviewPayScreen extends StatelessWidget {
                         checkoutMoney(currencyCode, line.amount ?? 0),
                   ),
                 if (seats.isNotEmpty)
-                  CheckoutDataRow(
-                      label: labels.seats, value: seats.join(', ')),
+                  CheckoutDataRow(label: labels.seats, value: seats.join(', ')),
                 const Divider(height: 20),
                 CheckoutDataRow(
                   label: l10n.flightTotal,
@@ -178,8 +212,12 @@ class FlightReviewPayScreen extends StatelessWidget {
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
-            value: acceptedFareRules,
-            onChanged: (value) => onFareRulesChanged(value ?? false),
+            value: _acceptedFareRules,
+            onChanged: (value) {
+              final accepted = value ?? false;
+              setState(() => _acceptedFareRules = accepted);
+              widget.onFareRulesChanged(accepted);
+            },
             activeColor: AppColors.primary,
             title: Text(
               labels.fareRules(fareLabel),
@@ -195,8 +233,8 @@ class FlightReviewPayScreen extends StatelessWidget {
               Expanded(
                 child: Text(
                   labels.securePayment(currencyCode),
-                  style: const TextStyle(
-                      color: AppColors.textHint, fontSize: 10),
+                  style:
+                      const TextStyle(color: AppColors.textHint, fontSize: 10),
                 ),
               ),
             ],
@@ -304,8 +342,7 @@ class _ItineraryCard extends StatelessWidget {
                           Expanded(
                             child: Container(
                               height: 1,
-                              margin:
-                                  const EdgeInsets.symmetric(horizontal: 5),
+                              margin: const EdgeInsets.symmetric(horizontal: 5),
                               color: AppColors.border,
                             ),
                           ),
@@ -314,8 +351,7 @@ class _ItineraryCard extends StatelessWidget {
                           Expanded(
                             child: Container(
                               height: 1,
-                              margin:
-                                  const EdgeInsets.symmetric(horizontal: 5),
+                              margin: const EdgeInsets.symmetric(horizontal: 5),
                               color: AppColors.border,
                             ),
                           ),
@@ -389,8 +425,8 @@ class _AirportTime extends StatelessWidget {
           Text(city,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 9)),
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 9)),
         ],
       );
 }

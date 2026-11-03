@@ -40,7 +40,8 @@ class FlightBookingFlowHeader extends StatelessWidget {
                 IconButton(
                   tooltip: l10n.goBack,
                   onPressed: onBack,
-                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                  icon:
+                      const Icon(Icons.arrow_back_rounded, color: Colors.white),
                 )
               else
                 const SizedBox(width: 48),
@@ -149,15 +150,53 @@ class CheckoutLabels {
 
   bool get _ar => l10n.localeName.startsWith('ar');
   String get chooseFare => _ar ? 'اختر الدرجة' : 'Choose Fare';
+  String get chooseSeats => _ar ? 'اختر المقاعد' : 'Choose Seats';
+  String get continueLabel => _ar ? 'متابعة' : 'Continue';
   String get fare => _ar ? 'الدرجة' : 'Fare';
   String get seats => _ar ? 'المقاعد' : 'Seats';
   String get pay => _ar ? 'الدفع' : 'Pay';
   String get skip => _ar ? 'تخطي' : 'Skip';
-  String get chooseYourFare => _ar ? 'اختر الدرجة المناسبة' : 'Choose your fare';
+  String get chooseYourFare =>
+      _ar ? 'اختر الدرجة المناسبة' : 'Choose your fare';
   String get fareSubheading =>
       _ar ? 'اختر السعر الذي يناسب رحلتك' : 'Select a fare for your trip';
   String get farePrice => _ar ? 'سعر التذكرة' : 'Fare price';
   String get availableSeats => _ar ? 'المقاعد المتاحة' : 'Available seats';
+  String get available => _ar ? 'متاح' : 'Available';
+  String get extraLegroom => _ar ? 'مساحة إضافية للأرجل' : 'Extra legroom';
+  String get yourSeat => _ar ? 'مقعدك' : 'Your seat';
+  String get taken => _ar ? 'محجوز' : 'Taken';
+  String get deck => _ar ? 'المقصورة' : 'DECK';
+  String seatSemanticLabel(
+    String seatId, {
+    required bool selected,
+    required bool occupied,
+    required bool premium,
+  }) {
+    final status = _ar
+        ? selected
+            ? 'مقعدك'
+            : occupied
+                ? 'محجوز'
+                : premium
+                    ? 'مساحة إضافية للأرجل، متاح'
+                    : 'متاح'
+        : selected
+            ? 'your seat'
+            : occupied
+                ? 'taken'
+                : premium
+                    ? 'extra legroom, available'
+                    : 'available';
+    return _ar ? 'المقعد $seatId، $status' : 'Seat $seatId, $status';
+  }
+
+  String chooseSeatsOrSkip(int count) => _ar
+      ? 'اختر $count من المقاعد أو تخطَّ اختيار المقاعد.'
+      : 'Choose $count seat${count == 1 ? '' : 's'}, or skip seat selection.';
+  String get economy => _ar ? 'الاقتصادية' : 'Economy';
+  String get business => _ar ? 'رجال الأعمال' : 'Business';
+  String get firstClass => _ar ? 'الدرجة الأولى' : 'First';
   String get noFareData =>
       _ar ? 'لا توجد بيانات أسعار متاحة.' : 'Fare details are not available.';
   String get whosFlying => _ar ? 'من المسافر؟' : 'Who’s flying?';
@@ -171,8 +210,9 @@ class CheckoutLabels {
   String get passportPrivacy => _ar
       ? 'تُرسل بيانات جواز السفر إلى شركة الطيران وإجراءات الحدود فقط.'
       : 'Passport details are shared with the airline and border control only.';
-  String get noPassengerData =>
-      _ar ? 'لا توجد بيانات مسافرين.' : 'Passenger details have not been provided.';
+  String get noPassengerData => _ar
+      ? 'لا توجد بيانات مسافرين.'
+      : 'Passenger details have not been provided.';
   String get reviewPay => _ar ? 'مراجعة ودفع' : 'Review & Pay';
   String get priceDetails => _ar ? 'تفاصيل السعر' : 'Price details';
   String get simulatedPayment =>
@@ -183,6 +223,11 @@ class CheckoutLabels {
   String get direct => _ar ? 'مباشرة' : 'Direct';
   String get traveller => _ar ? 'مسافر' : 'Traveler';
   String travellerType(int index) => '$traveller ${index + 1}';
+  String fareForClass(String seatClass) => switch (seatClass.toLowerCase()) {
+        'business' => business,
+        'first' => firstClass,
+        _ => economy,
+      };
   String travellerPrice(int count) => _ar
       ? '$count مسافر · السعر الإجمالي'
       : '$count traveler${count == 1 ? '' : 's'} · total';
@@ -231,11 +276,12 @@ class CheckoutScaffold extends StatelessWidget {
       );
 }
 
-class CheckoutFooter extends StatelessWidget {
+class CheckoutFooter extends StatefulWidget {
   final String total;
   final String caption;
   final String buttonLabel;
   final VoidCallback? onPressed;
+  final Future<void> Function()? onAsyncPressed;
   final bool loading;
   const CheckoutFooter({
     super.key,
@@ -243,12 +289,31 @@ class CheckoutFooter extends StatelessWidget {
     required this.caption,
     required this.buttonLabel,
     required this.onPressed,
+    this.onAsyncPressed,
     this.loading = false,
   });
 
   @override
+  State<CheckoutFooter> createState() => _CheckoutFooterState();
+}
+
+class _CheckoutFooterState extends State<CheckoutFooter> {
+  bool _busy = false;
+
+  Future<void> _invokeAsync() async {
+    final callback = widget.onAsyncPressed;
+    if (callback == null || _busy || widget.loading) return;
+    setState(() => _busy = true);
+    try {
+      await callback();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.surface,
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
@@ -264,12 +329,12 @@ class CheckoutFooter extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(total,
+                      Text(widget.total,
                           style: const TextStyle(
                               fontSize: 19,
                               color: AppColors.textPrimary,
                               fontWeight: FontWeight.w800)),
-                      Text(caption,
+                      Text(widget.caption,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -281,9 +346,13 @@ class CheckoutFooter extends StatelessWidget {
                 Expanded(
                   flex: 4,
                   child: FlightPrimaryButton(
-                    label: buttonLabel,
-                    loading: loading,
-                    onPressed: onPressed,
+                    label: widget.buttonLabel,
+                    loading: widget.loading || _busy,
+                    onPressed: _busy
+                        ? null
+                        : widget.onAsyncPressed == null
+                            ? widget.onPressed
+                            : _invokeAsync,
                   ),
                 ),
               ],
@@ -359,8 +428,7 @@ class CheckoutDataRow extends StatelessWidget {
                         ? AppColors.textPrimary
                         : AppColors.textSecondary,
                     fontSize: emphasis ? 14 : 11,
-                    fontWeight:
-                        emphasis ? FontWeight.w800 : FontWeight.w500,
+                    fontWeight: emphasis ? FontWeight.w800 : FontWeight.w500,
                   )),
             ),
             const SizedBox(width: 8),
@@ -457,7 +525,8 @@ class CheckoutTwoColumnValues extends StatelessWidget {
 class CheckoutValueLine extends StatelessWidget {
   final String label;
   final String value;
-  const CheckoutValueLine({super.key, required this.label, required this.value});
+  const CheckoutValueLine(
+      {super.key, required this.label, required this.value});
   @override
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
