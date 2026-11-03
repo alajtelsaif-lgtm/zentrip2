@@ -562,6 +562,7 @@
   "flightTotal": "Total",
   "flightDuffelOffer": "Duffel offer",
   "flightDuffelBookingUnavailable": "Duffel booking is not connected yet",
+  "flightContinueToPayment": "Continue to payment",
   "flightProviderUnavailable": "Live flight search is temporarily unavailable. Please try again.",
   "flightDuffelTotal": "Duffel total for {count} passengers",
   "@flightDuffelTotal": {

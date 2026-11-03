@@ -1594,6 +1594,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get flightDuffelBookingUnavailable => 'الحجز عبر Duffel غير متصل بعد';
 
   @override
+  String get flightContinueToPayment => 'المتابعة إلى الدفع';
+
+  @override
   String get flightProviderUnavailable =>
       'البحث المباشر عن الرحلات غير متاح مؤقتًا. حاول مرة أخرى.';
 

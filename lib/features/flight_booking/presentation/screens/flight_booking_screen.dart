@@ -2,9 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../global_widgets/booking_load_error.dart';
+import '../../../../global_widgets/booking_loading_overlay.dart';
+import '../../../../global_widgets/payment_checkout_screen.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../models/flight_booking_model.dart';
+import '../../../../models/flight_model.dart';
+import '../../../../models/trip_model.dart';
 import '../../logic/flight_controller.dart';
+import 'booking_confirmed_screen.dart';
 import 'flight_primary_button.dart';
 import 'seat_selection16line_screen.dart';
 import 'seat_selection_screen.dart';
@@ -18,6 +25,7 @@ class FlightBookingScreen extends StatefulWidget {
 
 class _FlightBookingScreenState extends State<FlightBookingScreen> {
   FlightController? _ctrl;
+  bool _isProcessing = false;
 
   @override
   void didChangeDependencies() {
@@ -32,6 +40,15 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final search = controller.searchParams;
     final passengerCount = search?.passengers ?? 1;
     final seatClass = search?.seatClass ?? 'economy';
+    if (flight.isDuffelOffer) {
+      _bookDuffelFlight(
+        flight: flight,
+        passengerCount: passengerCount,
+        seatClass: seatClass,
+        returnDate: search?.returnDate,
+      );
+      return;
+    }
     final selection = flight.usesTwoByTwoSeatLayout
         ? SeatSelection16LineScreen(
             flight: flight,
@@ -52,6 +69,109 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     );
   }
 
+  Future<void> _bookDuffelFlight({
+    required FlightModel flight,
+    required int passengerCount,
+    required String seatClass,
+    required DateTime? returnDate,
+  }) async {
+    if (_isProcessing) return;
+    final totalPrice = flight.comparisonTotal(
+      passengers: passengerCount,
+      seatClass: seatClass,
+    );
+    if (totalPrice == null || totalPrice <= 0) {
+      AppSnackbar.error(context, AppLocalizations.of(context).genericError);
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+    final reference = 'ZT-D-${DateTime.now().microsecondsSinceEpoch}';
+    final l10n = AppLocalizations.of(context);
+    try {
+      final paid = await PaymentCheckoutScreen.start(
+        context,
+        amountUsd: totalPrice,
+        currencyCode: flight.priceCurrencyCode,
+        description: '${flight.airline} ${flight.flightNumber}',
+        referenceId: reference,
+      );
+      if (!mounted) return;
+      if (!paid) {
+        AppSnackbar.error(context, l10n.paymentFailedMessage);
+        return;
+      }
+
+      final trip = TripModel(
+        id: DateTime.now().millisecondsSinceEpoch,
+        originCode: flight.originCode,
+        originCity: flight.originCity,
+        destinationCode: flight.destinationCode,
+        destinationCity: flight.destinationCity,
+        departureDate: flight.departureTime,
+        arrivalDate: flight.arrivalTime,
+        returnDate: returnDate,
+        flightNumber: flight.flightNumber,
+        airline: flight.airline,
+        airlineLogoUrl: flight.airlineLogoUrl,
+        isDirect: flight.isDirect,
+        seatClass: seatClass,
+        price: totalPrice,
+        bookingRef: reference,
+        passengerCount: passengerCount,
+      );
+      final result = await BookingLoadingOverlay.run(
+        context,
+        title: l10n.flightBookingInProgress,
+        subtitle: '${flight.originCode} → ${flight.destinationCode}',
+        serviceIcon: Icons.flight_takeoff_rounded,
+        action: () => ApiService.instance.createFlightTrip(trip),
+      );
+      if (!mounted) return;
+      if (result.isFailure || result.data == null) {
+        final message = result.errorMessage == 'FLIGHT_SCHEDULE_CONFLICT'
+            ? l10n.flightScheduleConflict
+            : result.errorMessage ?? l10n.genericError;
+        AppSnackbar.error(context, message);
+        return;
+      }
+
+      final savedTrip = result.data!;
+      final confirmation = FlightBookingConfirmation(
+        trip: savedTrip,
+        reference: savedTrip.bookingRef ?? reference,
+        seats: const [],
+        totalPrice: totalPrice,
+      );
+      final draft = FlightBookingDraft(
+        flight: flight,
+        passengerCount: passengerCount,
+        seatClass: seatClass,
+        seats: const [],
+        returnDate: returnDate,
+        totalPrice: totalPrice,
+      );
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => BookingConfirmedScreen(
+            draft: draft,
+            initialConfirmation: confirmation,
+          ),
+        ),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Duffel simulated flight booking failed: $error\n$stackTrace');
+      if (mounted) AppSnackbar.error(context, l10n.genericError);
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  String _formatPrice(FlightModel flight, double amount) {
+    final prefix = flight.isDuffelOffer ? '${flight.priceCurrencyCode} ' : '\$';
+    return '$prefix${amount.toStringAsFixed(2)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -65,7 +185,14 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       'first' => flight?.firstPrice ?? flight?.economyPrice ?? 0,
       _ => flight?.economyPrice ?? 0,
     };
-    final totalPrice = (fare * passengerCount) * 1.12 + 12;
+    final basePrice = flight?.isDuffelOffer == true
+        ? flight!.economyPrice
+        : fare * passengerCount;
+    final totalPrice = flight?.isDuffelOffer == true
+        ? flight!.comparisonTotal(
+                passengers: passengerCount, seatClass: seatClass) ??
+            0
+        : basePrice * 1.12 + 12;
     final user = ApiService.instance.currentUser;
     if (flight == null) return const BookingLoadError();
 
@@ -161,22 +288,38 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
             // ── Price breakdown ───────────────────────────────────────
             _Section(title: l10n.flightPriceDetails, isDark: isDark, children: [
-              _InfoRow(l10n.flightTicketPrice,
-                  '\$${(fare * passengerCount).toStringAsFixed(2)}'),
-              _InfoRow(l10n.flightTaxesFees,
-                  '\$${(fare * passengerCount * 0.12).toStringAsFixed(2)}'),
-              _InfoRow(l10n.flightServiceFee, '\$12'),
+              if (flight.isDuffelOffer)
+                _InfoRow(
+                  l10n.flightDuffelTotal(passengerCount),
+                  _formatPrice(flight, basePrice),
+                )
+              else ...[
+                _InfoRow(
+                  l10n.flightTicketPrice,
+                  _formatPrice(flight, fare * passengerCount),
+                ),
+                _InfoRow(
+                  l10n.flightTaxesFees,
+                  _formatPrice(flight, fare * passengerCount * 0.12),
+                ),
+                _InfoRow(l10n.flightServiceFee, _formatPrice(flight, 12)),
+              ],
               const Divider(),
-              _InfoRow(l10n.flightTotal, '\$${totalPrice.toStringAsFixed(2)}',
+              _InfoRow(l10n.flightTotal, _formatPrice(flight, totalPrice),
                   isBold: true, color: AppColors.primary),
             ]).animate().fade(delay: 220.ms),
             const SizedBox(height: 28),
 
             // ── Book now ──────────────────────────────────────────────
             FlightPrimaryButton(
-              label: 'Choose seats and continue',
-              icon: Icons.event_seat_rounded,
-              onPressed: _book,
+              label: flight.isDuffelOffer
+                  ? l10n.flightContinueToPayment
+                  : 'Choose seats and continue',
+              icon: flight.isDuffelOffer
+                  ? Icons.payment_rounded
+                  : Icons.event_seat_rounded,
+              onPressed: _isProcessing ? null : _book,
+              loading: _isProcessing,
             ).animate().fade(delay: 300.ms),
             const SizedBox(height: 10),
             Text(l10n.flightTermsNotice,

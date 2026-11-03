@@ -548,6 +548,7 @@
   "flightTotal": "الإجمالي",
   "flightDuffelOffer": "عرض Duffel",
   "flightDuffelBookingUnavailable": "الحجز عبر Duffel غير متصل بعد",
+  "flightContinueToPayment": "المتابعة إلى الدفع",
   "flightProviderUnavailable": "البحث المباشر عن الرحلات غير متاح مؤقتًا. حاول مرة أخرى.",
   "flightDuffelTotal": "إجمالي Duffel لعدد {count} من المسافرين",
   "@flightDuffelTotal": {

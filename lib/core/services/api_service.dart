@@ -619,6 +619,7 @@ class ApiService {
 
   Future<ApiResult<PaymentSession>> createPaymentCheckout({
     required double amountUsd,
+    String currencyCode = 'USD',
     required String description,
     required String referenceId,
   }) async {
@@ -636,7 +637,7 @@ class ApiService {
         '/payments/checkout',
         data: {
           'amount': amountUsd,
-          'currency': 'USD',
+          'currency': currencyCode.toUpperCase(),
           'description': description,
           'reference_id': referenceId,
         },

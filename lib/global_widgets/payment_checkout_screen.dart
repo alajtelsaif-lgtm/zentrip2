@@ -20,11 +20,13 @@ class PaymentCheckoutScreen extends StatefulWidget {
   static Future<bool> start(
     BuildContext context, {
     required double amountUsd,
+    String currencyCode = 'USD',
     required String description,
     required String referenceId,
   }) async {
     final sessionResult = await ApiService.instance.createPaymentCheckout(
       amountUsd: amountUsd,
+      currencyCode: currencyCode,
       description: description,
       referenceId: referenceId,
     );

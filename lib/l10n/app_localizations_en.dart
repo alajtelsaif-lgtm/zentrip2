@@ -1608,6 +1608,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Duffel booking is not connected yet';
 
   @override
+  String get flightContinueToPayment => 'Continue to payment';
+
+  @override
   String get flightProviderUnavailable =>
       'Live flight search is temporarily unavailable. Please try again.';
 

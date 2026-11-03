@@ -10,8 +10,13 @@ import 'flight_primary_button.dart';
 
 class BookingConfirmedScreen extends StatefulWidget {
   final FlightBookingDraft draft;
+  final FlightBookingConfirmation? initialConfirmation;
 
-  const BookingConfirmedScreen({super.key, required this.draft});
+  const BookingConfirmedScreen({
+    super.key,
+    required this.draft,
+    this.initialConfirmation,
+  });
 
   @override
   State<BookingConfirmedScreen> createState() => _BookingConfirmedScreenState();
@@ -31,7 +36,13 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
   @override
   void initState() {
     super.initState();
-    _confirmBooking();
+    final initialConfirmation = widget.initialConfirmation;
+    if (initialConfirmation != null) {
+      _confirmation = initialConfirmation;
+      _loading = false;
+    } else {
+      _confirmBooking();
+    }
   }
 
   Future<void> _confirmBooking() async {
@@ -354,7 +365,7 @@ class FlightTicketCard extends StatelessWidget {
                     Expanded(
                       child: _TicketDetail(
                         label: l10n.flightSelectedSeats,
-                        value: seats.join(', '),
+                        value: seats.isEmpty ? '—' : seats.join(', '),
                         alignEnd: true,
                       ),
                     ),
@@ -433,7 +444,8 @@ class FlightTicketCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     _TicketDetail(
                       label: l10n.flightTotal,
-                      value: '\$${totalPrice.toStringAsFixed(2)}',
+                      value:
+                          '${flight.isDuffelOffer ? '${flight.priceCurrencyCode} ' : '\$'}${totalPrice.toStringAsFixed(2)}',
                       valueSize: 17,
                       alignEnd: true,
                     ),

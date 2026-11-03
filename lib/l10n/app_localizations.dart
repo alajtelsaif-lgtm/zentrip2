@@ -3100,6 +3100,12 @@ abstract class AppLocalizations {
   /// **'الحجز عبر Duffel غير متصل بعد'**
   String get flightDuffelBookingUnavailable;
 
+  /// No description provided for @flightContinueToPayment.
+  ///
+  /// In ar, this message translates to:
+  /// **'المتابعة إلى الدفع'**
+  String get flightContinueToPayment;
+
   /// No description provided for @flightProviderUnavailable.
   ///
   /// In ar, this message translates to:

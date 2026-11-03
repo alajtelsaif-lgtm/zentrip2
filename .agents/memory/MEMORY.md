@@ -2,7 +2,7 @@
 - [PostgreSQL verification](postgresql-verification.md) — SQL mocks can pass while PostgreSQL rejects queries; validate migrations on a disposable real database.
 - [Supabase RLS runtime](supabase-rls-runtime.md) — run backend requests under a transaction-local, non-bypass role; the managed postgres connection can bypass policies.
 - [Seat inventory fidelity](seat-inventory-fidelity.md) — reference-image cabin and class counts are not real allocations; never invent them.
-- [Flutter cache restoration](flutter-cache-restoration.md) — retained SDK/build files do not guarantee the global Pub cache survived; restore locked packages rather than changing dependencies.
+- [Flutter cache restoration](flutter-cache-restoration.md) — use the workspace SDK and restore locked packages; the system Flutter or Pub cache may be stale or missing.
 - [Backend test database isolation](backend-test-database-isolation.md) — keep real database settings out of Maven test processes; use the loopback-only PostgreSQL integration harness.
 - [Anonymous visit abuse limits](anonymous-visit-abuse-limits.md) — protect popularity counts with aggregate ephemeral limits, not IP, account, or location tracking.
 - [Wikidata SPARQL URI encoding](wikidata-sparql-uri-encoding.md) — encode SPARQL text before passing it as a Spring RestClient URI parameter.
