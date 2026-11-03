@@ -21,7 +21,7 @@ class UnifiedInventoryServiceTest {
             new UnifiedInventoryService(exchangeRates);
 
     @Test
-    void mergesPartnerAndHotelbedsResultsIntoTheSameLegacyCompatibleShape() {
+    void mergesPartnerAndLiteApiResultsIntoTheSameLegacyCompatibleShape() {
         Map<String, Object> partnerHotel = Map.of(
                 "id", "partner-7",
                 "source", "partner",
@@ -32,32 +32,32 @@ class UnifiedInventoryServiceTest {
                 "booking_ref", "must-not-leak",
                 "amenities", List.of("Wi-Fi"),
                 "image_url", "https://example.com/partner.jpg");
-        Map<String, Object> hotelbedsHotel = Map.of(
-                "id", "hotelbeds-8",
-                "source", "hotelbeds",
-                "name", "Hotelbeds Hotel",
+        Map<String, Object> liteApiHotel = Map.of(
+                "id", "liteapi-8",
+                "source", "liteapi",
+                "name", "LiteAPI Hotel",
                 "city", "Tripoli",
                 "price_per_night", new BigDecimal("100.00"),
                 "price_currency", "GBP",
                 "offers", List.of(
                         Map.of("id", "rate-1", "price_per_night", 100, "price_currency", "GBP"),
                         Map.of("id", "rate-2", "price_per_night", 120, "price_currency", "GBP")),
-                "gallery_images", List.of("https://example.com/hotelbeds.jpg"));
+                "gallery_images", List.of("https://example.com/liteapi.jpg"));
 
         UnifiedInventoryService.SearchOutcome result = service.merge(
                 "hotel",
                 () -> List.of(partnerHotel),
                 List.of(new UnifiedInventoryService.ProviderSearch(
-                        "hotelbeds",
-                        "Hotelbeds unavailable",
+                        "liteapi",
+                        "LiteAPI unavailable",
                         () -> UnifiedInventoryService.SourceOutcome.of(
-                                List.of(hotelbedsHotel)))),
+                                List.of(liteApiHotel)))),
                 "Partner inventory unavailable");
 
         assertEquals(2, result.items().size());
-        assertEquals(Map.of("partner", 1L, "hotelbeds", 1L), result.sources());
+        assertEquals(Map.of("partner", 1L, "liteapi", 1L), result.sources());
         Map<String, Object> partner = result.items().getFirst();
-        Map<String, Object> hotelbeds = result.items().getLast();
+        Map<String, Object> liteApi = result.items().getLast();
         for (Map<String, Object> item : result.items()) {
             for (String key : List.of(
                     "id", "source", "type", "title", "location", "price", "currency",
@@ -68,11 +68,11 @@ class UnifiedInventoryServiceTest {
             assertEquals(null, item.get("booking_ref"));
         }
         assertEquals("Partner Hotel", partner.get("title"));
-        assertEquals(2, ((List<?>) hotelbeds.get("offers")).size());
-        assertEquals("GBP", hotelbeds.get("currency"));
+        assertEquals(2, ((List<?>) liteApi.get("offers")).size());
+        assertEquals("GBP", liteApi.get("currency"));
         assertEquals(
-                List.of("https://example.com/hotelbeds.jpg"), hotelbeds.get("images"));
-        assertTrue(((Map<?, ?>) ((List<?>) hotelbeds.get("offers")).getFirst())
+                List.of("https://example.com/liteapi.jpg"), liteApi.get("images"));
+        assertTrue(((Map<?, ?>) ((List<?>) liteApi.get("offers")).getFirst())
                 .containsKey("conditions"));
     }
 
@@ -89,11 +89,11 @@ class UnifiedInventoryServiceTest {
                     throw new IllegalStateException("provider down");
                 },
                 "Partner inventory unavailable",
-                "Hotelbeds unavailable");
+                "LiteAPI unavailable");
 
         assertEquals(1, result.items().size());
         assertEquals("partner", result.items().getFirst().get("source"));
-        assertTrue(result.warnings().contains("Hotelbeds unavailable"));
+        assertTrue(result.warnings().contains("LiteAPI unavailable"));
     }
 
     @Test
@@ -106,15 +106,15 @@ class UnifiedInventoryServiceTest {
                         "name", "Partner Hotel")),
                 List.of(
                         new UnifiedInventoryService.ProviderSearch(
-                                "hotelbeds",
-                                "Hotelbeds unavailable",
+                                "liteapi",
+                                "LiteAPI unavailable",
                                 () -> UnifiedInventoryService.SourceOutcome.of(List.of(Map.of(
-                                        "id", "hotelbeds-1",
-                                        "source", "hotelbeds",
-                                        "name", "Hotelbeds Hotel")))),
+                                        "id", "liteapi-1",
+                                        "source", "liteapi",
+                                        "name", "LiteAPI Hotel")))),
                         new UnifiedInventoryService.ProviderSearch(
-                                "hotelbeds",
-                                "Hotelbeds secondary lookup unavailable",
+                                "liteapi",
+                                "LiteAPI secondary lookup unavailable",
                                 () -> {
                                     throw new IllegalStateException("content provider denied");
                                 })),
@@ -122,8 +122,8 @@ class UnifiedInventoryServiceTest {
 
         assertEquals(2, result.items().size());
         assertEquals(Map.of(
-                "partner", 1L, "hotelbeds", 1L), result.sources());
-        assertTrue(result.warnings().contains("Hotelbeds secondary lookup unavailable"));
+                "partner", 1L, "liteapi", 1L), result.sources());
+        assertTrue(result.warnings().contains("LiteAPI secondary lookup unavailable"));
     }
 
     @Test
@@ -152,8 +152,8 @@ class UnifiedInventoryServiceTest {
                         "quote", "GBP",
                         "rate", new BigDecimal("0.80")))));
         Map<String, Object> matches = Map.of(
-                "id", "hotelbeds-1",
-                "source", "hotelbeds",
+                "id", "liteapi-1",
+                "source", "liteapi",
                 "name", "Family hotel",
                 "description", "Family-friendly accommodation",
                 "price", new BigDecimal("80.00"),
@@ -185,7 +185,7 @@ class UnifiedInventoryServiceTest {
                         "family,breakfast"));
 
         assertEquals(1, result.hotels().size());
-        assertEquals("hotelbeds-1", result.hotels().getFirst().get("id"));
+        assertEquals("liteapi-1", result.hotels().getFirst().get("id"));
         assertTrue(result.warnings().isEmpty());
     }
 

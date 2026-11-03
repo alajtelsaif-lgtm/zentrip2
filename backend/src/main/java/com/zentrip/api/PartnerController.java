@@ -66,7 +66,7 @@ public class PartnerController {
     private final GooglePlacesRatingSync googlePlacesRatingSync;
     private final AirportDirectoryService airportDirectoryService;
     private final DuffelFlightService duffelFlightService;
-    private final HotelbedsHotelService hotelbedsHotelService;
+    private final LiteApiHotelService liteApiHotelService;
     private final HotelDestinationCatalogService hotelDestinationCatalogService;
     private final UnifiedInventoryService unifiedInventoryService;
 
@@ -76,7 +76,7 @@ public class PartnerController {
             GooglePlacesRatingSync googlePlacesRatingSync,
             AirportDirectoryService airportDirectoryService,
             DuffelFlightService duffelFlightService,
-            HotelbedsHotelService hotelbedsHotelService,
+            LiteApiHotelService liteApiHotelService,
             HotelDestinationCatalogService hotelDestinationCatalogService,
             ExchangeRateService exchangeRateService) {
         this.jdbc = jdbc;
@@ -84,7 +84,7 @@ public class PartnerController {
         this.googlePlacesRatingSync = googlePlacesRatingSync;
         this.airportDirectoryService = airportDirectoryService;
         this.duffelFlightService = duffelFlightService;
-        this.hotelbedsHotelService = hotelbedsHotelService;
+        this.liteApiHotelService = liteApiHotelService;
         this.hotelDestinationCatalogService = hotelDestinationCatalogService;
         this.unifiedInventoryService = new UnifiedInventoryService(exchangeRateService);
     }
@@ -1004,25 +1004,17 @@ public class PartnerController {
         }
         List<UnifiedInventoryService.ProviderSearch> hotelProviders = List.of(
                 new UnifiedInventoryService.ProviderSearch(
-                        "hotelbeds",
-                        "Hotelbeds hotel inventory is temporarily unavailable.",
-                        () -> normalizedDestinationCode.isBlank()
-                                && latitude == null
-                                ? hotelbedsHotelService.searchHotels(
-                                        normalizedCity,
-                                        parsedCheckIn,
-                                        parsedCheckOut,
-                                        rooms,
-                                        guests)
-                                : hotelbedsHotelService.searchHotels(
-                                        normalizedCity,
-                                        parsedCheckIn,
-                                        parsedCheckOut,
-                                        rooms,
-                                        guests,
-                                        normalizedDestinationCode,
-                                        latitude,
-                                        longitude)));
+                        "liteapi",
+                        "LiteAPI hotel inventory is temporarily unavailable.",
+                        () -> liteApiHotelService.searchHotels(
+                                normalizedCity,
+                                parsedCheckIn,
+                                parsedCheckOut,
+                                rooms,
+                                guests,
+                                normalizedCurrency,
+                                latitude,
+                                longitude)));
         UnifiedInventoryService.SearchOutcome merged = unifiedInventoryService.merge(
                 "hotel",
                 () -> hotelSearchRows(normalizedCity).stream()
@@ -1037,13 +1029,13 @@ public class PartnerController {
         warnings.addAll(filtered.warnings());
         long partnerCount = filtered.hotels().stream()
                 .filter(hotel -> "partner".equals(hotel.get("source"))).count();
-        long hotelbedsCount = filtered.hotels().stream()
-                .filter(hotel -> "hotelbeds".equals(hotel.get("source"))).count();
+        long liteApiCount = filtered.hotels().stream()
+                .filter(hotel -> "liteapi".equals(hotel.get("source"))).count();
         return Map.of(
                 "hotels", filtered.hotels(),
                 "sources", Map.of(
                         "partner", partnerCount,
-                        "hotelbeds", hotelbedsCount),
+                        "liteapi", liteApiCount),
                 "warnings", warnings.stream().distinct().toList());
     }
 

@@ -32,8 +32,8 @@ class PartnerControllerTest {
     private final AirportDirectoryService airportDirectoryService =
             mock(AirportDirectoryService.class);
     private final DuffelFlightService duffelFlightService = mock(DuffelFlightService.class);
-    private final HotelbedsHotelService hotelbedsHotelService =
-            mock(HotelbedsHotelService.class);
+    private final LiteApiHotelService liteApiHotelService =
+            mock(LiteApiHotelService.class);
     private final HotelDestinationCatalogService hotelDestinationCatalogService =
             mock(HotelDestinationCatalogService.class);
     private final PartnerController controller = new PartnerController(
@@ -42,7 +42,7 @@ class PartnerControllerTest {
             mock(GooglePlacesRatingSync.class),
             airportDirectoryService,
             duffelFlightService,
-            hotelbedsHotelService,
+            liteApiHotelService,
             hotelDestinationCatalogService,
             mock(ExchangeRateService.class));
 
@@ -649,13 +649,13 @@ class PartnerControllerTest {
     }
 
     @Test
-    void hotelSearchUsesHotelbedsAndPreservesProviderOffers() {
+    void hotelSearchUsesLiteApiAndPreservesProviderOffers() {
         when(jdbc.queryForList(contains("WHERE l.type = 'hotel'")))
                 .thenReturn(List.of());
-        Map<String, Object> hotelbedsHotel = Map.of(
-                "id", "hotelbeds-123",
-                "source", "hotelbeds",
-                "name", "Hotelbeds Data Hotel",
+        Map<String, Object> liteApiHotel = Map.of(
+                "id", "liteapi-lp123",
+                "source", "liteapi",
+                "name", "LiteAPI Data Hotel",
                 "price", new BigDecimal("125.00"),
                 "price_currency", "USD",
                 "availability_known", true,
@@ -665,14 +665,17 @@ class PartnerControllerTest {
                         "price_per_night", new BigDecimal("125.00"),
                         "stay_total", new BigDecimal("250.00"),
                         "currency", "USD")));
-        when(hotelbedsHotelService.searchHotels(
+        when(liteApiHotelService.searchHotels(
                 "London",
                 LocalDate.parse("2026-12-01"),
                 LocalDate.parse("2026-12-03"),
                 1,
-                2))
+                2,
+                "USD",
+                null,
+                null))
                 .thenReturn(UnifiedInventoryService.SourceOutcome.of(
-                        List.of(hotelbedsHotel)));
+                        List.of(liteApiHotel)));
 
         Map<String, Object> response = controller.searchHotels(
                 "London",
@@ -691,19 +694,22 @@ class PartnerControllerTest {
         List<?> hotels = (List<?>) response.get("hotels");
         assertEquals(1, hotels.size());
         assertEquals(Map.of(
-                "partner", 0L, "hotelbeds", 1L),
+                "partner", 0L, "liteapi", 1L),
                 response.get("sources"));
         assertEquals(List.of(), response.get("warnings"));
-        verify(hotelbedsHotelService).searchHotels(
+        verify(liteApiHotelService).searchHotels(
                 "London",
                 LocalDate.parse("2026-12-01"),
                 LocalDate.parse("2026-12-03"),
                 1,
-                2);
+                2,
+                "USD",
+                null,
+                null);
     }
 
     @Test
-    void hotelbedsAccessFailureKeepsPartnerHotelsVisible() {
+    void liteApiAccessFailureKeepsPartnerHotelsVisible() {
         Map<String, Object> partnerHotel = new LinkedHashMap<>(Map.ofEntries(
                 Map.entry("id", 17L),
                 Map.entry("title", "Partner London Hotel"),
@@ -728,15 +734,18 @@ class PartnerControllerTest {
                 contains("WHERE l.type = 'hotel'"),
                 any(Object[].class)))
                 .thenReturn(List.of(partnerHotel));
-        when(hotelbedsHotelService.searchHotels(
+        when(liteApiHotelService.searchHotels(
                 eq("London"),
                 eq(LocalDate.parse("2026-12-01")),
                 eq(LocalDate.parse("2026-12-03")),
                 eq(1),
-                eq(2)))
+                eq(2),
+                eq("USD"),
+                isNull(),
+                isNull()))
                 .thenReturn(new UnifiedInventoryService.SourceOutcome(
                         List.of(),
-                        List.of("Hotelbeds access was denied.")));
+                        List.of("LiteAPI access was denied.")));
 
         Map<String, Object> response = controller.searchHotels(
                 "London",
@@ -755,8 +764,8 @@ class PartnerControllerTest {
         List<?> hotels = (List<?>) response.get("hotels");
         assertEquals(1, hotels.size());
         assertEquals("partner", ((Map<?, ?>) hotels.getFirst()).get("source"));
-        assertEquals(Map.of("partner", 1L, "hotelbeds", 0L), response.get("sources"));
-        assertEquals(List.of("Hotelbeds access was denied."), response.get("warnings"));
+        assertEquals(Map.of("partner", 1L, "liteapi", 0L), response.get("sources"));
+        assertEquals(List.of("LiteAPI access was denied."), response.get("warnings"));
     }
 
     @Test

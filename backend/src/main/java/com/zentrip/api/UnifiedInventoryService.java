@@ -431,7 +431,7 @@ public class UnifiedInventoryService {
         Map<String, Object> item = new LinkedHashMap<>(original);
         String source = text(item.get("source")).toLowerCase(Locale.ROOT);
         boolean supportedProvider = ("flight".equals(type) && "duffel".equals(source))
-                || ("hotel".equals(type) && "hotelbeds".equals(source));
+                || ("hotel".equals(type) && "liteapi".equals(source));
         if (!supportedProvider) source = "partner";
         item.put("source", source);
         item.put("type", type);

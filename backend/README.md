@@ -118,11 +118,20 @@ Authenticated profile updates use `POST /api/profile` with multipart `name`, `ph
 
 The payment endpoints intentionally retain the existing mock checkout behavior; connect a real payment provider before production use. Saved places remain local to the Flutter app, as in the original project.
 
-## Hotelbeds hotel search
+## LiteAPI hotel search
 
-Hotel search combines local partner listings with read-only Hotelbeds availability results. Hotelbeds city searches are geocoded by the existing Geoapify service, then sent to the Hotel Booking API; the Content API is used to enrich available matches with descriptions, addresses, amenities, and images. Hotelbeds credentials stay server-side in `HOTELBEDS_API_KEY` and `HOTELBEDS_API_SECRET`. The default base URL is the Hotelbeds test environment; set `HOTELBEDS_BASE_URL=https://api.hotelbeds.com` only when using production credentials and access.
+Hotel search combines local partner listings with read-only LiteAPI hotel rate
+results from `POST /hotels/rates`. The API key stays server-side in
+`LITEAPI_API_KEY`. Set `LITEAPI_BASE_URL` only when using a different LiteAPI
+environment. The guest nationality defaults to `LY` and can be changed with
+`LITEAPI_GUEST_NATIONALITY`.
 
-Hotelbeds rate keys are not returned to the app, and the app does not call Hotelbeds rate-check or reservation endpoints. Checkout continues to use Zentrip's existing simulated payment and booking-record flow. Provider errors, including denied account access, are logged without credentials and do not hide partner inventory. Duffel remains enabled only for flight search; RapidAPI and Xotelo are no longer used for hotel search.
+LiteAPI rate identifiers are not returned to the app, and Zentrip does not call
+LiteAPI prebook, booking, or cancellation endpoints. Checkout continues to use
+Zentrip's existing simulated payment and booking-record flow. Provider errors,
+including denied account access, are logged without credentials and do not hide
+partner inventory. Duffel remains enabled only for flight search; RapidAPI and
+Xotelo are not used for hotel search.
 
 ## OpenTripMap landmark search
 

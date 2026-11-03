@@ -192,11 +192,11 @@ void main() {
         '(8240) 4.9');
   });
 
-  test('Hotelbeds hotel data uses shared offers without partner ownership',
+  test('LiteAPI hotel data uses shared offers without partner ownership',
       () {
     final hotel = HotelModel.fromJson({
-      'id': 'hotelbeds-123',
-      'source': 'hotelbeds',
+      'id': 'liteapi-123',
+      'source': 'liteapi',
       'provider_accommodation_id': '123',
       'name': 'Example London Hotel',
       'city': 'London',
@@ -222,8 +222,8 @@ void main() {
       ],
     });
 
-    expect(hotel.isHotelbedsOffer, isTrue);
-    expect(hotel.source, 'hotelbeds');
+    expect(hotel.isLiteApiOffer, isTrue);
+    expect(hotel.source, 'liteapi');
     expect(hotel.providerAccommodationId, '123');
     expect(hotel.priceCurrencyCode, 'GBP');
     expect(hotel.pricePerNight, 200);

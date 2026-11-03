@@ -18,13 +18,13 @@ PriceComparison _comparison() => PriceComparison(
     );
 
 HotelModel _hotel({
-  bool hotelbeds = false,
+  bool liteApi = false,
   String? price,
   String currency = 'USD',
 }) =>
     HotelModel.fromJson({
-      'id': hotelbeds ? 'hotelbeds-123' : 'partner-hotel-1',
-      'source': hotelbeds ? 'hotelbeds' : 'partner',
+      'id': liteApi ? 'liteapi-123' : 'partner-hotel-1',
+      'source': liteApi ? 'liteapi' : 'partner',
       'name': 'Central Test Hotel',
       'city': 'Tripoli',
       'country': 'Libya',
@@ -34,7 +34,7 @@ HotelModel _hotel({
       'price_currency': currency,
       'availability_known': true,
       'available_rooms': 4,
-      if (hotelbeds)
+      if (liteApi)
         'offers': <Map<String, dynamic>>[
           {
             'name': 'Breakfast included',
@@ -117,11 +117,11 @@ void main() {
     controller.dispose();
   });
 
-  testWidgets('Hotelbeds data renders room rate and keeps simulated booking',
+  testWidgets('LiteAPI data renders room rate and keeps simulated booking',
       (tester) async {
     _usePhoneViewport(tester);
     final controller = await _controllerFor(
-      _hotel(hotelbeds: true, price: '125', currency: 'GBP'),
+      _hotel(liteApi: true, price: '125', currency: 'GBP'),
     );
     await tester.pumpWidget(_app(controller));
     await tester.pump();
@@ -141,11 +141,11 @@ void main() {
     controller.dispose();
   });
 
-  testWidgets('Hotelbeds result without optional content remains bookable',
+  testWidgets('LiteAPI result without optional content remains bookable',
       (tester) async {
     _usePhoneViewport(tester);
     final controller = await _controllerFor(
-      _hotel(hotelbeds: true, price: '71', currency: 'EUR'),
+      _hotel(liteApi: true, price: '71', currency: 'EUR'),
     );
     await tester.pumpWidget(_app(controller));
     await tester.pump();

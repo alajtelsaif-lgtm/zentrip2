@@ -84,7 +84,7 @@ class HotelModel {
     this.offers = const [],
   });
 
-  bool get isHotelbedsOffer => source == 'hotelbeds';
+  bool get isLiteApiOffer => source == 'liteapi';
 
   /// The search contract supplies a per-room, per-night provider amount.
   double? get comparisonNightlyPrice =>

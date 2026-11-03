@@ -383,8 +383,8 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                   ),
                   child: Column(children: [
                     _Row(
-                      hotel.isHotelbedsOffer
-                          ? '${l10n.hotelNightPrice} · Hotelbeds'
+                      hotel.isLiteApiOffer
+                          ? '${l10n.hotelNightPrice} · LiteAPI'
                           : l10n.hotelNightPrice,
                       _formatAvailablePrice(hotel, hotel.pricePerNight, l10n),
                     ),

@@ -94,16 +94,16 @@ database for 30 days; the app does not download the entire world.
 ## Hotel destination autocomplete
 
 Hotel destination suggestions search the local `hotel_destinations` catalog;
-the app never calls Hotelbeds while the traveler types. Install
+the app does not call a provider while the traveler types. Install
 `backend/src/main/resources/migrations/20261103_hotel_destination_catalog.sql`
 in the Supabase database after `20261101_role_access_rls.sql`. After the table
-exists, the backend checks for it every five minutes and fetches the Hotelbeds
-Content API destination catalog in bounded English/Arabic pages. A successful
-catalog refresh happens no more than weekly.
-If the table or provider is unavailable, suggestions fall back to cached
-OpenTripMap geonames and a small built-in city list.
+exists, it supplies cached destination names. If the table is unavailable,
+suggestions fall back to OpenTripMap geonames and a small built-in city list.
 
-Keep `HOTELBEDS_API_KEY`, `HOTELBEDS_API_SECRET`, and
-`OPENTRIPMAP_API_KEY` in backend environment secrets. Hotelbeds remains a
-read-only data source; hotel checkout continues through Zentrip's existing
-simulated partner-payment flow.
+Hotel availability and price data are requested from LiteAPI's `POST
+/hotels/rates` endpoint using `LITEAPI_API_KEY`. The guest nationality defaults
+to `LY` and can be changed with `LITEAPI_GUEST_NATIONALITY`; the API key and
+optional `LITEAPI_BASE_URL` belong in backend environment settings only.
+LiteAPI is read-only in Zentrip: hotel checkout continues through the existing
+simulated partner-payment flow. Partner hotel listings remain available as a
+fallback if LiteAPI is unavailable.

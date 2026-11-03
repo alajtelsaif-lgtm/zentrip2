@@ -1,10 +1,10 @@
 ---
-name: UI styling preservation
-description: Project guardrail for future backend, API, and data integration work.
+name: UI design reference rules
+description: Use user-provided screenshots as the source of truth for Zentrip screens.
 ---
 
-Preserve existing screen layouts, colors, typography, spacing, and visual components during backend, API, and data integration work. Reuse current component patterns when new data must be shown.
+Match each provided screen screenshot closely, without redesigning it. Reuse existing theme values, shared widgets, and components where they fit. Implement screens in the order the user sends them; before a screen's reference arrives, build only its logic and a simple placeholder UI. Treat screenshot text as sample data, bind real booking state, localize every label in English and Arabic, and keep layouts correct in Arabic RTL.
 
-**Why:** The user explicitly requested no visual redesign or color changes during the provider integration.
+**Why:** the user asked that supplied screenshots be the source of truth for Zentrip UI.
 
-**How to apply:** Avoid restyling existing screens while adding data bindings or provider content; make only the visual changes required to present the requested data.
+**How to apply:** For every screen task, compare the implementation with its supplied screenshot; do not hardcode example values or introduce duplicate design components. State any details that were unclear or could not be matched in the completion report.

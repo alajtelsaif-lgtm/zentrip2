@@ -16,11 +16,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 class HotelDestinationCatalogServiceTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    private final HotelbedsHotelService hotelbeds = mock(HotelbedsHotelService.class);
     private final OpenTripMapAttractionService openTripMap =
             mock(OpenTripMapAttractionService.class);
     private final HotelDestinationCatalogService service =
-            new HotelDestinationCatalogService(jdbc, hotelbeds, openTripMap);
+            new HotelDestinationCatalogService(jdbc, openTripMap);
 
     @Test
     void returnsEnglishAndArabicNamesFromTheLocalCatalog() {

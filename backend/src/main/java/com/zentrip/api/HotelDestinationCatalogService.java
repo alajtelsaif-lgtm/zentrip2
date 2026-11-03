@@ -1,9 +1,6 @@
 package com.zentrip.api;
 
 import java.text.Normalizer;
-import java.sql.Timestamp;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,22 +11,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class HotelDestinationCatalogService {
     private static final Logger LOG =
             LoggerFactory.getLogger(HotelDestinationCatalogService.class);
-    private static final Duration REFRESH_INTERVAL = Duration.ofDays(7);
     private static final long CATALOG_RECHECK_INTERVAL_MILLIS = 60_000L;
     private static final int SUGGESTION_LIMIT = 12;
 
     private final JdbcTemplate jdbc;
-    private final HotelbedsHotelService hotelbeds;
     private final OpenTripMapAttractionService openTripMap;
     private final AtomicBoolean missingTableLogged = new AtomicBoolean();
     private volatile Boolean catalogAvailable;
@@ -37,10 +29,8 @@ public class HotelDestinationCatalogService {
 
     public HotelDestinationCatalogService(
             JdbcTemplate jdbc,
-            HotelbedsHotelService hotelbeds,
             OpenTripMapAttractionService openTripMap) {
         this.jdbc = jdbc;
-        this.hotelbeds = hotelbeds;
         this.openTripMap = openTripMap;
     }
 
@@ -75,104 +65,6 @@ public class HotelDestinationCatalogService {
                     exception.getClass().getSimpleName());
         }
         return List.of();
-    }
-
-    @Scheduled(initialDelay = 60_000L, fixedDelay = 300_000L)
-    @Transactional
-    public void refreshIfStale() {
-        try {
-            jdbc.execute("SET LOCAL ROLE zentrip_api_runtime");
-            if (!isCatalogAvailable()) return;
-            Timestamp lastUpdated = jdbc.queryForObject(
-                    "SELECT MAX(updated_at) FROM public.hotel_destinations",
-                    Timestamp.class);
-            if (lastUpdated != null
-                    && Instant.now().isBefore(
-                            lastUpdated.toInstant().plus(REFRESH_INTERVAL))) {
-                return;
-            }
-
-            List<Map<String, Object>> destinations =
-                    hotelbeds.fetchDestinationCatalog();
-            if (destinations.isEmpty()) {
-                LOG.warn("Hotelbeds destination catalog refresh returned no destinations; "
-                        + "keeping the current local catalog");
-                return;
-            }
-            jdbc.batchUpdate("""
-                    INSERT INTO public.hotel_destinations (
-                        destination_type, destination_code, parent_code,
-                        name_en, name_ar, country_code, country_name_en,
-                        country_name_ar, latitude, longitude, search_text, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-                    ON CONFLICT (destination_type, destination_code, parent_code)
-                    DO UPDATE SET
-                        name_en = COALESCE(
-                            NULLIF(EXCLUDED.name_en, ''), hotel_destinations.name_en),
-                        name_ar = COALESCE(
-                            NULLIF(EXCLUDED.name_ar, ''), hotel_destinations.name_ar),
-                        country_code = EXCLUDED.country_code,
-                        country_name_en = COALESCE(
-                            NULLIF(EXCLUDED.country_name_en, ''),
-                            hotel_destinations.country_name_en),
-                        country_name_ar = COALESCE(
-                            NULLIF(EXCLUDED.country_name_ar, ''),
-                            hotel_destinations.country_name_ar),
-                        latitude = COALESCE(EXCLUDED.latitude, hotel_destinations.latitude),
-                        longitude = COALESCE(EXCLUDED.longitude, hotel_destinations.longitude),
-                        search_text = LOWER(CONCAT_WS(' ',
-                            COALESCE(NULLIF(EXCLUDED.name_en, ''),
-                                hotel_destinations.name_en),
-                            COALESCE(NULLIF(EXCLUDED.name_ar, ''),
-                                hotel_destinations.name_ar),
-                            COALESCE(NULLIF(EXCLUDED.country_name_en, ''),
-                                hotel_destinations.country_name_en),
-                            COALESCE(NULLIF(EXCLUDED.country_name_ar, ''),
-                                hotel_destinations.country_name_ar),
-                            COALESCE(NULLIF(EXCLUDED.country_code, ''),
-                                hotel_destinations.country_code))),
-                        updated_at = NOW()
-                    """, new BatchPreparedStatementSetter() {
-                        @Override
-                        public void setValues(
-                                java.sql.PreparedStatement statement, int index)
-                                throws java.sql.SQLException {
-                            Map<String, Object> row = destinations.get(index);
-                            String nameEn = text(row.get("name_en"));
-                            String nameAr = text(row.get("name_ar"));
-                            String countryEn = text(row.get("country_name_en"));
-                            String countryAr = text(row.get("country_name_ar"));
-                            String searchable = normalize(String.join(" ",
-                                    nameEn, nameAr, countryEn, countryAr,
-                                    text(row.get("country_code"))));
-                            statement.setString(1, text(row.get("destination_type")));
-                            statement.setString(2, text(row.get("destination_code")));
-                            statement.setString(3, text(row.get("parent_code")));
-                            statement.setString(4, nameEn);
-                            statement.setString(5, nameAr);
-                            statement.setString(6, text(row.get("country_code")));
-                            statement.setString(7, countryEn);
-                            statement.setString(8, countryAr);
-                            setNullableDouble(statement, 9, row.get("latitude"));
-                            setNullableDouble(statement, 10, row.get("longitude"));
-                            statement.setString(11, searchable);
-                        }
-
-                        @Override
-                        public int getBatchSize() {
-                            return destinations.size();
-                        }
-                    });
-            LOG.info("Hotelbeds destination catalog refreshed with {} records",
-                    destinations.size());
-        } catch (DataAccessException exception) {
-            LOG.warn("Hotel destination catalog refresh skipped because the catalog "
-                    + "schema is unavailable ({})", exception.getClass().getSimpleName());
-            catalogAvailable = false;
-        } catch (RuntimeException exception) {
-            LOG.warn("Hotel destination catalog refresh failed ({})",
-                    exception.getClass().getSimpleName());
-        }
     }
 
     private List<Map<String, Object>> searchCatalog(String query, String language) {
@@ -311,16 +203,6 @@ public class HotelDestinationCatalogService {
     private static String nullableText(Object value) {
         String text = text(value);
         return text.isBlank() ? null : text;
-    }
-
-    private static void setNullableDouble(
-            java.sql.PreparedStatement statement, int index, Object value)
-            throws java.sql.SQLException {
-        if (value instanceof Number number && Double.isFinite(number.doubleValue())) {
-            statement.setDouble(index, number.doubleValue());
-        } else {
-            statement.setNull(index, java.sql.Types.DOUBLE);
-        }
     }
 
     private static void addCoordinate(
