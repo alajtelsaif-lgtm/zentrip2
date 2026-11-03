@@ -60,6 +60,8 @@ class FlightFareCard extends StatelessWidget {
   final bool selected;
   final bool enabled;
   final VoidCallback onTap;
+  final String currencyCode;
+  final bool showAvailability;
 
   const FlightFareCard({
     super.key,
@@ -67,7 +69,11 @@ class FlightFareCard extends StatelessWidget {
     required this.selected,
     required this.enabled,
     required this.onTap,
+    this.currencyCode = 'USD',
+    this.showAvailability = true,
   });
+
+  String get _currencyPrefix => currencyCode == 'USD' ? '\$' : '$currencyCode ';
 
   String get _price => fare.price == fare.price.truncateToDouble()
       ? fare.price.toStringAsFixed(0)
@@ -76,12 +82,14 @@ class FlightFareCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foreground = selected ? Colors.white : _ink;
-    final shared = fare.sharedInventory ? ', shared inventory' : '';
+    final availability = showAvailability
+        ? ', ${fare.availableSeats} seats${fare.sharedInventory ? ', shared inventory' : ''}'
+        : '';
     return Semantics(
       button: true,
       enabled: enabled,
       selected: selected,
-      label: '${fare.label}, \$$_price, ${fare.availableSeats} seats$shared',
+      label: '${fare.label}, $_currencyPrefix$_price$availability',
       child: Material(
         color: selected ? _navy : Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -106,7 +114,7 @@ class FlightFareCard extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text('\$$_price',
+                  child: Text('$_currencyPrefix$_price',
                       style: TextStyle(
                           color: foreground,
                           fontSize: 28,
@@ -114,23 +122,25 @@ class FlightFareCard extends StatelessWidget {
                           letterSpacing: -.8,
                           fontWeight: FontWeight.w900)),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  '${fare.availableSeats} seats',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      color: selected ? Colors.white70 : _muted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600),
-                ),
-                if (fare.sharedInventory)
+                if (showAvailability) ...[
+                  const SizedBox(height: 5),
                   Text(
-                    'Shared inventory',
+                    '${fare.availableSeats} seats',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                         color: selected ? Colors.white70 : _muted,
-                        fontSize: 10),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
                   ),
+                  if (fare.sharedInventory)
+                    Text(
+                      'Shared inventory',
+                      style: TextStyle(
+                          color: selected ? Colors.white70 : _muted,
+                          fontSize: 10),
+                    ),
+                ],
               ],
             ),
           ),
@@ -161,8 +171,8 @@ class FlightCabinSelector extends StatelessWidget {
         builder: (context, constraints) {
           final maxPillWidth =
               (constraints.maxWidth * .58).clamp(124.0, 248.0).toDouble();
-          final pillViewportWidth = (cabins.length * 54.0 - 8)
-              .clamp(0.0, maxPillWidth).toDouble();
+          final pillViewportWidth =
+              (cabins.length * 54.0 - 8).clamp(0.0, maxPillWidth).toDouble();
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -267,9 +277,7 @@ class FlightSeatLegend extends StatelessWidget {
         children: [
           _LegendItem(color: Color(0xFFE8ECF5), label: 'Available'),
           _LegendItem(
-              color: Colors.white,
-              border: _navy,
-              label: 'Extra legroom'),
+              color: Colors.white, border: _navy, label: 'Extra legroom'),
           _LegendItem(color: _navy, label: 'Your seat'),
           _LegendItem(color: Color(0xFFE9EBF0), label: 'Taken'),
         ],
@@ -413,7 +421,9 @@ class FlightPriceBreakdown extends StatelessWidget {
               const Expanded(
                 child: Text('Estimated total',
                     style: TextStyle(
-                        color: _ink, fontWeight: FontWeight.w800, fontSize: 15)),
+                        color: _ink,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15)),
               ),
               Text('\$${totalPrice.toStringAsFixed(2)}',
                   style: const TextStyle(
@@ -437,8 +447,8 @@ class FlightPriceBreakdown extends StatelessWidget {
                   style: const TextStyle(color: _muted, fontSize: 13)),
             ),
             Text('\$${amount.toStringAsFixed(2)}',
-                style: const TextStyle(
-                    color: _ink, fontWeight: FontWeight.w700)),
+                style:
+                    const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
           ],
         ),
       );

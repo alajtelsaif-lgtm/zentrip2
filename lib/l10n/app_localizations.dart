@@ -3106,6 +3106,24 @@ abstract class AppLocalizations {
   /// **'المتابعة إلى الدفع'**
   String get flightContinueToPayment;
 
+  /// No description provided for @flightSimulationBadge.
+  ///
+  /// In ar, this message translates to:
+  /// **'محاكاة'**
+  String get flightSimulationBadge;
+
+  /// No description provided for @flightSimulatedSeatMapNotice.
+  ///
+  /// In ar, this message translates to:
+  /// **'خريطة المقاعد تجريبية — أرقام المقاعد للعرض التوضيحي فقط.'**
+  String get flightSimulatedSeatMapNotice;
+
+  /// No description provided for @flightChooseSeatsAndContinue.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر المقاعد وتابع'**
+  String get flightChooseSeatsAndContinue;
+
   /// No description provided for @flightProviderUnavailable.
   ///
   /// In ar, this message translates to:

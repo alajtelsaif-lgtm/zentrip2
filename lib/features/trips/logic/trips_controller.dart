@@ -22,6 +22,8 @@ class TripItem {
   final TripTab status;
   final String? imageUrl;
   final double? price;
+  final String priceCurrencyCode;
+  final bool isSimulated;
   final String? reference;
   final TripModel? flight;
   final BookingModel? booking;
@@ -38,6 +40,8 @@ class TripItem {
     required this.status,
     this.imageUrl,
     this.price,
+    this.priceCurrencyCode = 'USD',
+    this.isSimulated = false,
     this.reference,
     this.flight,
     this.booking,
@@ -102,6 +106,8 @@ class TripsController extends ChangeNotifier {
         status: resolveStatus(t.status, start, end, now),
         imageUrl: coverForCity(t.destinationCode),
         price: t.price,
+        priceCurrencyCode: t.priceCurrencyCode,
+        isSimulated: t.isSimulated,
         reference: t.bookingRef ?? t.flightNumber,
         flight: t,
       ));

@@ -152,6 +152,28 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
               fontSize: 12,
             ),
           ),
+          if (flight.isDuffelOffer) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  l10n.flightSimulationBadge,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           Text(
             '${flight.originCity} to ${flight.destinationCity}',

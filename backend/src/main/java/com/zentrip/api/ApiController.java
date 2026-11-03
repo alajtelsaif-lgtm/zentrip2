@@ -1115,6 +1115,10 @@ public class ApiController {
         List<Map<String, Object>> rows = jdbc.queryForList("""
             SELECT trips.*,
                    details ->> 'arrival_date' AS arrival_date,
+                   details ->> 'source' AS source,
+                   details ->> 'duffel_offer_id' AS duffel_offer_id,
+                   details ->> 'price_currency' AS price_currency,
+                   details ->> 'is_simulated' AS is_simulated,
                    details ->> 'refund_status' AS refund_status,
                    details ->> 'refund_method' AS refund_method
             FROM trips WHERE user_id = ? ORDER BY created_at DESC
@@ -1151,6 +1155,16 @@ public class ApiController {
                 partnerListingAttribution(body.get("partner_listing_id"), "flight");
         BigDecimal price = partnerBookingPrice(
                 attribution, "flight", departure, arrival, decimal(body.get("price")));
+        Map<String, Object> providerDetails = new java.util.HashMap<>();
+        if ("duffel".equalsIgnoreCase(value(body, "source", ""))) {
+            providerDetails.put("source", "duffel");
+            providerDetails.put(
+                    "duffel_offer_id", value(body, "duffel_offer_id", flightNumber));
+            providerDetails.put(
+                    "price_currency", value(body, "price_currency", "USD").toUpperCase());
+            providerDetails.put("is_simulated", true);
+        }
+        String providerDetailsJson = JSON.valueToTree(providerDetails).toString();
         jdbc.queryForList("SELECT id FROM users WHERE id = ? FOR UPDATE", userId);
         if (hasFlightScheduleConflict(userId, departure, arrival, returnDate)) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -1161,14 +1175,14 @@ public class ApiController {
                 INSERT INTO trips (user_id, partner_id, partner_listing_id, title, destination, origin_code, origin_city, destination_code,
                 destination_city, departure_date, return_date, flight_number, airline, airline_logo_url,
                 is_direct, seat_class, price, booking_ref, status, details, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb_build_object('arrival_date', ?, 'passenger_count', ?), NOW(), NOW())
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, jsonb_build_object('arrival_date', ?, 'passenger_count', ?) || ?::jsonb, NOW(), NOW())
                 """, userId, attribution.partnerId(), attribution.listingId(),
                 originCity + " to " + destinationCity, destinationCity, originCode, originCity,
                 destinationCode, destinationCity, departure,
                 returnDate,
                 flightNumber, body.get("airline"), body.get("airline_logo_url"), bool(body.get("is_direct"), true),
                 value(body, "seat_class", "Economy"), price, body.get("booking_ref"),
-                "upcoming", arrival.toString(), passengerCount);
+                "upcoming", arrival.toString(), passengerCount, providerDetailsJson);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("trip", tripRow(id)));
     }
 
@@ -1713,6 +1727,10 @@ public class ApiController {
                        details ->> 'arrival_date' AS arrival_date,
                        details ->> 'passenger_count' AS passenger_count,
                        details -> 'seat_numbers' AS seat_numbers,
+                       details ->> 'source' AS source,
+                       details ->> 'duffel_offer_id' AS duffel_offer_id,
+                       details ->> 'price_currency' AS price_currency,
+                       details ->> 'is_simulated' AS is_simulated,
                        details ->> 'refund_status' AS refund_status,
                        details ->> 'refund_method' AS refund_method
                 FROM trips WHERE id = ?

@@ -10,6 +10,8 @@ import '../../../../global_widgets/payment_checkout_screen.dart';
 import '../../../../models/flight_booking_model.dart';
 import '../../../../models/flight_model.dart';
 import '../../../../models/flight_seat_map.dart';
+import '../../../../models/trip_model.dart';
+import '../../../../l10n/app_localizations.dart';
 import 'booking_confirmed_screen.dart';
 import 'flight_primary_button.dart';
 import 'flight_seat_map_view.dart';
@@ -21,6 +23,14 @@ const _ink = Color(0xFF172033);
 const _line = Color(0xFFE7EAF1);
 
 typedef FlightSeatMapLoader = Future<ApiResult<FlightSeatMap>> Function(String);
+typedef FlightPaymentLauncher = Future<bool> Function(
+  BuildContext context, {
+  required double amount,
+  required String currencyCode,
+  required String description,
+  required String referenceId,
+});
+typedef FlightTripCreator = Future<ApiResult<TripModel>> Function(TripModel);
 
 class FlightSeatSelectionScreen extends StatefulWidget {
   final FlightModel flight;
@@ -30,6 +40,8 @@ class FlightSeatSelectionScreen extends StatefulWidget {
   final int seatsPerSide;
   final int rowCount;
   final FlightSeatMapLoader? seatMapLoader;
+  final FlightPaymentLauncher? paymentLauncher;
+  final FlightTripCreator? tripCreator;
 
   const FlightSeatSelectionScreen({
     super.key,
@@ -40,6 +52,8 @@ class FlightSeatSelectionScreen extends StatefulWidget {
     required this.seatsPerSide,
     required this.rowCount,
     this.seatMapLoader,
+    this.paymentLauncher,
+    this.tripCreator,
   });
 
   @override
@@ -87,6 +101,13 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
   }
 
   double get _totalPrice {
+    if (widget.flight.isDuffelOffer) {
+      return widget.flight.comparisonTotal(
+            passengers: widget.passengerCount,
+            seatClass: widget.seatClass,
+          ) ??
+          0;
+    }
     final map = _seatMap;
     final fare = _fare;
     if (map == null || fare == null) return 0;
@@ -129,6 +150,55 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
 
   Future<void> _loadSeatMap() async {
     if (_submitting || _refreshing) return;
+    if (widget.flight.isDuffelOffer) {
+      final rows = List<int>.generate(12, (index) => index + 1);
+      const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+      final passengers = widget.passengerCount < 1 ? 1 : widget.passengerCount;
+      final total = widget.flight.comparisonTotal(
+            passengers: passengers,
+            seatClass: widget.seatClass,
+          ) ??
+          0;
+      final fareId = widget.seatClass.toLowerCase();
+      final genericMap = FlightSeatMap(
+        rowCount: rows.length,
+        seatLetters: letters,
+        extraLegroomRows: const {},
+        occupiedSeats: const {},
+        fares: [
+          FlightSeatFare(
+            id: fareId,
+            label: widget.seatClass,
+            price: total > 0 ? total / passengers : 1,
+            availableSeats: rows.length * letters.length,
+            sharedInventory: false,
+          ),
+        ],
+        cabins: [
+          FlightSeatCabin(
+            id: 'simulation',
+            name: 'Simulation',
+            rows: rows,
+            totalSeats: rows.length * letters.length,
+            availableSeats: rows.length * letters.length,
+          ),
+        ],
+        extraLegroomFee: 0,
+        taxRate: 0,
+        bookingFee: 0,
+        extras: const {},
+      );
+      if (!mounted) return;
+      setState(() {
+        _seatMap = genericMap;
+        _selectedFareId = fareId;
+        _selectedCabinId = 'simulation';
+        _loading = false;
+        _refreshing = false;
+        _seatError = null;
+      });
+      return;
+    }
     final flightId = _flightId;
     if (flightId == null) {
       setState(() {
@@ -159,7 +229,8 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         };
         final unavailableSelected = _selectedSeats
             .where((seat) =>
-                !validSeats.contains(seat) || nextMap.occupiedSeats.contains(seat))
+                !validSeats.contains(seat) ||
+                nextMap.occupiedSeats.contains(seat))
             .toList();
         if (unavailableSelected.isNotEmpty) {
           for (final seat in unavailableSelected) {
@@ -190,7 +261,9 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
   }
 
   void _selectFare(FlightSeatFare fare) {
-    if (_submitting || _refreshing || fare.availableSeats < widget.passengerCount) {
+    if (_submitting ||
+        _refreshing ||
+        fare.availableSeats < widget.passengerCount) {
       return;
     }
     setState(() => _selectedFareId = fare.id);
@@ -227,10 +300,11 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
 
   Future<void> _proceedToPayment() async {
     final flightId = _flightId;
+    final isDuffel = widget.flight.isDuffelOffer;
     final fare = _fare;
     final map = _seatMap;
     if (_submitting ||
-        flightId == null ||
+        (!isDuffel && flightId == null) ||
         fare == null ||
         map == null ||
         _seatError != null ||
@@ -253,55 +327,79 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
     final selectedSeats = _selectedSeats.toList()..sort();
     final selectedExtras = _selectedExtras.toList()..sort();
     final bookingTotal = _totalPrice;
+    if (!bookingTotal.isFinite || bookingTotal <= 0) {
+      AppSnackbar.error(context, AppLocalizations.of(context).genericError);
+      return;
+    }
     setState(() => _submitting = true);
-    final availability = await ApiService.instance.checkFlightAvailability(
-      departureDate: widget.flight.departureTime,
-      arrivalDate: widget.flight.arrivalTime,
-      returnDate: widget.returnDate,
-    );
-    if (!mounted) return;
-    if (availability.isFailure || availability.data != true) {
-      setState(() => _submitting = false);
-      AppSnackbar.error(
-        context,
-        availability.isFailure
-            ? availability.errorMessage ?? 'Could not verify flight availability.'
-            : 'This flight conflicts with another booking on your account.',
+    if (!isDuffel) {
+      final availability = await ApiService.instance.checkFlightAvailability(
+        departureDate: widget.flight.departureTime,
+        arrivalDate: widget.flight.arrivalTime,
+        returnDate: widget.returnDate,
       );
-      return;
-    }
-    final reservation = await ApiService.instance.reserveFlightSeats(
-      flightId: flightId,
-      seats: selectedSeats,
-    );
-    if (!mounted) return;
-    if (reservation.isFailure) {
-      setState(() => _submitting = false);
-      AppSnackbar.error(
-        context,
-        reservation.errorMessage ?? 'Those seats are no longer available.',
+      if (!mounted) return;
+      if (availability.isFailure || availability.data != true) {
+        setState(() => _submitting = false);
+        AppSnackbar.error(
+          context,
+          availability.isFailure
+              ? availability.errorMessage ??
+                  'Could not verify flight availability.'
+              : 'This flight conflicts with another booking on your account.',
+        );
+        return;
+      }
+      final reservation = await ApiService.instance.reserveFlightSeats(
+        flightId: flightId!,
+        seats: selectedSeats,
       );
-      await _loadSeatMap();
-      return;
+      if (!mounted) return;
+      if (reservation.isFailure) {
+        setState(() => _submitting = false);
+        AppSnackbar.error(
+          context,
+          reservation.errorMessage ?? 'Those seats are no longer available.',
+        );
+        await _loadSeatMap();
+        return;
+      }
+      setState(() {
+        _heldSeats
+          ..clear()
+          ..addAll(selectedSeats);
+      });
     }
-    setState(() {
-      _heldSeats
-        ..clear()
-        ..addAll(selectedSeats);
-    });
 
-    final requestReference =
-        'flight-$flightId-${DateTime.now().microsecondsSinceEpoch}';
-    final paid = await PaymentCheckoutScreen.start(
-      context,
-      amountUsd: bookingTotal,
-      description: '${widget.flight.flightNumber} seat booking',
-      referenceId: requestReference,
-    );
+    final requestReference = isDuffel
+        ? 'ZT-SIM-DUF-${DateTime.now().microsecondsSinceEpoch}'
+        : 'flight-$flightId-${DateTime.now().microsecondsSinceEpoch}';
+    final paymentLauncher = widget.paymentLauncher;
+    final paid = paymentLauncher == null
+        ? await PaymentCheckoutScreen.start(
+            context,
+            amountUsd: bookingTotal,
+            currencyCode: isDuffel ? widget.flight.priceCurrencyCode : 'USD',
+            description: '${widget.flight.flightNumber} seat booking',
+            referenceId: requestReference,
+          )
+        : await paymentLauncher(
+            context,
+            amount: bookingTotal,
+            currencyCode: isDuffel ? widget.flight.priceCurrencyCode : 'USD',
+            description: '${widget.flight.flightNumber} seat booking',
+            referenceId: requestReference,
+          );
     if (!mounted) return;
     if (!paid) {
+      if (isDuffel) {
+        setState(() => _submitting = false);
+        AppSnackbar.error(
+            context, 'Payment was not completed. No trip was saved.');
+        return;
+      }
       final release =
-          await ApiService.instance.releaseFlightSeatReservation(flightId);
+          await ApiService.instance.releaseFlightSeatReservation(flightId!);
       if (!mounted) return;
       setState(() {
         _submitting = false;
@@ -314,6 +412,69 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
             : 'Payment was not completed. Your seat hold was released.',
       );
       await _loadSeatMap();
+      return;
+    }
+
+    if (isDuffel) {
+      final trip = TripModel(
+        id: DateTime.now().millisecondsSinceEpoch,
+        originCode: widget.flight.originCode,
+        originCity: widget.flight.originCity,
+        destinationCode: widget.flight.destinationCode,
+        destinationCity: widget.flight.destinationCity,
+        departureDate: widget.flight.departureTime,
+        arrivalDate: widget.flight.arrivalTime,
+        returnDate: widget.returnDate,
+        flightNumber: widget.flight.flightNumber,
+        airline: widget.flight.airline,
+        airlineLogoUrl: widget.flight.airlineLogoUrl,
+        isDirect: widget.flight.isDirect,
+        seatClass: fare.id,
+        price: bookingTotal,
+        bookingRef: requestReference,
+        passengerCount: widget.passengerCount,
+        source: 'duffel',
+        sourceOfferId: widget.flight.duffelOfferId ?? widget.flight.id,
+        priceCurrencyCode: widget.flight.priceCurrencyCode,
+        isSimulated: true,
+      );
+      final saved = await (widget.tripCreator ??
+          ApiService.instance.createFlightTrip)(trip);
+      if (!mounted) return;
+      if (saved.isFailure || saved.data == null) {
+        setState(() => _submitting = false);
+        AppSnackbar.error(
+          context,
+          saved.errorMessage ?? AppLocalizations.of(context).genericError,
+        );
+        return;
+      }
+      final savedTrip = saved.data!;
+      final confirmation = FlightBookingConfirmation(
+        trip: savedTrip,
+        reference: savedTrip.bookingRef ?? requestReference,
+        seats: selectedSeats,
+        totalPrice: bookingTotal,
+        extras: selectedExtras,
+      );
+      final draft = FlightBookingDraft(
+        flight: widget.flight,
+        passengerCount: widget.passengerCount,
+        seatClass: fare.id,
+        seats: selectedSeats,
+        returnDate: widget.returnDate,
+        totalPrice: bookingTotal,
+        extras: selectedExtras,
+      );
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => BookingConfirmedScreen(
+            draft: draft,
+            initialConfirmation: confirmation,
+          ),
+        ),
+      );
+      if (mounted) setState(() => _submitting = false);
       return;
     }
 
@@ -362,10 +523,23 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
                     padding: const EdgeInsets.fromLTRB(16, 7, 16, 20),
                     children: [
                       FlightSelectionHeader(flight: widget.flight),
+                      if (widget.flight.isDuffelOffer) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          AppLocalizations.of(context)
+                              .flightSimulatedSeatMapNotice,
+                          style: const TextStyle(
+                            color: _ink,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 19),
                       if (_seatMap != null) _fareCards(_seatMap!),
                       const SizedBox(height: 19),
-                      if (_seatMap != null) _cabinSelector(_seatMap!),
+                      if (_seatMap != null && !widget.flight.isDuffelOffer)
+                        _cabinSelector(_seatMap!),
                       const SizedBox(height: 13),
                       _seatMapPanel(),
                       if (_seatMap != null) ...[
@@ -386,14 +560,17 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 728),
                 child: FlightPrimaryButton(
-                  label: 'Proceed to Payment · \$${_totalPrice.toStringAsFixed(2)}',
+                  label: widget.flight.isDuffelOffer
+                      ? '${AppLocalizations.of(context).flightContinueToPayment} · ${widget.flight.priceCurrencyCode} ${_totalPrice.toStringAsFixed(2)}'
+                      : 'Proceed to Payment · \$${_totalPrice.toStringAsFixed(2)}',
                   icon: Icons.lock_rounded,
                   loading: _submitting,
                   onPressed: _seatMap != null &&
                           !_loading &&
                           !_refreshing &&
                           _seatError == null &&
-                          (_fare?.availableSeats ?? 0) >= widget.passengerCount &&
+                          (_fare?.availableSeats ?? 0) >=
+                              widget.passengerCount &&
                           _selectedSeats.length == widget.passengerCount
                       ? _proceedToPayment
                       : null,
@@ -420,9 +597,12 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
                 width: width,
                 child: FlightFareCard(
                   fare: fare,
+                  currencyCode: widget.flight.isDuffelOffer
+                      ? widget.flight.priceCurrencyCode
+                      : 'USD',
+                  showAvailability: !widget.flight.isDuffelOffer,
                   selected: fare.id == _fare?.id,
-                  enabled:
-                      !_submitting &&
+                  enabled: !_submitting &&
                       !_refreshing &&
                       _seatError == null &&
                       fare.availableSeats >= widget.passengerCount,
@@ -514,6 +694,28 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
   Widget _priceBreakdown(FlightSeatMap map) {
     final fare = _fare;
     if (fare == null) return const SizedBox.shrink();
+    if (widget.flight.isDuffelOffer) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(AppLocalizations.of(context).flightTotal,
+                  style: const TextStyle(
+                      color: _ink, fontWeight: FontWeight.w700)),
+            ),
+            Text(
+              '${widget.flight.priceCurrencyCode} ${_totalPrice.toStringAsFixed(2)}',
+              style: const TextStyle(color: _navy, fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+      );
+    }
     return FlightPriceBreakdown(
       map: map,
       fare: fare,

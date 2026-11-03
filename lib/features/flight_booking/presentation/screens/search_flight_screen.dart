@@ -71,8 +71,8 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
     } catch (error, stackTrace) {
       debugPrint('Flight search failed: $error\n$stackTrace');
       if (mounted) {
-        setState(() => _error =
-            AppLocalizations.of(context).flightProviderUnavailable);
+        setState(() =>
+            _error = AppLocalizations.of(context).flightProviderUnavailable);
       }
     }
   }
@@ -153,14 +153,6 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
     final controller = _controller;
     final params = _params ?? controller?.searchParams;
     if (controller == null || params == null) return;
-    if (flight.isDuffelOffer) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context).flightDuffelBookingUnavailable),
-        ),
-      );
-      return;
-    }
 
     controller.selectFlight(flight);
     final seatScreen = flight.usesTwoByTwoSeatLayout
@@ -766,8 +758,7 @@ class _FlightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseFare =
-        flight.priceIsTotal ? _fare : _fare * params.passengers;
+    final baseFare = flight.priceIsTotal ? _fare : _fare * params.passengers;
     final taxes = flight.priceIsTotal ? 0.0 : baseFare * 0.12;
     final serviceFee = flight.priceIsTotal ? 0.0 : 12.0;
     final total = baseFare + taxes + serviceFee;
@@ -944,13 +935,9 @@ class _FlightCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           FlightPrimaryButton(
-            label: flight.isDuffelOffer
-                ? l10n.flightDuffelBookingUnavailable
-                : l10n.flightSelectThis,
-            onPressed: available && !flight.isDuffelOffer ? onSelect : null,
-            icon: flight.isDuffelOffer
-                ? Icons.info_outline_rounded
-                : Icons.event_seat_rounded,
+            label: l10n.flightSelectThis,
+            onPressed: available ? onSelect : null,
+            icon: Icons.event_seat_rounded,
           ),
         ],
       ),

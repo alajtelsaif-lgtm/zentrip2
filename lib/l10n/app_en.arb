@@ -563,6 +563,9 @@
   "flightDuffelOffer": "Duffel offer",
   "flightDuffelBookingUnavailable": "Duffel booking is not connected yet",
   "flightContinueToPayment": "Continue to payment",
+  "flightSimulationBadge": "Simulation",
+  "flightSimulatedSeatMapNotice": "Simulated seat map — seat numbers are for this booking demo only.",
+  "flightChooseSeatsAndContinue": "Choose seats and continue",
   "flightProviderUnavailable": "Live flight search is temporarily unavailable. Please try again.",
   "flightDuffelTotal": "Duffel total for {count} passengers",
   "@flightDuffelTotal": {

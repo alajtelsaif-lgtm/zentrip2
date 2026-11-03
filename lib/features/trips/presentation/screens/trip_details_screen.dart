@@ -144,7 +144,9 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         if (trip.price != null)
                           _DetailRow(
                               l10n.tripsTotalPrice,
-                              '\$${trip.price!.toStringAsFixed(0)}',
+                              trip.isSimulated
+                                  ? '${trip.priceCurrencyCode} ${trip.price!.toStringAsFixed(2)}'
+                                  : '\$${trip.price!.toStringAsFixed(0)}',
                               Icons.attach_money_rounded),
                       ]).animate().fade(delay: 360.ms),
                 ],
@@ -176,7 +178,8 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                   title:
                                       '${trip.originCode} → ${trip.destinationCode}',
                                   subtitle: trip.flightNumber,
-                                  refCode: trip.bookingRef ?? trip.id.toString(),
+                                  refCode:
+                                      trip.bookingRef ?? trip.id.toString(),
                                 ))),
                     icon: const Icon(Icons.qr_code_rounded, size: 16),
                     label: FittedBox(

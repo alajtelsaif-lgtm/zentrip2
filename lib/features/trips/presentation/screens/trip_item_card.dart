@@ -111,7 +111,10 @@ class TripItemCard extends StatelessWidget {
                         url: item.imageUrl,
                         fallbackIcon: kind.icon,
                         fallbackGradient: LinearGradient(
-                          colors: [kind.color, kind.color.withValues(alpha: 0.6)],
+                          colors: [
+                            kind.color,
+                            kind.color.withValues(alpha: 0.6)
+                          ],
                         ),
                       ),
                     ),
@@ -154,6 +157,13 @@ class TripItemCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontWeight: FontWeight.w800, fontSize: 16)),
+                    if (item.isSimulated) ...[
+                      const SizedBox(height: 7),
+                      _Pill(
+                        text: l10n.flightSimulationBadge,
+                        color: AppColors.primary,
+                      ),
+                    ],
                     const SizedBox(height: 3),
                     Text(item.subtitle,
                         maxLines: 1,
@@ -176,12 +186,14 @@ class TripItemCard extends StatelessWidget {
                     const SizedBox(height: 10),
                     Divider(
                         height: 1,
-                        color: isDark ? AppColors.darkBorder : AppColors.divider),
+                        color:
+                            isDark ? AppColors.darkBorder : AppColors.divider),
                     const SizedBox(height: 10),
                     Row(children: [
                       if (item.reference != null && item.reference!.isNotEmpty)
                         Expanded(
-                          child: Text('${l10n.tripsRefLabel}: ${item.reference}',
+                          child: Text(
+                              '${l10n.tripsRefLabel}: ${item.reference}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -192,7 +204,10 @@ class TripItemCard extends StatelessWidget {
                       else
                         const Spacer(),
                       if (item.price != null)
-                        Text('\$${item.price!.toStringAsFixed(0)}',
+                        Text(
+                            item.isSimulated
+                                ? '${item.priceCurrencyCode} ${item.price!.toStringAsFixed(2)}'
+                                : '\$${item.price!.toStringAsFixed(0)}',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 16,

@@ -1611,6 +1611,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get flightContinueToPayment => 'Continue to payment';
 
   @override
+  String get flightSimulationBadge => 'Simulation';
+
+  @override
+  String get flightSimulatedSeatMapNotice =>
+      'Simulated seat map — seat numbers are for this booking demo only.';
+
+  @override
+  String get flightChooseSeatsAndContinue => 'Choose seats and continue';
+
+  @override
   String get flightProviderUnavailable =>
       'Live flight search is temporarily unavailable. Please try again.';
 

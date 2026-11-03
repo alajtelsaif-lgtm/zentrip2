@@ -549,6 +549,9 @@
   "flightDuffelOffer": "عرض Duffel",
   "flightDuffelBookingUnavailable": "الحجز عبر Duffel غير متصل بعد",
   "flightContinueToPayment": "المتابعة إلى الدفع",
+  "flightSimulationBadge": "محاكاة",
+  "flightSimulatedSeatMapNotice": "خريطة المقاعد تجريبية — أرقام المقاعد للعرض التوضيحي فقط.",
+  "flightChooseSeatsAndContinue": "اختر المقاعد وتابع",
   "flightProviderUnavailable": "البحث المباشر عن الرحلات غير متاح مؤقتًا. حاول مرة أخرى.",
   "flightDuffelTotal": "إجمالي Duffel لعدد {count} من المسافرين",
   "@flightDuffelTotal": {

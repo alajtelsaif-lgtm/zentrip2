@@ -390,6 +390,7 @@ class FlightModel {
   final String seatLayout;
   final int seatRows;
   final String source;
+  final String? duffelOfferId;
   final String priceCurrencyCode;
   final bool priceIsTotal;
 
@@ -437,6 +438,7 @@ class FlightModel {
     this.seatLayout = '3-3',
     this.seatRows = 30,
     this.source = 'partner',
+    this.duffelOfferId,
     this.priceCurrencyCode = 'USD',
     this.priceIsTotal = false,
   });
@@ -571,6 +573,8 @@ class FlightModel {
         isDuffelOffer ? 0 : defaultSeatRows,
       ),
       source: source,
+      duffelOfferId: json['duffel_offer_id']?.toString() ??
+          (isDuffelOffer ? _stringFromDynamic(json['id']) : null),
       priceCurrencyCode:
           _stringFromDynamic(json['price_currency'], 'USD').toUpperCase(),
       priceIsTotal: _boolFromDynamic(json['price_is_total']),

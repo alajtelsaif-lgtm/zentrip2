@@ -13,7 +13,15 @@ import '../models/payment_session.dart';
 /// ```
 class PaymentCheckoutScreen extends StatefulWidget {
   final PaymentSession session;
-  const PaymentCheckoutScreen({super.key, required this.session});
+  final double? amount;
+  final String currencyCode;
+
+  const PaymentCheckoutScreen({
+    super.key,
+    required this.session,
+    this.amount,
+    this.currencyCode = 'USD',
+  });
 
   /// بيبدأ عملية دفع كاملة: يطلب رابط الدفع من الباك اند، يفتح الشاشة،
   /// ويتحقق من نجاح الدفع فعليًا مع السيرفر قبل ما يرجّع true.
@@ -35,7 +43,11 @@ class PaymentCheckoutScreen extends StatefulWidget {
     final completedInCheckout = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-          builder: (_) => PaymentCheckoutScreen(session: sessionResult.data!)),
+          builder: (_) => PaymentCheckoutScreen(
+                session: sessionResult.data!,
+                amount: amountUsd,
+                currencyCode: currencyCode.toUpperCase(),
+              )),
     );
     if (completedInCheckout != true || !context.mounted) return false;
 
@@ -109,6 +121,17 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
                   Text(l10n.mockPaymentNotice,
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: AppColors.textSecondary)),
+                  if (widget.amount != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      '${l10n.flightTotal}: ${widget.currencyCode} ${widget.amount!.toStringAsFixed(2)}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,

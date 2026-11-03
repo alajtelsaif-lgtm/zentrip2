@@ -1597,6 +1597,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get flightContinueToPayment => 'المتابعة إلى الدفع';
 
   @override
+  String get flightSimulationBadge => 'محاكاة';
+
+  @override
+  String get flightSimulatedSeatMapNotice =>
+      'خريطة المقاعد تجريبية — أرقام المقاعد للعرض التوضيحي فقط.';
+
+  @override
+  String get flightChooseSeatsAndContinue => 'اختر المقاعد وتابع';
+
+  @override
   String get flightProviderUnavailable =>
       'البحث المباشر عن الرحلات غير متاح مؤقتًا. حاول مرة أخرى.';
 

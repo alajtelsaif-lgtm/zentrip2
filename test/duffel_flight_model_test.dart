@@ -2,7 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zentrip/models/flight_model.dart';
 
 void main() {
-  test('Duffel offers retain provider currency and unknown seat availability', () {
+  test('Duffel offers retain provider currency and unknown seat availability',
+      () {
     final flight = FlightModel.fromJson({
       'id': 'duffel-off_example',
       'source': 'duffel',
@@ -33,14 +34,17 @@ void main() {
     expect(flight.isDuffelOffer, isTrue);
     expect(flight.priceCurrencyCode, 'EUR');
     expect(flight.priceIsTotal, isTrue);
+    expect(flight.duffelOfferId, 'off_example');
     expect(flight.seatsAvailable, -1);
-    expect(flight.matchesSearch(
-      originCode: 'MJI',
-      destinationCode: 'TUN',
-      originCity: 'Misrata',
-      destinationCity: 'Tunis',
-      departureDate: DateTime(2026, 11, 8),
-      passengers: 2,
-    ), isTrue);
+    expect(
+        flight.matchesSearch(
+          originCode: 'MJI',
+          destinationCode: 'TUN',
+          originCity: 'Misrata',
+          destinationCity: 'Tunis',
+          departureDate: DateTime(2026, 11, 8),
+          passengers: 2,
+        ),
+        isTrue);
   });
 }

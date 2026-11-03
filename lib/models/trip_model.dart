@@ -19,6 +19,10 @@ class TripModel {
   final String? refundMethod;
   final int? partnerListingId;
   final int passengerCount;
+  final String source;
+  final String? sourceOfferId;
+  final String priceCurrencyCode;
+  final bool isSimulated;
 
   const TripModel({
     required this.id,
@@ -41,6 +45,10 @@ class TripModel {
     this.refundMethod,
     this.partnerListingId,
     this.passengerCount = 1,
+    this.source = 'partner',
+    this.sourceOfferId,
+    this.priceCurrencyCode = 'USD',
+    this.isSimulated = false,
   });
 
   static int _intFromDynamic(dynamic value, [int fallback = 0]) {
@@ -103,6 +111,11 @@ class TripModel {
             ? null
             : _intFromDynamic(json['partner_listing_id']),
         passengerCount: _intFromDynamic(json['passenger_count'], 1),
+        source: (json['source'] ?? 'partner').toString(),
+        sourceOfferId: json['duffel_offer_id']?.toString(),
+        priceCurrencyCode:
+            (json['price_currency'] ?? 'USD').toString().toUpperCase(),
+        isSimulated: _boolFromDynamic(json['is_simulated'], false),
       );
 
   Map<String, dynamic> toJson() => {
@@ -126,6 +139,10 @@ class TripModel {
         'refund_method': refundMethod,
         'partner_listing_id': partnerListingId,
         'passenger_count': passengerCount,
+        'source': source,
+        'duffel_offer_id': sourceOfferId,
+        'price_currency': priceCurrencyCode,
+        'is_simulated': isSimulated,
       };
 
   TripModel copyWith({
@@ -134,6 +151,10 @@ class TripModel {
     String? refundMethod,
     int? partnerListingId,
     int? passengerCount,
+    String? source,
+    String? sourceOfferId,
+    String? priceCurrencyCode,
+    bool? isSimulated,
   }) =>
       TripModel(
         id: id,
@@ -156,5 +177,9 @@ class TripModel {
         refundMethod: refundMethod ?? this.refundMethod,
         partnerListingId: partnerListingId ?? this.partnerListingId,
         passengerCount: passengerCount ?? this.passengerCount,
+        source: source ?? this.source,
+        sourceOfferId: sourceOfferId ?? this.sourceOfferId,
+        priceCurrencyCode: priceCurrencyCode ?? this.priceCurrencyCode,
+        isSimulated: isSimulated ?? this.isSimulated,
       );
 }

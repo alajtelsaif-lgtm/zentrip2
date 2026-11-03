@@ -651,22 +651,10 @@ class _FlightCardState extends State<_FlightCard> {
             ],
           ),
           const SizedBox(height: 12),
-          if (flight.isDuffelOffer)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                l10n.flightDuffelBookingUnavailable,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: flight.isDuffelOffer ? null : onSelect,
+              onPressed: onSelect,
               style: ElevatedButton.styleFrom(minimumSize: const Size(0, 44)),
               child: Text(l10n.flightSelectThis),
             ),

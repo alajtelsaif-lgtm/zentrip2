@@ -134,6 +134,11 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, -260));
       await tester.pumpAndSettle();
       expect(find.text('€75.25'), findsOneWidget);
+      final selectFlight = find.ancestor(
+        of: find.text(l10n.flightSelectThis),
+        matching: find.byType(ElevatedButton),
+      );
+      expect(tester.widget<ElevatedButton>(selectFlight).onPressed, isNotNull);
       expect(tester.takeException(), isNull);
       ctrl.dispose();
     });

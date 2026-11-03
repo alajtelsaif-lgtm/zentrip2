@@ -15,7 +15,8 @@ void main() {
       final flight = FlightModel(
         id: 'duffel-offer-test',
         source: 'duffel',
-        priceCurrencyCode: 'USD',
+        duffelOfferId: 'off_test_123',
+        priceCurrencyCode: 'EUR',
         priceIsTotal: true,
         airline: 'Test Air',
         airlineCode: 'TA',
@@ -44,7 +45,11 @@ void main() {
         airline: 'Test Air',
         isDirect: true,
         price: 125,
-        bookingRef: 'ZT-D-TEST',
+        bookingRef: 'ZT-SIM-DUF-TEST',
+        source: 'duffel',
+        sourceOfferId: 'off_test_123',
+        priceCurrencyCode: 'EUR',
+        isSimulated: true,
       );
 
       await tester.pumpWidget(
@@ -72,7 +77,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ZT-D-TEST'), findsOneWidget);
-      expect(find.text('USD 125.00'), findsOneWidget);
+      expect(find.text('EUR 125.00'), findsOneWidget);
+      expect(find.text('Simulation'), findsOneWidget);
       expect(find.text('—'), findsOneWidget);
     },
   );
