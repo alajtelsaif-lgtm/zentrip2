@@ -118,6 +118,8 @@ public class OpenTripMapAttractionService implements LandmarkProvider {
             new ConcurrentHashMap<>();
     private final Map<String, TimedEntry<List<Map<String, Object>>>> suggestionCache =
             new ConcurrentHashMap<>();
+    private final Map<String, TimedEntry<Geoname>> destinationGeonameCache =
+            new ConcurrentHashMap<>();
     private final Object requestGate = new Object();
     private long nextRequestNanos;
 
@@ -349,6 +351,31 @@ public class OpenTripMapAttractionService implements LandmarkProvider {
     public List<Map<String, Object>> searchAttractions(
             String city, String country, String language) {
         return searchAttractionsWithStatus(city, country, language).places();
+    }
+
+    public DestinationSuggestion suggestDestination(String query) {
+        return suggestDestination(query, "en");
+    }
+
+    public DestinationSuggestion suggestDestination(String query, String language) {
+        String normalized = clean(query);
+        if (normalized == null || apiKey.isBlank()) return null;
+        String normalizedLanguage = "ar".equalsIgnoreCase(language) ? "ar" : "en";
+        String cacheKey = normalize(normalized) + "|" + normalizedLanguage;
+        Instant now = Instant.now();
+        TimedEntry<Geoname> cached = destinationGeonameCache.get(cacheKey);
+        if (cached != null && now.isBefore(cached.expiresAt())) {
+            return toDestinationSuggestion(cached.value());
+        }
+        Geoname place = geoname(normalized, null, normalizedLanguage);
+        destinationGeonameCache.put(
+                cacheKey, new TimedEntry<>(place, now.plus(SUGGESTIONS_TTL)));
+        return toDestinationSuggestion(place);
+    }
+
+    private static DestinationSuggestion toDestinationSuggestion(Geoname place) {
+        return place == null ? null : new DestinationSuggestion(
+                place.name(), place.country(), place.latitude(), place.longitude());
     }
 
     public List<Map<String, Object>> searchAtCoordinates(
@@ -1550,6 +1577,9 @@ public class OpenTripMapAttractionService implements LandmarkProvider {
 
     public record RejectedItem(
             String name, String id, String category, String source, String reason) {}
+
+    public record DestinationSuggestion(
+            String name, String country, double latitude, double longitude) {}
 
     private record Geoname(
             String name, String country, double latitude, double longitude) {}

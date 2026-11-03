@@ -5,8 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zentrip/core/services/api_service.dart';
 import 'package:zentrip/core/services/current_location_service.dart';
 import 'package:zentrip/features/car_rental/presentation/screens/car_rental_screen.dart';
+import 'package:zentrip/features/hotel_booking/logic/hotel_controller.dart';
 import 'package:zentrip/features/hotel_booking/presentation/screens/hotel_search_screen.dart';
 import 'package:zentrip/l10n/app_localizations.dart';
+import 'package:zentrip/routes/app_routes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -16,11 +18,19 @@ void main() {
   testWidgets('hotel search stays blank until current location is requested',
       (tester) async {
     final location = _MisrataLocationService();
+    final controller = HotelController();
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: HotelSearchScreen(locationService: location),
+        home: HotelSearchScreen(
+          controller: controller,
+          locationService: location,
+        ),
+        routes: {
+          AppRoutes.hotelResults: (_) =>
+              const Scaffold(body: Text('Hotel results')),
+        },
       ),
     );
     await tester.pump(const Duration(milliseconds: 100));
@@ -32,8 +42,10 @@ void main() {
     await tester.tap(find.byTooltip('Use my current location'));
     await tester.pumpAndSettle();
 
-    expect(tester.widget<TextField>(locationField).controller!.text, 'Misrata');
     expect(location.placeRequests, 1);
+    expect(controller.searchParams?.city, 'Misrata');
+    expect(find.text('Hotel results'), findsOneWidget);
+    controller.dispose();
   });
 
   testWidgets('car search stays blank until current location is requested',

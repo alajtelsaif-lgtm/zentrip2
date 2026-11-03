@@ -3148,11 +3148,41 @@ abstract class AppLocalizations {
   /// **'أدخل وجهة أو اسمح بالوصول إلى موقعك لتحديد مدينتك.'**
   String get hotelDestinationRequired;
 
+  /// No description provided for @hotelSelectDestination.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر وجهة من قائمة الاقتراحات.'**
+  String get hotelSelectDestination;
+
+  /// No description provided for @hotelLoadingDestinations.
+  ///
+  /// In ar, this message translates to:
+  /// **'جارٍ البحث عن الوجهات...'**
+  String get hotelLoadingDestinations;
+
+  /// No description provided for @hotelNoDestinationSuggestions.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يتم العثور على وجهات لهذا البحث.'**
+  String get hotelNoDestinationSuggestions;
+
+  /// No description provided for @hotelDestinationSuggestionsError.
+  ///
+  /// In ar, this message translates to:
+  /// **'اقتراحات الوجهات غير متاحة مؤقتًا.'**
+  String get hotelDestinationSuggestionsError;
+
   /// No description provided for @hotelSearchNearby.
   ///
   /// In ar, this message translates to:
   /// **'البحث بالقرب مني'**
   String get hotelSearchNearby;
+
+  /// No description provided for @openLocationSettings.
+  ///
+  /// In ar, this message translates to:
+  /// **'فتح الإعدادات'**
+  String get openLocationSettings;
 
   /// No description provided for @hotelNearbyTitle.
   ///
@@ -3195,6 +3225,24 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'{nights} ليال · {rooms} غرفة · {guests} ضيوف'**
   String hotelStaySummary(Object guests, Object nights, Object rooms);
+
+  /// No description provided for @hotelNightsSummary.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{0 ليلة} one{{count} ليلة} two{ليلتان} few{{count} ليالٍ} many{{count} ليلة} other{{count} ليلة}}'**
+  String hotelNightsSummary(int count);
+
+  /// No description provided for @hotelRoomsSummary.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{0 غرفة} one{{count} غرفة} two{غرفتان} few{{count} غرف} many{{count} غرفة} other{{count} غرفة}}'**
+  String hotelRoomsSummary(int count);
+
+  /// No description provided for @hotelGuestsSummary.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{0 ضيف} one{{count} ضيف} two{ضيفان} few{{count} ضيوف} many{{count} ضيف} other{{count} ضيف}}'**
+  String hotelGuestsSummary(int count);
 
   /// No description provided for @hotelResultsTitle.
   ///

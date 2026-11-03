@@ -1637,7 +1637,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter a destination or allow location access to detect your city.';
 
   @override
+  String get hotelSelectDestination =>
+      'Choose a destination from the suggestions.';
+
+  @override
+  String get hotelLoadingDestinations => 'Searching destinations...';
+
+  @override
+  String get hotelNoDestinationSuggestions =>
+      'No destinations found for this search.';
+
+  @override
+  String get hotelDestinationSuggestionsError =>
+      'Destination suggestions are temporarily unavailable.';
+
+  @override
   String get hotelSearchNearby => 'Search Nearby';
+
+  @override
+  String get openLocationSettings => 'Open settings';
 
   @override
   String get hotelNearbyTitle => 'Hotels Near Me';
@@ -1663,6 +1681,42 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String hotelStaySummary(Object guests, Object nights, Object rooms) {
     return '$nights nights · $rooms rooms · $guests guests';
+  }
+
+  @override
+  String hotelNightsSummary(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count nights',
+      one: '$count night',
+      zero: '0 nights',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String hotelRoomsSummary(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count rooms',
+      one: '$count room',
+      zero: '0 rooms',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String hotelGuestsSummary(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count guests',
+      one: '$count guest',
+      zero: '0 guests',
+    );
+    return '$_temp0';
   }
 
   @override

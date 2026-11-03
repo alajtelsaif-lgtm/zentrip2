@@ -90,3 +90,20 @@ current schema and are excluded.
 Map searches request only visible bounds, debounce map movement in Flutter, and
 return clusters at low zoom. Search responses and aliases are cached in the
 database for 30 days; the app does not download the entire world.
+
+## Hotel destination autocomplete
+
+Hotel destination suggestions search the local `hotel_destinations` catalog;
+the app never calls Hotelbeds while the traveler types. Install
+`backend/src/main/resources/migrations/20261103_hotel_destination_catalog.sql`
+in the Supabase database after `20261101_role_access_rls.sql`. After the table
+exists, the backend checks for it every five minutes and fetches the Hotelbeds
+Content API destination catalog in bounded English/Arabic pages. A successful
+catalog refresh happens no more than weekly.
+If the table or provider is unavailable, suggestions fall back to cached
+OpenTripMap geonames and a small built-in city list.
+
+Keep `HOTELBEDS_API_KEY`, `HOTELBEDS_API_SECRET`, and
+`OPENTRIPMAP_API_KEY` in backend environment secrets. Hotelbeds remains a
+read-only data source; hotel checkout continues through Zentrip's existing
+simulated partner-payment flow.

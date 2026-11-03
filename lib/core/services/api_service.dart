@@ -16,6 +16,7 @@ import '../../models/flight_model.dart';
 import '../../models/flight_seat_map.dart';
 import '../../models/flight_booking_model.dart';
 import '../../models/hotel_model.dart';
+import '../../models/hotel_destination_suggestion.dart';
 import '../../models/car_model.dart';
 import '../../models/attraction_model.dart';
 import '../../models/attraction_place_suggestion.dart';
@@ -1308,6 +1309,9 @@ class ApiService {
 
   Future<List<HotelModel>> searchHotels({
     required String city,
+    String? destinationCode,
+    double? latitude,
+    double? longitude,
     DateTime? checkIn,
     DateTime? checkOut,
     int rooms = 1,
@@ -1334,6 +1338,10 @@ class ApiService {
       '/hotels/search',
       queryParameters: {
         'city': city,
+        if (destinationCode != null && destinationCode.trim().isNotEmpty)
+          'destination_code': destinationCode.trim(),
+        if (latitude != null && longitude != null) 'lat': latitude,
+        if (latitude != null && longitude != null) 'lon': longitude,
         if (checkIn != null) 'check_in': _formatDate(checkIn),
         if (checkOut != null) 'check_out': _formatDate(checkOut),
         'rooms': rooms,
@@ -1401,6 +1409,52 @@ class ApiService {
         ...matchingSuggestions(partnerHotels),
         ...matchingSuggestions(MockDataService.hotels()),
       }.take(12).toList();
+    }
+  }
+
+  Future<List<HotelDestinationSuggestion>> suggestHotelDestinations(
+    String query, {
+    String languageCode = 'en',
+    CancelToken? cancelToken,
+  }) async {
+    final normalized = query.trim();
+    if (normalized.length < 2) return const [];
+    final localFallback = HotelDestinationSuggestion.popularMatches(normalized);
+
+    if (useMockMode) return localFallback;
+
+    try {
+      final response = await _dio.get(
+        '/hotels/destinations/suggest',
+        queryParameters: {
+          'q': normalized,
+          'language': languageCode.toLowerCase().startsWith('ar') ? 'ar' : 'en',
+        },
+        cancelToken: cancelToken,
+      );
+      final payload = response.data;
+      final rawSuggestions = payload is Map ? payload['suggestions'] : null;
+      if (rawSuggestions is! List) {
+        throw const FormatException('Invalid destination suggestions response');
+      }
+      final suggestions = <HotelDestinationSuggestion>[];
+      for (final raw in rawSuggestions) {
+        if (raw is! Map) continue;
+        try {
+          suggestions.add(
+            HotelDestinationSuggestion.fromJson(
+              Map<String, dynamic>.from(raw),
+            ),
+          );
+        } on FormatException {
+          continue;
+        }
+      }
+      if (suggestions.isNotEmpty) return suggestions;
+      return localFallback;
+    } catch (_) {
+      if (localFallback.isNotEmpty) return localFallback;
+      rethrow;
     }
   }
 

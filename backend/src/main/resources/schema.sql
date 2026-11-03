@@ -532,3 +532,24 @@ CREATE TABLE IF NOT EXISTS api_tokens (
     CONSTRAINT api_tokens_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS api_tokens_user_id_index ON api_tokens (user_id);
+
+CREATE TABLE IF NOT EXISTS hotel_destinations (
+    destination_type VARCHAR(16) NOT NULL
+        CHECK (destination_type IN ('city', 'zone', 'country')),
+    destination_code VARCHAR(32) NOT NULL,
+    parent_code VARCHAR(32) NOT NULL DEFAULT '',
+    name_en VARCHAR(255) NOT NULL DEFAULT '',
+    name_ar VARCHAR(255) NOT NULL DEFAULT '',
+    country_code VARCHAR(3) NOT NULL DEFAULT '',
+    country_name_en VARCHAR(255) NOT NULL DEFAULT '',
+    country_name_ar VARCHAR(255) NOT NULL DEFAULT '',
+    latitude DOUBLE PRECISION NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude DOUBLE PRECISION NULL CHECK (longitude BETWEEN -180 AND 180),
+    search_text TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (destination_type, destination_code, parent_code)
+);
+CREATE INDEX IF NOT EXISTS hotel_destinations_search_trgm_index
+    ON hotel_destinations USING GIN (search_text gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS hotel_destinations_type_name_index
+    ON hotel_destinations (destination_type, LOWER(name_en));

@@ -43,6 +43,8 @@ public class HotelbedsHotelService {
             LoggerFactory.getLogger(HotelbedsHotelService.class);
     private static final int MAX_HOTELS = 30;
     private static final int MAX_OFFERS_PER_HOTEL = 5;
+    private static final int DESTINATION_PAGE_SIZE = 1000;
+    private static final int DESTINATION_MAX_PAGES = 10;
     private static final int SEARCH_RADIUS_KM = 20;
     private static final Duration CONTENT_CACHE_TTL = Duration.ofHours(24);
     private static final String HOTEL_IMAGE_BASE =
@@ -87,6 +89,18 @@ public class HotelbedsHotelService {
             LocalDate checkOut,
             int rooms,
             int guests) {
+        return searchHotels(city, checkIn, checkOut, rooms, guests, null, null, null);
+    }
+
+    public UnifiedInventoryService.SourceOutcome searchHotels(
+            String city,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            int rooms,
+            int guests,
+            String destinationCode,
+            Double latitude,
+            Double longitude) {
         String normalizedCity = city == null ? "" : city.trim();
         if (normalizedCity.isBlank()) {
             return UnifiedInventoryService.SourceOutcome.of(List.of());
@@ -103,8 +117,27 @@ public class HotelbedsHotelService {
                     "Hotelbeds availability requires valid stay dates and guest counts.");
         }
 
-        GeoapifyAirportService.GeocodedPlace location =
-                geocoder == null ? null : geocoder.resolveLocation(normalizedCity);
+        GeoapifyAirportService.GeocodedPlace location = null;
+        if (latitude != null && longitude != null
+                && Double.isFinite(latitude) && Double.isFinite(longitude)
+                && latitude >= -90 && latitude <= 90
+                && longitude >= -180 && longitude <= 180) {
+            location = new GeoapifyAirportService.GeocodedPlace(
+                    normalizedCity,
+                    normalizedCity,
+                    "",
+                    "",
+                    "",
+                    normalizedCity,
+                    "city",
+                    "",
+                    "",
+                    latitude,
+                    longitude);
+        }
+        if (location == null && geocoder != null) {
+            location = geocoder.resolveLocation(normalizedCity);
+        }
         if (location == null) {
             return unavailable(
                     "Hotelbeds could not resolve that destination. Try a city and country.");
@@ -117,7 +150,8 @@ public class HotelbedsHotelService {
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
                     .body(availabilityRequest(
-                            checkIn, checkOut, rooms, guests, location))
+                            checkIn, checkOut, rooms, guests, location,
+                            destinationCode))
                     .retrieve()
                     .body(JsonNode.class);
             if (response == null) {
@@ -179,6 +213,142 @@ public class HotelbedsHotelService {
             LOG.warn("Hotelbeds availability search failed ({})",
                     exception.getClass().getSimpleName());
             return unavailable("Hotelbeds hotel inventory is temporarily unavailable.");
+        }
+    }
+
+    /**
+     * Fetches the destination catalog in bounded pages for the weekly local
+     * catalog refresh. Autocomplete never calls Hotelbeds directly.
+     */
+    public List<Map<String, Object>> fetchDestinationCatalog() {
+        if (apiKey.isBlank() || apiSecret.isBlank()) return List.of();
+
+        Map<String, Map<String, Object>> rows = new LinkedHashMap<>();
+        for (String language : List.of("ENG", "ARA")) {
+            for (int page = 0; page < DESTINATION_MAX_PAGES; page++) {
+                int from = page * DESTINATION_PAGE_SIZE + 1;
+                int to = from + DESTINATION_PAGE_SIZE - 1;
+                try {
+                    JsonNode response = client.get()
+                            .uri(uri -> uri.path(
+                                            "/hotel-content-api/1.0/locations/destinations")
+                                    .queryParam("fields", "all")
+                                    .queryParam("language", language)
+                                    .queryParam("useSecondaryLanguage", "true")
+                                    .queryParam("from", from)
+                                    .queryParam("to", to)
+                                    .build())
+                            .headers(this::applyAuthentication)
+                            .accept(MediaType.APPLICATION_JSON)
+                            .retrieve()
+                            .body(JsonNode.class);
+                    JsonNode destinations = response == null
+                            ? JSON.getNodeFactory().arrayNode()
+                            : response.path("destinations");
+                    if (!destinations.isArray() && response != null
+                            && response.isArray()) {
+                        destinations = response;
+                    }
+                    if (!destinations.isArray() || destinations.size() == 0) break;
+
+                    for (JsonNode destination : destinations) {
+                        String code = firstText(destination, "code", "destinationCode");
+                        String name = content(destination.path("name"));
+                        if (code.isBlank() || name.isBlank()) continue;
+                        String countryCode = firstText(
+                                destination, "countryCode", "country_code", "isoCode");
+                        Map<String, Object> city =
+                                catalogRow(rows, "city", code, "");
+                        putLocalized(city, language, name);
+                        city.put("country_code", countryCode);
+                        if (!countryCode.isBlank()) {
+                            String englishCountry = countryName(countryCode, "en");
+                            String arabicCountry = countryName(countryCode, "ar");
+                            city.put("country_name_en", englishCountry);
+                            city.put("country_name_ar", arabicCountry);
+                            Map<String, Object> country = catalogRow(
+                                    rows, "country", countryCode, "");
+                            country.put("country_code", countryCode);
+                            putLocalized(
+                                    country,
+                                    language,
+                                    language.equals("ARA")
+                                            ? arabicCountry : englishCountry);
+                            country.put("country_name_en", englishCountry);
+                            country.put("country_name_ar", arabicCountry);
+                        }
+
+                        JsonNode zones = destination.path("zones");
+                        if (!zones.isArray()) continue;
+                        for (JsonNode zone : zones) {
+                            String zoneCode = firstText(zone, "zoneCode", "code");
+                            String zoneName = content(zone.path("name"));
+                            if (zoneCode.isBlank() || zoneName.isBlank()) continue;
+                            Map<String, Object> zoneRow =
+                                    catalogRow(rows, "zone", code, zoneCode);
+                            putLocalized(zoneRow, language, zoneName);
+                            zoneRow.put("country_code", countryCode);
+                            zoneRow.put(
+                                    "country_name_en",
+                                    countryCode.isBlank()
+                                            ? "" : countryName(countryCode, "en"));
+                            zoneRow.put(
+                                    "country_name_ar",
+                                    countryCode.isBlank()
+                                            ? "" : countryName(countryCode, "ar"));
+                        }
+                    }
+                    if (destinations.size() < DESTINATION_PAGE_SIZE) break;
+                } catch (RestClientResponseException exception) {
+                    logProviderFailure("destination catalog", exception);
+                    return List.copyOf(rows.values());
+                } catch (RestClientException | IllegalArgumentException exception) {
+                    LOG.warn("Hotelbeds destination catalog refresh failed ({})",
+                            exception.getClass().getSimpleName());
+                    return List.copyOf(rows.values());
+                }
+            }
+        }
+        return List.copyOf(rows.values());
+    }
+
+    private static Map<String, Object> catalogRow(
+            Map<String, Map<String, Object>> rows,
+            String type,
+            String code,
+            String parentCode) {
+        String key = type + "|" + code + "|" + parentCode;
+        return rows.computeIfAbsent(key, ignored -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("destination_type", type);
+            row.put("destination_code", code);
+            row.put("parent_code", parentCode);
+            row.put("name_en", "");
+            row.put("name_ar", "");
+            row.put("country_code", "");
+            row.put("country_name_en", "");
+            row.put("country_name_ar", "");
+            row.put("latitude", null);
+            row.put("longitude", null);
+            return row;
+        });
+    }
+
+    private static void putLocalized(
+            Map<String, Object> row, String language, String value) {
+        String field = language.equals("ARA") ? "name_ar" : "name_en";
+        if (row.get(field) == null || row.get(field).toString().isBlank()) {
+            row.put(field, value);
+        }
+    }
+
+    private static String countryName(String countryCode, String language) {
+        try {
+            String value = new java.util.Locale("", countryCode)
+                    .getDisplayCountry(java.util.Locale.forLanguageTag(language));
+            return value.isBlank() ? countryCode : value;
+        } catch (IllegalArgumentException exception) {
+            return countryCode;
         }
     }
 
@@ -249,7 +419,8 @@ public class HotelbedsHotelService {
             LocalDate checkOut,
             int rooms,
             int guests,
-            GeoapifyAirportService.GeocodedPlace location) {
+            GeoapifyAirportService.GeocodedPlace location,
+            String destinationCode) {
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("stay", Map.of(
                 "checkIn", checkIn.toString(),
@@ -258,11 +429,15 @@ public class HotelbedsHotelService {
                 "rooms", rooms,
                 "adults", guests,
                 "children", 0)));
-        request.put("geolocation", Map.of(
-                "latitude", location.latitude(),
-                "longitude", location.longitude(),
-                "radius", SEARCH_RADIUS_KM,
-                "unit", "km"));
+        if (destinationCode != null && !destinationCode.isBlank()) {
+            request.put("destination", Map.of("code", destinationCode.trim()));
+        } else {
+            request.put("geolocation", Map.of(
+                    "latitude", location.latitude(),
+                    "longitude", location.longitude(),
+                    "radius", SEARCH_RADIUS_KM,
+                    "unit", "km"));
+        }
         request.put("filter", Map.of(
                 "maxHotels", MAX_HOTELS,
                 "maxRooms", rooms,

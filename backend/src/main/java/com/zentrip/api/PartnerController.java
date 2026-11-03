@@ -67,6 +67,7 @@ public class PartnerController {
     private final AirportDirectoryService airportDirectoryService;
     private final DuffelFlightService duffelFlightService;
     private final HotelbedsHotelService hotelbedsHotelService;
+    private final HotelDestinationCatalogService hotelDestinationCatalogService;
     private final UnifiedInventoryService unifiedInventoryService;
 
     public PartnerController(
@@ -76,6 +77,7 @@ public class PartnerController {
             AirportDirectoryService airportDirectoryService,
             DuffelFlightService duffelFlightService,
             HotelbedsHotelService hotelbedsHotelService,
+            HotelDestinationCatalogService hotelDestinationCatalogService,
             ExchangeRateService exchangeRateService) {
         this.jdbc = jdbc;
         this.imageStorage = imageStorage;
@@ -83,6 +85,7 @@ public class PartnerController {
         this.airportDirectoryService = airportDirectoryService;
         this.duffelFlightService = duffelFlightService;
         this.hotelbedsHotelService = hotelbedsHotelService;
+        this.hotelDestinationCatalogService = hotelDestinationCatalogService;
         this.unifiedInventoryService = new UnifiedInventoryService(exchangeRateService);
     }
 
@@ -905,8 +908,36 @@ public class PartnerController {
         return Map.of("suggestions", suggestions.stream().limit(12).toList());
     }
 
-    @GetMapping("/hotels/search")
+    @GetMapping("/hotels/destinations/suggest")
+    public Map<String, Object> suggestHotelDestinations(
+            @RequestParam(name = "q", defaultValue = "") String query,
+            @RequestParam(defaultValue = "en") String language) {
+        return Map.of(
+                "suggestions",
+                hotelDestinationCatalogService.suggest(query, language));
+    }
+
     public Map<String, Object> searchHotels(
+            String city,
+            String checkIn,
+            String checkOut,
+            int rooms,
+            int guests,
+            String currency,
+            BigDecimal priceMin,
+            BigDecimal priceMax,
+            BigDecimal ratingMin,
+            String amenities,
+            String roomType,
+            String preferences) {
+        return searchHotelsEndpoint(
+                city, checkIn, checkOut, rooms, guests, currency, priceMin,
+                priceMax, ratingMin, amenities, roomType, preferences,
+                null, null, null);
+    }
+
+    @GetMapping("/hotels/search")
+    public Map<String, Object> searchHotelsEndpoint(
             @RequestParam(defaultValue = "") String city,
             @RequestParam(name = "check_in", required = false) String checkIn,
             @RequestParam(name = "check_out", required = false) String checkOut,
@@ -918,10 +949,27 @@ public class PartnerController {
             @RequestParam(name = "rating_min", required = false) BigDecimal ratingMin,
             @RequestParam(required = false) String amenities,
             @RequestParam(name = "room_type", required = false) String roomType,
-            @RequestParam(required = false) String preferences) {
+            @RequestParam(required = false) String preferences,
+            @RequestParam(name = "destination_code", required = false)
+                    String destinationCode,
+            @RequestParam(name = "lat", required = false) Double latitude,
+            @RequestParam(name = "lon", required = false) Double longitude) {
         if (rooms < 1 || rooms > 10 || guests < 1 || guests > 20) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Invalid room or guest count");
+        }
+        if ((latitude == null) != (longitude == null)
+                || (latitude != null && (!validCoordinate(latitude, -90, 90)
+                || !validCoordinate(longitude, -180, 180)))) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid destination coordinates");
+        }
+        String normalizedDestinationCode = destinationCode == null
+                ? "" : destinationCode.trim();
+        if (!normalizedDestinationCode.isEmpty()
+                && !normalizedDestinationCode.matches("[A-Za-z0-9_-]{1,32}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid destination code");
         }
         String normalizedCurrency = UnifiedInventoryService.validateCurrency(currency);
         UnifiedInventoryService.HotelFilters hotelFilters =
@@ -958,12 +1006,23 @@ public class PartnerController {
                 new UnifiedInventoryService.ProviderSearch(
                         "hotelbeds",
                         "Hotelbeds hotel inventory is temporarily unavailable.",
-                        () -> hotelbedsHotelService.searchHotels(
-                                normalizedCity,
-                                parsedCheckIn,
-                                parsedCheckOut,
-                                rooms,
-                                guests)));
+                        () -> normalizedDestinationCode.isBlank()
+                                && latitude == null
+                                ? hotelbedsHotelService.searchHotels(
+                                        normalizedCity,
+                                        parsedCheckIn,
+                                        parsedCheckOut,
+                                        rooms,
+                                        guests)
+                                : hotelbedsHotelService.searchHotels(
+                                        normalizedCity,
+                                        parsedCheckIn,
+                                        parsedCheckOut,
+                                        rooms,
+                                        guests,
+                                        normalizedDestinationCode,
+                                        latitude,
+                                        longitude)));
         UnifiedInventoryService.SearchOutcome merged = unifiedInventoryService.merge(
                 "hotel",
                 () -> hotelSearchRows(normalizedCity).stream()

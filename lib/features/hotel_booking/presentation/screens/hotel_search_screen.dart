@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/services/api_service.dart';
 import '../../../../core/services/current_location_service.dart';
-import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../global_widgets/booking_loading_overlay.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
+import '../../../../models/hotel_destination_suggestion.dart';
 import '../../../../routes/app_routes.dart';
 import '../../logic/hotel_controller.dart';
 
@@ -36,6 +35,7 @@ class HotelSearchScreen extends StatefulWidget {
   final DateTime? initialCheckOut;
   final int? initialGuests;
   final CurrentLocationService locationService;
+  final HotelController? controller;
   const HotelSearchScreen({
     super.key,
     this.initialCity,
@@ -43,6 +43,7 @@ class HotelSearchScreen extends StatefulWidget {
     this.initialCheckOut,
     this.initialGuests,
     this.locationService = const CurrentLocationService(),
+    this.controller,
   });
 
   @override
@@ -50,13 +51,23 @@ class HotelSearchScreen extends StatefulWidget {
 }
 
 class _HotelSearchScreenState extends State<HotelSearchScreen> {
-  final _ctrl = HotelController();
+  late final HotelController _ctrl;
+  bool _ownsController = false;
   final _cityCtrl = TextEditingController();
-  TextEditingController? _autocompleteController;
+  final _destinationFocusNode = FocusNode();
+  HotelDestinationSuggestion? _selectedDestination;
+  bool _destinationError = false;
   bool _cityInitialized = false;
-  bool _isLoadingCurrentCity = false;
   bool _isLoadingNearby = false;
   String? _locationMessage;
+  CurrentLocationError? _locationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = widget.controller ?? HotelController();
+    _ownsController = widget.controller == null;
+  }
 
   @override
   void didChangeDependencies() {
@@ -66,57 +77,22 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
       if (initialCity != null && initialCity.isNotEmpty) {
         _cityCtrl.text = initialCity;
       }
-      _checkIn = widget.initialCheckIn ?? _checkIn;
-      _checkOut = widget.initialCheckOut ?? _checkOut;
-      _guests = widget.initialGuests ?? _guests;
+      final today = _dateOnly(DateTime.now());
+      final lastBookableDate = today.add(const Duration(days: 330));
+      _checkIn = _dateOnly(widget.initialCheckIn ?? _checkIn);
+      _checkOut = _dateOnly(widget.initialCheckOut ?? _checkOut);
+      if (_checkIn.isBefore(today)) _checkIn = today;
+      if (!_checkIn.isBefore(lastBookableDate)) {
+        _checkIn = lastBookableDate.subtract(const Duration(days: 1));
+      }
+      if (_checkOut.isAfter(lastBookableDate)) {
+        _checkOut = lastBookableDate;
+      }
+      if (!_checkOut.isAfter(_checkIn)) {
+        _checkOut = _checkIn.add(const Duration(days: 1));
+      }
+      _guests = (widget.initialGuests ?? _guests).clamp(_rooms, 20).toInt();
       _cityInitialized = true;
-    }
-  }
-
-  Future<void> _loadCurrentCity({bool overrideExisting = false}) async {
-    setState(() {
-      _isLoadingCurrentCity = true;
-      _locationMessage = null;
-    });
-    try {
-      final place = await widget.locationService.getCurrentPlace();
-      if (!mounted) return;
-      final l10n = AppLocalizations.of(context);
-      final airport = AirportOption.nearestTo(
-        place.position.latitude,
-        place.position.longitude,
-      );
-      final city = AirportOption.byCity(place.city ?? '')?.city ??
-          airport?.city ??
-          place.city;
-      if ((overrideExisting || _cityCtrl.text.trim().isEmpty) && city != null) {
-        _cityCtrl.text = city;
-        _autocompleteController?.text = city;
-      }
-      setState(() {
-        _isLoadingCurrentCity = false;
-        _locationMessage = city == null ? l10n.currentCityUnavailable : null;
-      });
-    } on CurrentLocationException catch (error) {
-      if (!mounted) return;
-      final l10n = AppLocalizations.of(context);
-      setState(() {
-        _isLoadingCurrentCity = false;
-        _locationMessage = switch (error.reason) {
-          CurrentLocationError.serviceDisabled =>
-            l10n.nearbyLocationServiceDisabled,
-          CurrentLocationError.permissionDenied =>
-            l10n.nearbyLocationPermissionDenied,
-          CurrentLocationError.permissionDeniedForever =>
-            l10n.nearbyLocationPermissionDeniedForever,
-          CurrentLocationError.unableToDetermine =>
-            l10n.nearbyLocationUnableToDetermine,
-        };
-      });
-    } finally {
-      if (mounted && _isLoadingCurrentCity) {
-        setState(() => _isLoadingCurrentCity = false);
-      }
     }
   }
 
@@ -124,32 +100,95 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
   DateTime _checkOut = DateTime.now().add(const Duration(days: 10));
   int _rooms = 1;
   int _guests = 2;
+  DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
+
+  int get _nightCount =>
+      DateTime.utc(_checkOut.year, _checkOut.month, _checkOut.day)
+          .difference(DateTime.utc(_checkIn.year, _checkIn.month, _checkIn.day))
+          .inDays
+          .clamp(1, 99)
+          .toInt();
+
+  void _onDestinationChanged(String value) {
+    _selectedDestination = null;
+    _destinationError = false;
+    _ctrl.updateDestinationQuery(
+      value,
+      languageCode: Localizations.localeOf(context).languageCode,
+    );
+    if (_locationMessage != null || _locationError != null) {
+      setState(() {
+        _locationMessage = null;
+        _locationError = null;
+      });
+    } else {
+      setState(() {});
+    }
+  }
+
+  void _selectDestination(HotelDestinationSuggestion suggestion) {
+    final language = Localizations.localeOf(context).languageCode;
+    setState(() {
+      _selectedDestination = suggestion;
+      _cityCtrl.text = suggestion.displayName(language);
+      _destinationError = false;
+      _locationMessage = null;
+      _locationError = null;
+    });
+    _ctrl.clearDestinationSuggestions();
+    _destinationFocusNode.unfocus();
+  }
+
+  Future<void> _selectFirstDestination() async {
+    if (_selectedDestination != null) return;
+    await _ctrl.loadDestinationSuggestionsNow(
+      _cityCtrl.text,
+      languageCode: Localizations.localeOf(context).languageCode,
+    );
+    if (!mounted || _ctrl.destinationSuggestions.isEmpty) return;
+    _selectDestination(_ctrl.destinationSuggestions.first);
+  }
 
   Future<void> _search() async {
-    final city = (_autocompleteController ?? _cityCtrl).text.trim();
-    if (city.isEmpty) {
-      AppSnackbar.error(
-        context,
-        _locationMessage ??
-            AppLocalizations.of(context).hotelDestinationRequired,
-      );
+    if (_selectedDestination == null) {
+      await _selectFirstDestination();
+    }
+    if (!mounted) return;
+    final selected = _selectedDestination;
+    if (selected == null) {
+      setState(() => _destinationError = true);
       return;
+    }
+    final language = Localizations.localeOf(context).languageCode;
+    final visibleCity = selected.displayName(language);
+    final city = selected.name;
+    if (_checkOut.isBefore(_checkIn.add(const Duration(days: 1)))) {
+      setState(() => _checkOut = _checkIn.add(const Duration(days: 1)));
     }
     final params = HotelSearchParams(
       city: city,
+      destinationCode: selected.destinationCode,
+      latitude: selected.latitude,
+      longitude: selected.longitude,
       checkIn: _checkIn,
       checkOut: _checkOut,
       rooms: _rooms,
       guests: _guests,
     );
+    setState(() {
+      _destinationError = false;
+      _locationMessage = null;
+      _locationError = null;
+    });
     await BookingLoadingOverlay.run<void>(
       context,
       title: AppLocalizations.of(context).hotelSearching,
-      subtitle: city,
+      subtitle: visibleCity,
       serviceIcon: Icons.hotel_rounded,
       action: () => _ctrl.search(params),
     );
-    unawaited(HotelSearchHistory.saveCity(city));
+    unawaited(HotelSearchHistory.saveCity(visibleCity));
     if (!mounted) return;
     Navigator.pushNamed(context, AppRoutes.hotelResults, arguments: _ctrl);
   }
@@ -158,11 +197,13 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
     setState(() {
       _isLoadingNearby = true;
       _locationMessage = null;
+      _locationError = null;
+      _destinationError = false;
     });
     try {
-      late final Position position;
+      late final CurrentPlace place;
       try {
-        position = await widget.locationService.getPosition();
+        place = await widget.locationService.getCurrentPlace();
       } on CurrentLocationException catch (error) {
         if (mounted) {
           setState(() {
@@ -170,24 +211,31 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
               error.reason,
               AppLocalizations.of(context),
             );
+            _locationError = error.reason;
           });
         }
         return;
       }
+      final position = place.position;
       final nearestAirport = AirportOption.nearestTo(
         position.latitude,
         position.longitude,
       );
-      if (nearestAirport == null) {
-        if (mounted) {
-          setState(() => _locationMessage =
-              AppLocalizations.of(context).nearbyLocationUnableToDetermine);
-        }
-        return;
-      }
       if (!mounted) return;
+      final city = AirportOption.byCity(place.city ?? '')?.city ??
+          nearestAirport?.city ??
+          place.city ??
+          AppLocalizations.of(context).hotelNearbyTitle;
+      final detected = HotelDestinationSuggestion(
+        name: city,
+        localizedName: place.city,
+        countryName: place.country,
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+      _selectDestination(detected);
       final params = HotelSearchParams(
-        city: AppLocalizations.of(context).hotelNearbyTitle,
+        city: city,
         checkIn: _checkIn,
         checkOut: _checkOut,
         rooms: _rooms,
@@ -196,7 +244,7 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
       await BookingLoadingOverlay.run<void>(
         context,
         title: AppLocalizations.of(context).hotelSearching,
-        subtitle: AppLocalizations.of(context).hotelNearbyTitle,
+        subtitle: city,
         serviceIcon: Icons.hotel_rounded,
         action: () async {
           await _ctrl.searchNearby(
@@ -228,6 +276,51 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
           l10n.nearbyLocationUnableToDetermine,
       };
 
+  Future<void> _openLocationSettings() async {
+    final reason = _locationError;
+    try {
+      if (reason == CurrentLocationError.serviceDisabled) {
+        await Geolocator.openLocationSettings();
+      } else {
+        await Geolocator.openAppSettings();
+      }
+    } catch (_) {
+      // Keep the inline permission message visible if the settings app cannot open.
+    }
+  }
+
+  Future<void> _pickDateRange() async {
+    final today = _dateOnly(DateTime.now());
+    final lastDate = today.add(const Duration(days: 330));
+    final latestStart = lastDate.subtract(const Duration(days: 1));
+    final initialStart = _checkIn.isBefore(today)
+        ? today
+        : _checkIn.isAfter(latestStart)
+            ? latestStart
+            : _checkIn;
+    final requestedEnd = _checkOut.isAfter(initialStart)
+        ? _checkOut
+        : initialStart.add(const Duration(days: 1));
+    final initialEnd = requestedEnd.isAfter(lastDate) ? lastDate : requestedEnd;
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: today,
+      lastDate: lastDate,
+      initialDateRange: DateTimeRange(
+        start: initialStart,
+        end: initialEnd,
+      ),
+    );
+    if (range == null || !mounted) return;
+    setState(() {
+      _checkIn = _dateOnly(range.start);
+      _checkOut = _dateOnly(range.end);
+      if (!_checkOut.isAfter(_checkIn)) {
+        _checkOut = _checkIn.add(const Duration(days: 1));
+      }
+    });
+  }
+
   TextSpan _highlightSuggestion(String value) {
     final query = _cityCtrl.text.trim();
     final start = value.toLowerCase().indexOf(query.toLowerCase());
@@ -248,8 +341,9 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    if (_ownsController) _ctrl.dispose();
     _cityCtrl.dispose();
+    _destinationFocusNode.dispose();
     super.dispose();
   }
 
@@ -271,85 +365,129 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
           const SizedBox(height: 8),
           _InputBox(
             isDark: isDark,
-            child: Autocomplete<String>(
-              initialValue: TextEditingValue(text: _cityCtrl.text),
-              optionsBuilder: (value) =>
-                  ApiService.instance.searchHotelLocations(value.text),
-              onSelected: (selection) {
-                _cityCtrl.text = selection;
-                if (_locationMessage != null) {
-                  setState(() => _locationMessage = null);
-                }
-              },
-              optionsViewBuilder: (context, onSelected, options) => Align(
-                alignment: AlignmentDirectional.topStart,
+            child: TextField(
+              controller: _cityCtrl,
+              focusNode: _destinationFocusNode,
+              textInputAction: TextInputAction.search,
+              onChanged: _onDestinationChanged,
+              onSubmitted: (_) => _selectFirstDestination(),
+              decoration: InputDecoration(
+                hintText: l10n.hotelDestinationHint,
+                prefixIcon:
+                    const Icon(Icons.search_rounded, color: AppColors.primary),
+                suffixIcon: _isLoadingNearby
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : IconButton(
+                        tooltip: l10n.useCurrentLocation,
+                        onPressed: _searchNearby,
+                        icon: const Icon(Icons.my_location_rounded),
+                      ),
+                border: InputBorder.none,
+                filled: false,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+            ),
+          ).animate().fade(duration: 300.ms),
+          ListenableBuilder(
+            listenable: _ctrl,
+            builder: (context, _) {
+              final query = _cityCtrl.text.trim();
+              if (query.length < 2 || _selectedDestination != null) {
+                return const SizedBox.shrink();
+              }
+              Widget? content;
+              if (_ctrl.isLoadingDestinationSuggestions) {
+                content = ListTile(
+                  dense: true,
+                  leading: const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  title: Text(l10n.hotelLoadingDestinations),
+                );
+              } else if (_ctrl.hasDestinationSuggestionError) {
+                content = ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.error_outline_rounded),
+                  title: Text(l10n.hotelDestinationSuggestionsError),
+                );
+              } else if (_ctrl.destinationSuggestions.isEmpty) {
+                content = ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.search_off_rounded),
+                  title: Text(l10n.hotelNoDestinationSuggestions),
+                );
+              } else {
+                content = ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 240),
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    children: _ctrl.destinationSuggestions.map((suggestion) {
+                      final displayName = suggestion.displayName(
+                        Localizations.localeOf(context).languageCode,
+                      );
+                      final country = suggestion.displayCountry(
+                        Localizations.localeOf(context).languageCode,
+                      );
+                      return ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.place_outlined),
+                        title: Text.rich(_highlightSuggestion(displayName)),
+                        subtitle: country.isEmpty ? null : Text(country),
+                        onTap: () => _selectDestination(suggestion),
+                      );
+                    }).toList(growable: false),
+                  ),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: 4),
                 child: Material(
                   elevation: 5,
                   borderRadius: BorderRadius.circular(12),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 240),
-                    child: ListView(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      children: options
-                          .map((option) => ListTile(
-                                dense: true,
-                                leading: const Icon(Icons.place_outlined),
-                                title: Text.rich(_highlightSuggestion(option)),
-                                onTap: () => onSelected(option),
-                              ))
-                          .toList(),
-                    ),
-                  ),
+                  child: content,
                 ),
-              ),
-              fieldViewBuilder:
-                  (context, controller, focusNode, onFieldSubmitted) {
-                _autocompleteController = controller;
-                return TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  onChanged: (value) {
-                    _cityCtrl.text = value;
-                    if (_locationMessage != null) {
-                      setState(() => _locationMessage = null);
-                    }
-                  },
-                  decoration: InputDecoration(
-                    hintText: l10n.hotelDestinationHint,
-                    prefixIcon: const Icon(Icons.search_rounded,
-                        color: AppColors.primary),
-                    suffixIcon: _isLoadingCurrentCity
-                        ? const Padding(
-                            padding: EdgeInsets.all(14),
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          )
-                        : IconButton(
-                            tooltip: l10n.useCurrentLocation,
-                            onPressed: () =>
-                                _loadCurrentCity(overrideExisting: true),
-                            icon: const Icon(Icons.my_location_rounded),
-                          ),
-                    border: InputBorder.none,
-                    filled: false,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                  ),
-                );
-              },
-            ),
-          ).animate().fade(duration: 300.ms),
-          if (_locationMessage != null)
+              );
+            },
+          ),
+          if (_destinationError)
             Padding(
               padding: const EdgeInsetsDirectional.only(start: 12, top: 6),
               child: Text(
-                _locationMessage!,
+                l10n.hotelSelectDestination,
                 style:
                     const TextStyle(color: AppColors.accentRed, fontSize: 12),
+              ),
+            ),
+          if (_locationMessage != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: 12, top: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _locationMessage!,
+                      style: const TextStyle(
+                          color: AppColors.accentRed, fontSize: 12),
+                    ),
+                  ),
+                  if (_locationError != null)
+                    TextButton.icon(
+                      onPressed: _openLocationSettings,
+                      icon: const Icon(Icons.settings_outlined, size: 16),
+                      label: Text(l10n.openLocationSettings),
+                    ),
+                ],
               ),
             ),
           const SizedBox(height: 16),
@@ -362,15 +500,7 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
                     date: _checkIn,
                     icon: Icons.login_rounded,
                     isDark: isDark,
-                    onTap: () async {
-                      final d = await showDatePicker(
-                          context: context,
-                          initialDate: _checkIn,
-                          firstDate: DateTime.now(),
-                          lastDate:
-                              DateTime.now().add(const Duration(days: 365)));
-                      if (d != null) setState(() => _checkIn = d);
-                    })),
+                    onTap: _pickDateRange)),
             const SizedBox(width: 12),
             Expanded(
                 child: _DatePick(
@@ -378,15 +508,7 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
                     date: _checkOut,
                     icon: Icons.logout_rounded,
                     isDark: isDark,
-                    onTap: () async {
-                      final d = await showDatePicker(
-                          context: context,
-                          initialDate: _checkOut,
-                          firstDate: _checkIn.add(const Duration(days: 1)),
-                          lastDate:
-                              DateTime.now().add(const Duration(days: 365)));
-                      if (d != null) setState(() => _checkOut = d);
-                    })),
+                    onTap: _pickDateRange)),
           ]).animate().fade(delay: 100.ms),
           const SizedBox(height: 16),
 
@@ -399,8 +521,11 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
                     value: _rooms,
                     isDark: isDark,
                     min: 1,
-                    max: 9,
-                    onChanged: (v) => setState(() => _rooms = v))),
+                    max: 10,
+                    onChanged: (v) => setState(() {
+                          _rooms = v;
+                          if (_guests < v) _guests = v;
+                        }))),
             const SizedBox(width: 12),
             Expanded(
                 child: _Stepper(
@@ -408,7 +533,7 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
                     icon: Icons.people_rounded,
                     value: _guests,
                     isDark: isDark,
-                    min: 1,
+                    min: _rooms,
                     max: 20,
                     onChanged: (v) => setState(() => _guests = v))),
           ]).animate().fade(delay: 180.ms),
@@ -425,8 +550,9 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
                   color: AppColors.primary, size: 18),
               const SizedBox(width: 10),
               Text(
-                  l10n.hotelStaySummary(
-                      _checkOut.difference(_checkIn).inDays, _rooms, _guests),
+                  '${l10n.hotelNightsSummary(_nightCount)} · '
+                  '${l10n.hotelRoomsSummary(_rooms)} · '
+                  '${l10n.hotelGuestsSummary(_guests)}',
                   style: const TextStyle(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w600,

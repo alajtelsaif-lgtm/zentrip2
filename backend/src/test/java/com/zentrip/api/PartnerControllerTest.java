@@ -34,6 +34,8 @@ class PartnerControllerTest {
     private final DuffelFlightService duffelFlightService = mock(DuffelFlightService.class);
     private final HotelbedsHotelService hotelbedsHotelService =
             mock(HotelbedsHotelService.class);
+    private final HotelDestinationCatalogService hotelDestinationCatalogService =
+            mock(HotelDestinationCatalogService.class);
     private final PartnerController controller = new PartnerController(
             jdbc,
             imageStorage,
@@ -41,6 +43,7 @@ class PartnerControllerTest {
             airportDirectoryService,
             duffelFlightService,
             hotelbedsHotelService,
+            hotelDestinationCatalogService,
             mock(ExchangeRateService.class));
 
     @Test
@@ -52,6 +55,19 @@ class PartnerControllerTest {
 
         assertEquals(expected, controller.searchAirports(" London "));
         verify(airportDirectoryService).search(" London ");
+    }
+
+    @Test
+    void hotelDestinationSuggestionsUseTheLocalCatalogService() {
+        List<Map<String, Object>> expected =
+                List.of(Map.of("name", "London", "type", "city"));
+        when(hotelDestinationCatalogService.suggest("lo", "ar"))
+                .thenReturn(expected);
+
+        assertEquals(
+                Map.of("suggestions", expected),
+                controller.suggestHotelDestinations("lo", "ar"));
+        verify(hotelDestinationCatalogService).suggest("lo", "ar");
     }
 
     @Test

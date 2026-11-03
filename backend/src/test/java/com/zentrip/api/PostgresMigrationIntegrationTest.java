@@ -64,6 +64,31 @@ class PostgresMigrationIntegrationTest {
     }
 
     @Test
+    @Transactional
+    void hotelDestinationCatalogIsAvailableToTheRuntimeRole() {
+        jdbc.execute("SET LOCAL ROLE zentrip_api_runtime");
+        String code = "TEST" + UUID.randomUUID().toString().replace("-", "")
+                .substring(0, 12);
+        jdbc.update("""
+                INSERT INTO public.hotel_destinations (
+                    destination_type, destination_code, parent_code,
+                    name_en, name_ar, country_code, country_name_en,
+                    country_name_ar, latitude, longitude, search_text
+                ) VALUES ('city', ?, '', 'Paris', 'باريس', 'FR',
+                    'France', 'فرنسا', 48.8566, 2.3522, 'paris باريس france فرنسا')
+                """, code);
+
+        Map<String, Object> row = jdbc.queryForMap("""
+                SELECT name_en, name_ar, destination_code
+                FROM public.hotel_destinations
+                WHERE destination_code = ?
+                """, code);
+        assertEquals("Paris", row.get("name_en"));
+        assertEquals("باريس", row.get("name_ar"));
+        assertEquals(code, row.get("destination_code"));
+    }
+
+    @Test
     void landmarkCachePersistsTheWholeViewportForThirtyDays() {
         Map<String, Object> request = Map.of(
                 "area_kind", "viewport",

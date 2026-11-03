@@ -563,7 +563,12 @@
   "hotelSearching": "جارٍ البحث...",
   "hotelDestinationHint": "المدينة أو الوجهة...",
   "hotelDestinationRequired": "أدخل وجهة أو اسمح بالوصول إلى موقعك لتحديد مدينتك.",
+  "hotelSelectDestination": "اختر وجهة من قائمة الاقتراحات.",
+  "hotelLoadingDestinations": "جارٍ البحث عن الوجهات...",
+  "hotelNoDestinationSuggestions": "لم يتم العثور على وجهات لهذا البحث.",
+  "hotelDestinationSuggestionsError": "اقتراحات الوجهات غير متاحة مؤقتًا.",
   "hotelSearchNearby": "البحث بالقرب مني",
+  "openLocationSettings": "فتح الإعدادات",
   "hotelNearbyTitle": "فنادق بالقرب مني",
   "hotelNearbyUsingDemoLocation": "الموقع غير متاح؛ نعرض فنادق تجريبية بالقرب من طرابلس.",
   "hotelSortDistance": "📍 المسافة",
@@ -571,6 +576,30 @@
   "hotelRoomsLabel": "غرف",
   "hotelGuestsLabel": "ضيوف",
   "hotelStaySummary": "{nights} ليال · {rooms} غرفة · {guests} ضيوف",
+  "hotelNightsSummary": "{count, plural, =0{0 ليلة} one{{count} ليلة} two{ليلتان} few{{count} ليالٍ} many{{count} ليلة} other{{count} ليلة}}",
+  "@hotelNightsSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hotelRoomsSummary": "{count, plural, =0{0 غرفة} one{{count} غرفة} two{غرفتان} few{{count} غرف} many{{count} غرفة} other{{count} غرفة}}",
+  "@hotelRoomsSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hotelGuestsSummary": "{count, plural, =0{0 ضيف} one{{count} ضيف} two{ضيفان} few{{count} ضيوف} many{{count} ضيف} other{{count} ضيف}}",
+  "@hotelGuestsSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hotelResultsTitle": "فنادق {city} · {nights} ليال",
   "hotelNoResults": "لا توجد فنادق",
   "hotelFilterAll": "الكل",

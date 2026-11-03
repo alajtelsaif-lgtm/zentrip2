@@ -577,7 +577,12 @@
   "hotelSearching": "Searching...",
   "hotelDestinationHint": "City or destination...",
   "hotelDestinationRequired": "Enter a destination or allow location access to detect your city.",
+  "hotelSelectDestination": "Choose a destination from the suggestions.",
+  "hotelLoadingDestinations": "Searching destinations...",
+  "hotelNoDestinationSuggestions": "No destinations found for this search.",
+  "hotelDestinationSuggestionsError": "Destination suggestions are temporarily unavailable.",
   "hotelSearchNearby": "Search Nearby",
+  "openLocationSettings": "Open settings",
   "hotelNearbyTitle": "Hotels Near Me",
   "hotelNearbyUsingDemoLocation": "Location is unavailable; showing demo hotels near Tripoli.",
   "hotelSortDistance": "📍 Distance",
@@ -585,6 +590,30 @@
   "hotelRoomsLabel": "Rooms",
   "hotelGuestsLabel": "Guests",
   "hotelStaySummary": "{nights} nights · {rooms} rooms · {guests} guests",
+  "hotelNightsSummary": "{count, plural, =0{0 nights} one{{count} night} other{{count} nights}}",
+  "@hotelNightsSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hotelRoomsSummary": "{count, plural, =0{0 rooms} one{{count} room} other{{count} rooms}}",
+  "@hotelRoomsSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hotelGuestsSummary": "{count, plural, =0{0 guests} one{{count} guest} other{{count} guests}}",
+  "@hotelGuestsSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hotelResultsTitle": "{city} Hotels · {nights} nights",
   "hotelNoResults": "No hotels found",
   "hotelFilterAll": "All",

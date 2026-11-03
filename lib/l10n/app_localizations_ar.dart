@@ -1623,7 +1623,24 @@ class AppLocalizationsAr extends AppLocalizations {
       'أدخل وجهة أو اسمح بالوصول إلى موقعك لتحديد مدينتك.';
 
   @override
+  String get hotelSelectDestination => 'اختر وجهة من قائمة الاقتراحات.';
+
+  @override
+  String get hotelLoadingDestinations => 'جارٍ البحث عن الوجهات...';
+
+  @override
+  String get hotelNoDestinationSuggestions =>
+      'لم يتم العثور على وجهات لهذا البحث.';
+
+  @override
+  String get hotelDestinationSuggestionsError =>
+      'اقتراحات الوجهات غير متاحة مؤقتًا.';
+
+  @override
   String get hotelSearchNearby => 'البحث بالقرب مني';
+
+  @override
+  String get openLocationSettings => 'فتح الإعدادات';
 
   @override
   String get hotelNearbyTitle => 'فنادق بالقرب مني';
@@ -1649,6 +1666,51 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String hotelStaySummary(Object guests, Object nights, Object rooms) {
     return '$nights ليال · $rooms غرفة · $guests ضيوف';
+  }
+
+  @override
+  String hotelNightsSummary(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ليلة',
+      many: '$count ليلة',
+      few: '$count ليالٍ',
+      two: 'ليلتان',
+      one: '$count ليلة',
+      zero: '0 ليلة',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String hotelRoomsSummary(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count غرفة',
+      many: '$count غرفة',
+      few: '$count غرف',
+      two: 'غرفتان',
+      one: '$count غرفة',
+      zero: '0 غرفة',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String hotelGuestsSummary(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ضيف',
+      many: '$count ضيف',
+      few: '$count ضيوف',
+      two: 'ضيفان',
+      one: '$count ضيف',
+      zero: '0 ضيف',
+    );
+    return '$_temp0';
   }
 
   @override
