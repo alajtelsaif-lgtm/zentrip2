@@ -295,6 +295,29 @@
   "flightResults": "الرحلات المتاحة",
   "flightSelectTitle": "اختر الرحلة",
   "flightDateLabel": "تاريخ الرحلة",
+  "flightCalendar": "التقويم",
+  "flightAirlinesCount": "{count, plural, =0{لا توجد شركات طيران} =1{شركة طيران واحدة} =2{شركتا طيران} few{{count} شركات طيران} many{{count} شركة طيران} other{{count} شركة طيران}}",
+  "@flightAirlinesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "flightFare": "الأجرة",
+  "flightSeatsLabel": "المقاعد",
+  "flightPerPerson": "لكل شخص",
+  "flightDurationShort": "{hours} س {minutes} د",
+  "@flightDurationShort": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "cheapest": "الأرخص",
   "fastest": "الأسرع",
   "seatsLeft": "{count} مقاعد متبقية",

@@ -895,6 +895,38 @@ class AppLocalizationsAr extends AppLocalizations {
   String get flightDateLabel => 'تاريخ الرحلة';
 
   @override
+  String get flightCalendar => 'التقويم';
+
+  @override
+  String flightAirlinesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count شركة طيران',
+      many: '$count شركة طيران',
+      few: '$count شركات طيران',
+      two: 'شركتا طيران',
+      one: 'شركة طيران واحدة',
+      zero: 'لا توجد شركات طيران',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get flightFare => 'الأجرة';
+
+  @override
+  String get flightSeatsLabel => 'المقاعد';
+
+  @override
+  String get flightPerPerson => 'لكل شخص';
+
+  @override
+  String flightDurationShort(int hours, int minutes) {
+    return '$hours س $minutes د';
+  }
+
+  @override
   String get cheapest => 'الأرخص';
 
   @override

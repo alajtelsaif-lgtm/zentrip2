@@ -8,7 +8,7 @@ import 'package:zentrip/l10n/app_localizations.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('flight date selector shows the chosen date range and selection',
+  testWidgets('flight date selector shows seven dates and calendar action',
       (tester) async {
     DateTime? selected;
     await tester.pumpWidget(MaterialApp(
@@ -23,14 +23,19 @@ void main() {
     ));
 
     expect(find.text('Flight Date'), findsOneWidget);
-    expect(find.text('September 2026'), findsOneWidget);
+    expect(find.text('Calendar'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('flight-date-2026-9-10')),
+      findsOneWidget,
+    );
     await tester.tap(find.text('5'));
     expect(selected, DateTime(2026, 9, 5));
   });
 
   testWidgets('round-trip date choices stop at the return date',
       (tester) async {
+    DateTime? selected;
     await tester.pumpWidget(MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -38,13 +43,15 @@ void main() {
         body: FlightDateSelector(
           departureDate: DateTime(2026, 9, 4),
           lastDate: DateTime(2026, 9, 5),
-          onSelected: (_) {},
+          onSelected: (date) => selected = date,
         ),
       ),
     ));
 
     expect(find.text('5'), findsOneWidget);
-    expect(find.text('6'), findsNothing);
+    expect(find.text('6'), findsOneWidget);
+    await tester.tap(find.text('6'));
+    expect(selected, isNull);
   });
 
   testWidgets('empty flight search retains route and date selection on a phone',
@@ -75,7 +82,7 @@ void main() {
     expect(find.textContaining('No flights found from CGK to DPS'),
         findsOneWidget);
     expect(find.byIcon(Icons.flight_outlined), findsNothing);
-    expect(find.text('Search Flights'), findsNothing);
+    expect(find.text('Search Flights'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('5'));
     await tester.pumpAndSettle();

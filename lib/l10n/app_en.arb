@@ -309,6 +309,29 @@
   "flightResults": "Available Flights",
   "flightSelectTitle": "Select Flight",
   "flightDateLabel": "Flight Date",
+  "flightCalendar": "Calendar",
+  "flightAirlinesCount": "{count, plural, =0{No airlines} =1{1 airline} other{{count} airlines}}",
+  "@flightAirlinesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "flightFare": "Fare",
+  "flightSeatsLabel": "Seats",
+  "flightPerPerson": "per person",
+  "flightDurationShort": "{hours}h {minutes}m",
+  "@flightDurationShort": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "cheapest": "Cheapest",
   "fastest": "Fastest",
   "seatsLeft": "{count} seats left",

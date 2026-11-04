@@ -1821,6 +1821,42 @@ abstract class AppLocalizations {
   /// **'تاريخ الرحلة'**
   String get flightDateLabel;
 
+  /// No description provided for @flightCalendar.
+  ///
+  /// In ar, this message translates to:
+  /// **'التقويم'**
+  String get flightCalendar;
+
+  /// No description provided for @flightAirlinesCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =0{لا توجد شركات طيران} =1{شركة طيران واحدة} =2{شركتا طيران} few{{count} شركات طيران} many{{count} شركة طيران} other{{count} شركة طيران}}'**
+  String flightAirlinesCount(int count);
+
+  /// No description provided for @flightFare.
+  ///
+  /// In ar, this message translates to:
+  /// **'الأجرة'**
+  String get flightFare;
+
+  /// No description provided for @flightSeatsLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'المقاعد'**
+  String get flightSeatsLabel;
+
+  /// No description provided for @flightPerPerson.
+  ///
+  /// In ar, this message translates to:
+  /// **'لكل شخص'**
+  String get flightPerPerson;
+
+  /// No description provided for @flightDurationShort.
+  ///
+  /// In ar, this message translates to:
+  /// **'{hours} س {minutes} د'**
+  String flightDurationShort(int hours, int minutes);
+
   /// No description provided for @cheapest.
   ///
   /// In ar, this message translates to:

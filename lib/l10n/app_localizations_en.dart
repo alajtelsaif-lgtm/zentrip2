@@ -904,6 +904,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get flightDateLabel => 'Flight Date';
 
   @override
+  String get flightCalendar => 'Calendar';
+
+  @override
+  String flightAirlinesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count airlines',
+      one: '1 airline',
+      zero: 'No airlines',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get flightFare => 'Fare';
+
+  @override
+  String get flightSeatsLabel => 'Seats';
+
+  @override
+  String get flightPerPerson => 'per person';
+
+  @override
+  String flightDurationShort(int hours, int minutes) {
+    return '${hours}h ${minutes}m';
+  }
+
+  @override
   String get cheapest => 'Cheapest';
 
   @override
