@@ -86,6 +86,47 @@ class ApiControllerTest {
     }
 
     @Test
+    void bookingsReturnsEveryRecordForTheAuthenticatedCustomerWithLegacyPriceFallback() {
+        List<Map<String, Object>> rows = List.of(
+                Map.ofEntries(
+                        Map.entry("id", 81L),
+                        Map.entry("type", "hotel"),
+                        Map.entry("title", "Harbor Hotel"),
+                        Map.entry("subtitle", "Tunis"),
+                        Map.entry("date", "2027-04-10T14:00:00Z"),
+                        Map.entry("end_date", "2027-04-12T11:00:00Z"),
+                        Map.entry("effective_price", new BigDecimal("120.00")),
+                        Map.entry("ref_code", "HTL-81"),
+                        Map.entry("partner_listing_id", 14L),
+                        Map.entry("rooms", "2"),
+                        Map.entry("status", "upcoming")),
+                Map.of(
+                        "id", 80L,
+                        "type", "attraction",
+                        "title", "Museum Visit",
+                        "subtitle", "Tunis",
+                        "date", "2027-04-08T10:00:00Z",
+                        "end_date", "2027-04-08T11:00:00Z",
+                        "effective_price", new BigDecimal("25.00"),
+                        "ref_code", "TOUR-80",
+                        "status", "upcoming"));
+        when(jdbc.queryForList(
+                contains("FROM bookings"), eq(7L))).thenReturn(rows);
+
+        Map<String, Object> response = controller.bookings(authenticatedRequest());
+
+        List<?> bookings = (List<?>) response.get("bookings");
+        assertEquals(2, bookings.size());
+        Map<?, ?> hotel = (Map<?, ?>) bookings.getFirst();
+        assertEquals("81", hotel.get("id"));
+        assertEquals(new BigDecimal("120.00"), hotel.get("price"));
+        assertEquals(14L, hotel.get("partner_listing_id"));
+        assertEquals("2", hotel.get("rooms"));
+        verify(jdbc).queryForList(
+                contains("WHERE user_id = ?"), eq(7L));
+    }
+
+    @Test
     void invalidLoginReturnsLaravelValidationResponse() {
         when(jdbc.queryForList("SELECT id, password FROM users WHERE email = ?", "user@example.com"))
                 .thenReturn(List.of());
@@ -772,6 +813,7 @@ class ApiControllerTest {
 
         assertTrue(withImage.contains("\"image_url\":\"https://example.com/car.jpg\""));
         assertTrue(withImage.contains("\"end_date\":\"2026-11-12T09:00Z\""));
+        assertTrue(withImage.contains("\"rooms\":2"));
         assertTrue(withImage.contains("\"hotel_rooms_reserved\":2"));
         assertTrue(!unsafe.contains("image_url"));
         assertTrue(!missing.contains("image_url"));

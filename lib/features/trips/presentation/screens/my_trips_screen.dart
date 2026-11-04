@@ -17,15 +17,35 @@ class MyTripsScreen extends StatefulWidget {
 
 class _MyTripsScreenState extends State<MyTripsScreen> {
   final _ctrl = TripsController();
+  bool _loadErrorShown = false;
 
   @override
   void initState() {
     super.initState();
+    _ctrl.addListener(_onTripsChanged);
     _ctrl.loadTrips();
+  }
+
+  void _onTripsChanged() {
+    if (_ctrl.loadError == null) {
+      _loadErrorShown = false;
+      return;
+    }
+    if (_loadErrorShown) return;
+    _loadErrorShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).bookingLoadError),
+        ),
+      );
+    });
   }
 
   @override
   void dispose() {
+    _ctrl.removeListener(_onTripsChanged);
     _ctrl.dispose();
     super.dispose();
   }

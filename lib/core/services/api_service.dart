@@ -2061,14 +2061,8 @@ class ApiService {
       final trips = (res.data['trips'] as List)
           .map((t) => TripModel.fromJson(t as Map<String, dynamic>))
           .toList();
-      await _saveLocalFlightTrips(
-        trips,
-      ); // تحديث النسخة المحفوظة محليًا كـ Cache
       return ApiResult.success(trips);
     } catch (e) {
-      // مفيش نت أو السيرفر مش متجاوب — نرجّع آخر نسخة محفوظة بدل شاشة فاضية.
-      final cached = await _loadLocalFlightTrips();
-      if (cached.isNotEmpty) return ApiResult.success(cached);
       return ApiResult.failure(e.toString());
     }
   }
@@ -2196,11 +2190,8 @@ class ApiService {
       final bookings = (res.data['bookings'] as List)
           .map((b) => BookingModel.fromJson(b as Map<String, dynamic>))
           .toList();
-      await _saveLocalBookings(bookings);
       return ApiResult.success(bookings);
     } catch (e) {
-      final cached = await _loadLocalBookings();
-      if (cached.isNotEmpty) return ApiResult.success(cached);
       return ApiResult.failure(e.toString());
     }
   }

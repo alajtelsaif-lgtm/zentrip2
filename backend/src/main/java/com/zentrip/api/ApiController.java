@@ -1788,9 +1788,15 @@ public class ApiController {
         long userId = requireUserId(request);
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 SELECT bookings.*,
+                       COALESCE(bookings.price, bookings.total_amount) AS effective_price,
                        details ->> 'end_date' AS end_date,
-                       details ->> 'image_url' AS image_url
-                FROM bookings WHERE user_id = ? ORDER BY created_at DESC
+                       details ->> 'image_url' AS image_url,
+                       COALESCE(details ->> 'rooms',
+                                details ->> 'hotel_rooms_reserved',
+                                '1') AS rooms
+                FROM bookings
+                WHERE user_id = ?
+                ORDER BY created_at DESC, id DESC
                 """, userId);
         List<Map<String, Object>> payload = rows.stream().map(this::bookingPayload).toList();
         return Map.of("bookings", payload);
@@ -1872,8 +1878,12 @@ public class ApiController {
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("booking", bookingPayload(jdbc.queryForMap("""
                             SELECT bookings.*,
+                                   COALESCE(bookings.price, bookings.total_amount) AS effective_price,
                                    details ->> 'end_date' AS end_date,
-                                   details ->> 'image_url' AS image_url
+                                   details ->> 'image_url' AS image_url,
+                                   COALESCE(details ->> 'rooms',
+                                            details ->> 'hotel_rooms_reserved',
+                                            '1') AS rooms
                             FROM bookings WHERE id = ?
                             """, id))));
         } catch (ResponseStatusException exception) {
@@ -1928,7 +1938,7 @@ public class ApiController {
         return ResponseEntity.ok(Map.of("status", "cancelled"));
     }
 
-    /** JSON stored in bookings.details: end date plus an optional http(s) cover image. */
+    /** JSON in bookings.details: dates, hotel room count, and an optional HTTP(S) cover image. */
     static String bookingDetailsJson(
             OffsetDateTime end,
             Object imageUrl,
@@ -1945,6 +1955,7 @@ public class ApiController {
             boolean carReserved) {
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("end_date", end.toString());
+        if (hotelRoomCount > 0) details.put("rooms", hotelRoomCount);
         if (hotelRoomReserved) details.put("hotel_rooms_reserved", hotelRoomCount);
         if (carReserved) details.put("car_vehicle_reserved", 1);
         if (imageUrl instanceof String url) {
@@ -2215,9 +2226,14 @@ public class ApiController {
         result.put("subtitle", value(row.get("subtitle"), ""));
         result.put("date", row.get("date") == null ? null : row.get("date").toString());
         result.put("end_date", row.get("end_date") == null ? null : row.get("end_date").toString());
-        result.put("price", row.get("price"));
+        Object price = row.get("effective_price");
+        if (price == null) price = row.get("price");
+        if (price == null) price = row.get("total_amount");
+        result.put("price", price);
         result.put("ref_code", row.get("ref_code"));
         result.put("image_url", row.get("image_url"));
+        result.put("partner_listing_id", row.get("partner_listing_id"));
+        result.put("rooms", row.get("rooms"));
         result.put("status", value(row.get("status"), "upcoming"));
         return result;
     }

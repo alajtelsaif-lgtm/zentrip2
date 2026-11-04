@@ -491,6 +491,77 @@ class PostgresMigrationIntegrationTest {
     }
 
     @Test
+    void customerBookingHistoryReturnsAllOwnFlightAndStayRecordsOnly() throws Exception {
+        long otherUserId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password)
+                VALUES ('Other Customer', ?, 'unused-test-hash') RETURNING id
+                """, Long.class, UUID.randomUUID() + "@example.invalid");
+
+        long ownHotelId = jdbc.queryForObject("""
+                INSERT INTO bookings (
+                    user_id, type, status, total_amount, details, title, subtitle,
+                    "date", ref_code
+                ) VALUES (
+                    ?, 'hotel', 'upcoming', 120.00,
+                    '{"end_date":"2035-11-12T11:00:00Z","image_url":"https://example.test/stay.jpg","rooms":2}'::jsonb,
+                    'Harbor Hotel', 'Tunis', ?, 'HOTEL-OWN'
+                ) RETURNING id
+                """, Long.class, userId, Timestamp.from(Instant.parse("2035-11-10T14:00:00Z")));
+        long ownAttractionId = jdbc.queryForObject("""
+                INSERT INTO bookings (
+                    user_id, type, status, total_amount, price, title, subtitle, "date", ref_code
+                ) VALUES (?, 'attraction', 'upcoming', 25.00, 25.00,
+                    'Museum Visit', 'Tunis', ?, 'TOUR-OWN')
+                RETURNING id
+                """, Long.class, userId, Timestamp.from(Instant.parse("2035-11-08T10:00:00Z")));
+        long otherBookingId = jdbc.queryForObject("""
+                INSERT INTO bookings (user_id, type, status, total_amount, title, subtitle, "date")
+                VALUES (?, 'hotel', 'upcoming', 90.00, 'Private Stay', 'Tunis', ?)
+                RETURNING id
+                """, Long.class, otherUserId, Timestamp.from(Instant.parse("2035-11-15T14:00:00Z")));
+
+        long ownFlightId = jdbc.queryForObject("""
+                INSERT INTO trips (
+                    user_id, title, destination, origin_code, origin_city,
+                    destination_code, destination_city, departure_date, flight_number
+                ) VALUES (?, 'My flight', 'Tunis', 'MJI', 'Misrata',
+                    'TUN', 'Tunis', ?, 'ZT410')
+                RETURNING id
+                """, Long.class, userId, Timestamp.from(Instant.parse("2035-11-07T08:00:00Z")));
+        long otherFlightId = jdbc.queryForObject("""
+                INSERT INTO trips (user_id, title, destination, departure_date, flight_number)
+                VALUES (?, 'Private flight', 'Cairo', ?, 'ZT900')
+                RETURNING id
+                """, Long.class, otherUserId, Timestamp.from(Instant.parse("2035-11-20T08:00:00Z")));
+
+        JsonNode bookings = json.readTree(http.perform(get("/api/bookings")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString()).path("bookings");
+        assertEquals(2, bookings.size());
+        assertTrue(java.util.stream.StreamSupport.stream(bookings.spliterator(), false)
+                .anyMatch(booking -> booking.path("id").asLong() == ownHotelId));
+        assertTrue(java.util.stream.StreamSupport.stream(bookings.spliterator(), false)
+                .anyMatch(booking -> booking.path("id").asLong() == ownAttractionId));
+        assertFalse(java.util.stream.StreamSupport.stream(bookings.spliterator(), false)
+                .anyMatch(booking -> booking.path("id").asLong() == otherBookingId));
+        JsonNode hotel = java.util.stream.StreamSupport.stream(bookings.spliterator(), false)
+                .filter(booking -> booking.path("id").asLong() == ownHotelId)
+                .findFirst().orElseThrow();
+        assertEquals(120.00, hotel.path("price").asDouble());
+        assertEquals("2", hotel.path("rooms").asText());
+
+        JsonNode trips = json.readTree(http.perform(get("/api/trips")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString()).path("trips");
+        assertEquals(1, trips.size());
+        assertEquals(ownFlightId, trips.get(0).path("id").asLong());
+        assertFalse(java.util.stream.StreamSupport.stream(trips.spliterator(), false)
+                .anyMatch(trip -> trip.path("id").asLong() == otherFlightId));
+    }
+
+    @Test
     void carBookingReturnsIdAndCancellationRestoresInventory() throws Exception {
         long listing = listing("car", "{\"available_vehicles\":1}");
         JsonNode response = postJson("/api/bookings", booking("car", listing), 201);
