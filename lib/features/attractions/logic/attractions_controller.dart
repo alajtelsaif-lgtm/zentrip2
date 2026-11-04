@@ -528,14 +528,18 @@ class AttractionsController extends ChangeNotifier {
   /// Featured places come from the catalog and are ranked by recorded visits.
   static Future<List<AttractionModel>> loadFeaturedMonuments({
     int limit = 8,
-    String city = 'Tripoli',
-    String country = 'Libya',
+    required String city,
+    required String country,
     String language = 'en',
+    double? latitude,
+    double? longitude,
   }) async {
     final all = await ApiService.instance.searchAttractions(
       city: city,
       country: country,
       language: language,
+      latitude: latitude,
+      longitude: longitude,
     );
     return rankFeaturedMonuments(all, limit: limit);
   }

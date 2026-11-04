@@ -9,19 +9,22 @@ import 'trip_item_card.dart';
 import 'itinerary_screen.dart';
 
 class MyTripsScreen extends StatefulWidget {
-  const MyTripsScreen({super.key});
+  final TripsController? controller;
+
+  const MyTripsScreen({super.key, this.controller});
 
   @override
   State<MyTripsScreen> createState() => _MyTripsScreenState();
 }
 
 class _MyTripsScreenState extends State<MyTripsScreen> {
-  final _ctrl = TripsController();
+  late final TripsController _ctrl;
   bool _loadErrorShown = false;
 
   @override
   void initState() {
     super.initState();
+    _ctrl = widget.controller ?? TripsController();
     _ctrl.addListener(_onTripsChanged);
     _ctrl.loadTrips();
   }
@@ -256,6 +259,7 @@ class _FilterBar extends StatelessWidget {
       (TripFilter.hotels, l10n.tripsFilterHotels, Icons.hotel_rounded),
       (TripFilter.cars, l10n.tripsFilterCars, Icons.directions_car_rounded),
       (TripFilter.tours, l10n.tripsFilterTours, Icons.local_activity_rounded),
+      (TripFilter.transfers, l10n.tripsFilterTransfers, Icons.local_taxi_rounded),
     ];
     return SizedBox(
       height: 52,

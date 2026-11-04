@@ -29,6 +29,11 @@ class LiteApiHotelServiceTest {
     void searchesRatesAndNormalizesTheHotelWithoutChangingBookingFlow() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(
+                        BASE_URL + "/data/hotels?limit=100&cityName=Paris&countryCode=FR"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("X-API-Key", API_KEY))
+                .andRespond(withSuccess(metadataBody(), MediaType.APPLICATION_JSON));
         server.expect(requestTo(BASE_URL + "/hotels/rates"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("X-API-Key", API_KEY))
@@ -39,7 +44,7 @@ class LiteApiHotelServiceTest {
                           "currency":"EUR",
                           "guestNationality":"LY",
                           "occupancies":[{"rooms":1,"adults":2}],
-                          "cityName":"Paris"
+                          "hotelIds":["lp-123"]
                         }
                         """, false))
                 .andRespond(withSuccess(responseBody(), MediaType.APPLICATION_JSON));
@@ -54,10 +59,14 @@ class LiteApiHotelServiceTest {
                 2,
                 "EUR",
                 null,
-                null);
+                null,
+                "FR");
 
         assertEquals(1, result.items().size());
         assertTrue(result.warnings().isEmpty());
+        assertEquals("success", result.status());
+        assertEquals(1, result.diagnostics().get("metadata_count"));
+        assertEquals(1, result.diagnostics().get("rates_count"));
         Map<String, Object> hotel = result.items().getFirst();
         assertEquals("liteapi-lp-123", hotel.get("id"));
         assertEquals("liteapi", hotel.get("source"));
@@ -80,19 +89,21 @@ class LiteApiHotelServiceTest {
     void sendsPerRoomOccupanciesAndCoordinatesForMapBasedSearches() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(BASE_URL
+                        + "/data/hotels?limit=100&latitude=48.8566&longitude=2.3522&radius=20000"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(metadataBody(), MediaType.APPLICATION_JSON));
         server.expect(requestTo(BASE_URL + "/hotels/rates"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().json("""
                         {
                           "occupancies":[{"rooms":1,"adults":2},
                                          {"rooms":1,"adults":1}],
-                          "latitude":48.8566,
-                          "longitude":2.3522,
-                          "radius":20000
+                          "hotelIds":["lp-123"]
                         }
                         """, false))
                 .andRespond(withSuccess("""
-                        {"data":[],"hotels":[]}
+                        {"data":[],"hotels":[],"sandbox":true}
                         """, MediaType.APPLICATION_JSON));
 
         LiteApiHotelService service = new LiteApiHotelService(
@@ -105,10 +116,14 @@ class LiteApiHotelServiceTest {
                 3,
                 "EUR",
                 48.8566,
-                2.3522);
+                2.3522,
+                null);
 
         assertTrue(result.items().isEmpty());
-        assertTrue(result.warnings().isEmpty());
+        assertEquals("empty", result.status());
+        assertEquals(1, result.diagnostics().get("metadata_count"));
+        assertEquals(0, result.diagnostics().get("rates_count"));
+        assertEquals(1, result.warnings().size());
         server.verify();
     }
 
@@ -140,6 +155,8 @@ class LiteApiHotelServiceTest {
         assertTrue(result.items().isEmpty());
         assertEquals(List.of("LiteAPI access was denied for hotel rates."),
                 result.warnings());
+        assertEquals("error", result.status());
+        assertEquals(403, result.diagnostics().get("rates_http_status"));
         assertFalse(result.warnings().toString().contains(API_KEY));
         server.verify();
     }
@@ -204,6 +221,23 @@ class LiteApiHotelServiceTest {
                     "tags":["Free Wi-Fi","Breakfast"],
                     "story":"A centrally located hotel."
                   }]
+                }
+                """;
+    }
+
+    private static String metadataBody() {
+        return """
+                {
+                  "data":[{
+                    "id":"lp-123",
+                    "name":"Paris Central Hotel",
+                    "city":"Paris",
+                    "country":"FR",
+                    "main_photo":"https://images.example.test/paris-hotel.jpg",
+                    "latitude":48.8566,
+                    "longitude":2.3522
+                  }],
+                  "total":4989
                 }
                 """;
     }

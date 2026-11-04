@@ -4,6 +4,7 @@
 - [Seat inventory fidelity](seat-inventory-fidelity.md) — reference-image cabin and class counts are not real allocations; never invent them.
 - [Flutter cache restoration](flutter-cache-restoration.md) — use the workspace SDK and restore locked packages; the system Flutter or Pub cache may be stale or missing.
 - [Backend test database isolation](backend-test-database-isolation.md) — keep real database settings out of Maven test processes; use the loopback-only PostgreSQL integration harness.
+- [Backend Java toolchain](backend-java-toolchain.md) — run Maven with the workspace JDK 25; the system JDK 21 cannot compile this backend.
 - [Anonymous visit abuse limits](anonymous-visit-abuse-limits.md) — protect popularity counts with aggregate ephemeral limits, not IP, account, or location tracking.
 - [Wikidata SPARQL URI encoding](wikidata-sparql-uri-encoding.md) — encode SPARQL text before passing it as a Spring RestClient URI parameter.
 - [Geocoding ambiguity](geocoding-ambiguity.md) — country-filter explicit hints and reuse coordinates; free-text homonyms can resolve to the wrong destination.

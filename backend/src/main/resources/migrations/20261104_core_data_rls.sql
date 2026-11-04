@@ -1,6 +1,22 @@
 -- Enable the row policies for all application tables after the full schema
 -- and feature-migration chain has been applied.
 -- The application uses zentrip_api_runtime for request-time database work.
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR to_regclass('public.users') IS NULL
+       OR to_regclass('public.partners') IS NULL
+       OR to_regclass('public.tourist_monuments') IS NULL
+       OR to_regclass('public.attraction_visit_counts') IS NULL
+       OR to_regclass('public.attraction_visit_dedup') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zentrip_api_runtime')
+       OR to_regprocedure('public.zentrip_rls_role()') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261104_core_data_rls requires users, partners, tourist_monuments, both attraction visit tables, and zentrip_api_runtime; apply the base schema and role migration first';
+    END IF;
+END
+$$;
 
 -- These values are populated by RlsContextFilter from the verified session.
 -- Do not derive application roles from a client-supplied claim or from a
@@ -189,6 +205,29 @@ REVOKE ALL ON FUNCTION public.zentrip_lock_flight_listing(BIGINT)
 GRANT EXECUTE ON FUNCTION public.zentrip_lock_flight_listing(BIGINT)
     TO zentrip_api_runtime;
 
+CREATE TABLE IF NOT EXISTS public.legacy_attraction_partner_reviews (
+    id BIGSERIAL PRIMARY KEY,
+    partner_id BIGINT NOT NULL UNIQUE
+        REFERENCES public.partners(id) ON DELETE RESTRICT,
+    reviewed_by BIGINT NOT NULL
+        REFERENCES public.users(id) ON DELETE RESTRICT,
+    approved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    decisions JSONB NOT NULL,
+    mapped_listing_count INTEGER NOT NULL DEFAULT 0
+        CHECK (mapped_listing_count >= 0),
+    omitted_listing_count INTEGER NOT NULL DEFAULT 0
+        CHECK (omitted_listing_count >= 0)
+);
+CREATE INDEX IF NOT EXISTS legacy_attraction_reviews_reviewed_by_index
+    ON public.legacy_attraction_partner_reviews (reviewed_by);
+ALTER TABLE public.legacy_attraction_partner_reviews ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.legacy_attraction_partner_reviews
+    FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE
+    ON public.legacy_attraction_partner_reviews TO zentrip_api_runtime;
+GRANT USAGE, SELECT ON SEQUENCE public.legacy_attraction_partner_reviews_id_seq
+    TO zentrip_api_runtime;
+
 DO $$
 DECLARE
     table_name TEXT;
@@ -231,6 +270,14 @@ BEGIN
     END LOOP;
 END
 $$;
+
+-- The aggregate counters must only be reached through the rate-limited API
+-- running as the non-bypass runtime role.
+REVOKE ALL ON public.attraction_visit_counts, public.attraction_visit_dedup
+    FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE
+    ON public.attraction_visit_counts, public.attraction_visit_dedup
+    TO zentrip_api_runtime;
 
 -- Public auth flows may look up only the email currently being processed.
 -- The API sets this transaction-local value after validating the request.
@@ -341,4 +388,10 @@ CREATE POLICY zentrip_legacy_attraction_reviews_admin
     ON public.legacy_attraction_partner_reviews FOR ALL TO zentrip_api_runtime
     USING (public.zentrip_rls_role() = 'admin')
     WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261104_core_data_rls', 'core_data_rls')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
 

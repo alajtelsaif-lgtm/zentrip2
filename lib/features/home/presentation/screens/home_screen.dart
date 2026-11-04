@@ -166,11 +166,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadMonuments() async {
     try {
-      final destination = _airportByCity(_toName);
+      final destination = _airportByCode(_toCode);
+      if (destination == null) {
+        if (!mounted) return;
+        setState(() {
+          _monuments = const [];
+          _monumentsLoading = false;
+          _monumentsFailed = false;
+        });
+        return;
+      }
       final monuments = await AttractionsController.loadFeaturedMonuments(
-        city: _toName,
-        country: destination?.country ?? 'Libya',
+        city: destination.city,
+        country: destination.country,
         language: Localizations.localeOf(context).languageCode,
+        latitude: destination.latitude,
+        longitude: destination.longitude,
       );
       if (!mounted) return;
       setState(() {
@@ -221,15 +232,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (airport.code == code) return airport;
     }
     return AirportOption.byCode(code);
-  }
-
-  AirportOption? _airportByCity(String city) {
-    for (final airport in _airports) {
-      if (airport.city.toLowerCase() == city.trim().toLowerCase()) {
-        return airport;
-      }
-    }
-    return AirportOption.byCity(city);
   }
 
   Future<void> _chooseAirport({required bool origin}) async {

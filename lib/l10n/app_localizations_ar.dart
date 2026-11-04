@@ -1772,7 +1772,10 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get hotelNoResults => 'لا توجد فنادق';
+  String get hotelNoResults => 'لا توجد فنادق لهذه التواريخ.';
+
+  @override
+  String get hotelSearchUnavailable => 'البحث غير متاح مؤقتًا. حاول مرة أخرى.';
 
   @override
   String get hotelFilterAll => 'الكل';
@@ -2207,6 +2210,21 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get tripsFilterTours => 'جولات ومعالم';
+
+  @override
+  String get tripsFilterTransfers => 'التوصيلات';
+
+  @override
+  String get tripsKindTransfer => 'توصيلة';
+
+  @override
+  String get transferVehicleLabel => 'السيارة';
+
+  @override
+  String get tripSeatsLabel => 'المقاعد';
+
+  @override
+  String get tripExtrasLabel => 'الإضافات';
 
   @override
   String get tripsKindFlight => 'طيران';

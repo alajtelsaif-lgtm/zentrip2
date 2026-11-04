@@ -6,6 +6,7 @@ import 'package:zentrip/core/services/api_service.dart';
 import 'package:zentrip/features/trips/logic/trips_controller.dart';
 import 'package:zentrip/models/booking_model.dart';
 import 'package:zentrip/models/trip_model.dart';
+import 'package:zentrip/models/transfer_model.dart';
 
 void main() {
   TripModel flightTrip() => TripModel(
@@ -33,6 +34,8 @@ void main() {
           ApiResult<List<TripModel>>.success([flightTrip()]),
       loadBookings: () async =>
           ApiResult<List<BookingModel>>.success([hotelBooking()]),
+      loadTransfers: () async =>
+          ApiResult<List<TransferModel>>.success(const []),
     );
     addTearDown(controller.dispose);
 
@@ -46,11 +49,48 @@ void main() {
     );
   });
 
+  test('My Trips includes saved transfers and filters them separately',
+      () async {
+    final transfer = TransferModel(
+      id: 'transfer-8',
+      vehicleType: 'sedan',
+      vehicleName: 'City car',
+      maxPassengers: 3,
+      maxLuggage: 2,
+      price: 24,
+      pickupLocation: 'Airport',
+      dropoffLocation: 'Hotel',
+      pickupTime: DateTime.now().add(const Duration(days: 3)),
+      durationMinutes: 45,
+      providerName: 'Partner Ride',
+    );
+    final controller = TripsController(
+      loadFlightTrips: () async =>
+          ApiResult<List<TripModel>>.success(const []),
+      loadBookings: () async =>
+          ApiResult<List<BookingModel>>.success(const []),
+      loadTransfers: () async =>
+          ApiResult<List<TransferModel>>.success([transfer]),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.loadTrips();
+
+    expect(controller.visibleItems.single.kind, TripKind.transfer);
+    expect(controller.visibleItems.single.transfer, same(transfer));
+    controller.setFilter(TripFilter.transfers);
+    expect(controller.visibleItems, hasLength(1));
+    controller.setFilter(TripFilter.flights);
+    expect(controller.visibleItems, isEmpty);
+  });
+
   test('failed source does not leave stale bookings visible', () async {
     var bookingResult = ApiResult<List<BookingModel>>.success([hotelBooking()]);
     final controller = TripsController(
       loadFlightTrips: () async => ApiResult<List<TripModel>>.success(const []),
       loadBookings: () async => bookingResult,
+      loadTransfers: () async =>
+          ApiResult<List<TransferModel>>.success(const []),
     );
     addTearDown(controller.dispose);
 
@@ -73,6 +113,8 @@ void main() {
         return ApiResult<List<TripModel>>.success(const []);
       },
       loadBookings: () async => ApiResult<List<BookingModel>>.success(const []),
+      loadTransfers: () async =>
+          ApiResult<List<TransferModel>>.success(const []),
     );
     addTearDown(controller.dispose);
     await controller.loadTrips();

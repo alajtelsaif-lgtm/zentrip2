@@ -9,7 +9,14 @@ class TicketQrScreen extends StatelessWidget {
   final String title;
   final String subtitle;
   final String refCode;
-  const TicketQrScreen({super.key, required this.title, required this.subtitle, required this.refCode});
+  final List<String> details;
+  const TicketQrScreen({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.refCode,
+    this.details = const [],
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +42,15 @@ class TicketQrScreen extends StatelessWidget {
               Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18), textAlign: TextAlign.center),
               const SizedBox(height: 4),
               Text(subtitle, style: const TextStyle(color: AppColors.textSecondary), textAlign: TextAlign.center),
+              for (final detail in details)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    detail,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
+                ),
               const SizedBox(height: 12),
               Text(refCode, style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1.2, color: AppColors.primary)),
             ],

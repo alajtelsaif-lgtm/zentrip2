@@ -15,6 +15,7 @@ extension TripKindStyle on TripKind {
         TripKind.hotel => Icons.hotel_rounded,
         TripKind.car => Icons.directions_car_rounded,
         TripKind.tour => Icons.local_activity_rounded,
+        TripKind.transfer => Icons.local_taxi_rounded,
       };
 
   Color get color => switch (this) {
@@ -22,6 +23,7 @@ extension TripKindStyle on TripKind {
         TripKind.hotel => AppColors.accentTeal,
         TripKind.car => AppColors.accentOrange,
         TripKind.tour => AppColors.accentPurple,
+        TripKind.transfer => AppColors.accentTeal,
       };
 
   String label(AppLocalizations l10n) => switch (this) {
@@ -29,6 +31,7 @@ extension TripKindStyle on TripKind {
         TripKind.hotel => l10n.tripsKindHotel,
         TripKind.car => l10n.tripsKindCar,
         TripKind.tour => l10n.tripsKindTour,
+        TripKind.transfer => l10n.tripsKindTransfer,
       };
 }
 
@@ -170,6 +173,26 @@ class TripItemCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             color: AppColors.textSecondary, fontSize: 12)),
+                    if (item.flight?.selectedSeats.isNotEmpty == true) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        '${l10n.tripSeatsLabel}: ${item.flight!.selectedSeats.join(', ')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 12),
+                      ),
+                    ],
+                    if (item.flight?.extras.isNotEmpty == true) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        '${l10n.tripExtrasLabel}: ${item.flight!.extras.join(', ')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 12),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     Row(children: [
                       const Icon(Icons.calendar_today_outlined,
@@ -252,7 +275,8 @@ class _Pill extends StatelessWidget {
 /// Details sheet for hotel/car/tour bookings (flights open their own screen).
 Future<bool?> showBookingDetailsSheet(BuildContext context, TripItem item) {
   final booking = item.booking;
-  if (booking == null) return Future.value(false);
+  final transfer = item.transfer;
+  if (booking == null && transfer == null) return Future.value(false);
   final locale = Localizations.localeOf(context).languageCode;
   final canCancel =
       item.status == TripTab.upcoming || item.status == TripTab.active;
@@ -270,37 +294,50 @@ Future<bool?> showBookingDetailsSheet(BuildContext context, TripItem item) {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(booking.title,
+                  Text(item.title,
                       style: const TextStyle(
                           fontSize: 18, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 6),
-                  Text(booking.subtitle,
+                  Text(item.subtitle,
                       style: const TextStyle(color: AppColors.textSecondary)),
                   const SizedBox(height: 16),
-                  _DetailLine(Icons.calendar_today_outlined,
-                      DateTimeUtils.formatDate(booking.date, locale: locale)),
-                  if (booking.refCode != null)
+                  _DetailLine(
+                      Icons.calendar_today_outlined,
+                      DateTimeUtils.formatDate(
+                          transfer?.pickupTime ?? booking!.date,
+                          locale: locale)),
+                  if (transfer != null) ...[
+                    _DetailLine(Icons.trip_origin_rounded,
+                        '${l10n.transferPickupLabel}: ${transfer.pickupLocation}'),
+                    _DetailLine(Icons.location_on_outlined,
+                        '${l10n.transferDropoffLabel}: ${transfer.dropoffLocation}'),
+                    _DetailLine(Icons.directions_car_rounded,
+                        '${l10n.transferVehicleLabel}: ${transfer.vehicleType}'),
+                    _DetailLine(Icons.schedule_rounded,
+                        l10n.transferMinutes(transfer.durationMinutes)),
+                  ],
+                  if (booking?.refCode != null)
                     _DetailLine(
-                        Icons.confirmation_num_rounded, booking.refCode!),
-                  if (booking.price != null)
+                        Icons.confirmation_num_rounded, booking!.refCode!),
+                  if ((booking?.price ?? transfer?.price) != null)
                     _DetailLine(Icons.attach_money_rounded,
-                        '\$${booking.price!.toStringAsFixed(0)}'),
+                        '\$${(booking?.price ?? transfer?.price)!.toStringAsFixed(0)}'),
                   const SizedBox(height: 16),
-                  if (item.canReview) ...[
+                  if (booking != null && item.canReview) ...[
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () {
                           Navigator.pop(context);
-                          ReviewFormSheet.show(context,
-                              itemId: booking.id, itemType: booking.type.name);
+                      ReviewFormSheet.show(context,
+                          itemId: booking.id, itemType: booking.type.name);
                         },
                         icon: const Icon(Icons.rate_review_outlined, size: 16),
                         label: Text(l10n.writeAReview),
                       ),
                     ),
                   ],
-                  if (canCancel) ...[
+                  if (booking != null && canCancel) ...[
                     const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,

@@ -6,12 +6,13 @@ import '../../../core/services/api_result.dart';
 import '../../../core/services/api_service.dart';
 import '../../../models/booking_model.dart';
 import '../../../models/trip_model.dart';
+import '../../../models/transfer_model.dart';
 
 enum TripTab { upcoming, active, completed, cancelled }
 
-enum TripFilter { all, flights, hotels, cars, tours }
+enum TripFilter { all, flights, hotels, cars, tours, transfers }
 
-enum TripKind { flight, hotel, car, tour }
+enum TripKind { flight, hotel, car, tour, transfer }
 
 /// Unified My Trips entry: a flight trip or a hotel/car/tour booking.
 class TripItem {
@@ -28,6 +29,7 @@ class TripItem {
   final String? reference;
   final TripModel? flight;
   final BookingModel? booking;
+  final TransferModel? transfer;
 
   /// Reviews are available only after the trip's dates have completed.
   bool get canReview => status == TripTab.completed;
@@ -46,6 +48,7 @@ class TripItem {
     this.reference,
     this.flight,
     this.booking,
+    this.transfer,
   });
 }
 
@@ -53,17 +56,22 @@ class TripsController extends ChangeNotifier {
   TripsController({
     Future<ApiResult<List<TripModel>>> Function()? loadFlightTrips,
     Future<ApiResult<List<BookingModel>>> Function()? loadBookings,
+    Future<ApiResult<List<TransferModel>>> Function()? loadTransfers,
   })  : _loadFlightTrips =
             loadFlightTrips ?? ApiService.instance.getMyFlightTrips,
-        _loadBookings = loadBookings ?? ApiService.instance.getMyBookings {
+        _loadBookings = loadBookings ?? ApiService.instance.getMyBookings,
+        _loadTransfers = loadTransfers ?? ApiService.instance.getMyTransfers {
     ApiService.flightTripsRevision.addListener(_onBookingDataChanged);
     ApiService.bookingsRevision.addListener(_onBookingDataChanged);
+    ApiService.transfersRevision.addListener(_onBookingDataChanged);
   }
 
   final Future<ApiResult<List<TripModel>>> Function() _loadFlightTrips;
   final Future<ApiResult<List<BookingModel>>> Function() _loadBookings;
+  final Future<ApiResult<List<TransferModel>>> Function() _loadTransfers;
   List<TripModel> _flights = [];
   List<BookingModel> _bookings = [];
+  List<TransferModel> _transfers = [];
   int _loadGeneration = 0;
   bool isLoading = false;
   String? loadError;
@@ -138,6 +146,24 @@ class TripsController extends ChangeNotifier {
         booking: b,
       ));
     }
+    for (final transfer in _transfers) {
+      final start = transfer.pickupTime;
+      final end = start.add(Duration(
+          minutes: transfer.durationMinutes > 0
+              ? transfer.durationMinutes
+              : 60));
+      items.add(TripItem(
+        kind: TripKind.transfer,
+        title: '${transfer.pickupLocation} → ${transfer.dropoffLocation}',
+        subtitle: '${transfer.providerName} · ${transfer.vehicleType}',
+        start: start,
+        end: end,
+        status: resolveStatus(transfer.status, start, end, now),
+        imageUrl: transfer.vehicleImageUrl,
+        price: transfer.priceUSD,
+        transfer: transfer,
+      ));
+    }
     return items;
   }
 
@@ -147,6 +173,7 @@ class TripsController extends ChangeNotifier {
         TripFilter.hotels => i.kind == TripKind.hotel,
         TripFilter.cars => i.kind == TripKind.car,
         TripFilter.tours => i.kind == TripKind.tour,
+        TripFilter.transfers => i.kind == TripKind.transfer,
       };
 
   /// Count per status tab, respecting the selected category filter.
@@ -186,25 +213,37 @@ class TripsController extends ChangeNotifier {
       // hotel/car/tour reservations are stored in bookings.
       final flightsRequest = _safeLoad(_loadFlightTrips);
       final bookingsRequest = _safeLoad(_loadBookings);
-      final flightsResult = await flightsRequest;
-      final bookingsResult = await bookingsRequest;
+      final transfersRequest = _safeLoad(_loadTransfers);
+      final results = await Future.wait([
+        flightsRequest,
+        bookingsRequest,
+        transfersRequest,
+      ]);
+      final flightsResult = results[0] as ApiResult<List<TripModel>>;
+      final bookingsResult = results[1] as ApiResult<List<BookingModel>>;
+      final transfersResult = results[2] as ApiResult<List<TransferModel>>;
 
       if (generation != _loadGeneration) return;
       _flights =
           flightsResult.isSuccess ? flightsResult.data ?? const [] : const [];
       _bookings =
           bookingsResult.isSuccess ? bookingsResult.data ?? const [] : const [];
+      _transfers =
+          transfersResult.isSuccess ? transfersResult.data ?? const [] : const [];
       final errors = [
         if (flightsResult.isFailure)
           flightsResult.errorMessage ?? 'Flight trips could not be loaded',
         if (bookingsResult.isFailure)
           bookingsResult.errorMessage ?? 'Bookings could not be loaded',
+        if (transfersResult.isFailure)
+          transfersResult.errorMessage ?? 'Transfers could not be loaded',
       ];
       loadError = errors.isEmpty ? null : errors.join('; ');
     } catch (error) {
       if (generation != _loadGeneration) return;
       _flights = [];
       _bookings = [];
+      _transfers = [];
       loadError = error.toString();
     } finally {
       if (generation == _loadGeneration) {
@@ -227,6 +266,7 @@ class TripsController extends ChangeNotifier {
   void dispose() {
     ApiService.flightTripsRevision.removeListener(_onBookingDataChanged);
     ApiService.bookingsRevision.removeListener(_onBookingDataChanged);
+    ApiService.transfersRevision.removeListener(_onBookingDataChanged);
     super.dispose();
   }
 

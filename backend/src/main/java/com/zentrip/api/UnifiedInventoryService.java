@@ -47,7 +47,17 @@ public class UnifiedInventoryService {
 
     public record SourceOutcome(
             List<Map<String, Object>> items,
-            List<String> warnings) {
+            List<String> warnings,
+            String status,
+            Map<String, Object> diagnostics) {
+        public SourceOutcome(
+                List<Map<String, Object>> items,
+                List<String> warnings) {
+            this(items, warnings,
+                    items == null || items.isEmpty() ? "empty" : "success",
+                    Map.of());
+        }
+
         public SourceOutcome {
             items = items == null
                     ? List.of()
@@ -57,6 +67,8 @@ public class UnifiedInventoryService {
                     : warnings.stream()
                             .filter(warning -> warning != null && !warning.isBlank())
                             .toList();
+            status = status == null || status.isBlank() ? "unknown" : status;
+            diagnostics = diagnostics == null ? Map.of() : Map.copyOf(diagnostics);
         }
 
         public static SourceOutcome of(List<Map<String, Object>> items) {
@@ -82,7 +94,16 @@ public class UnifiedInventoryService {
     public record SearchOutcome(
             List<Map<String, Object>> items,
             List<String> warnings,
-            Map<String, Long> sources) {
+            Map<String, Long> sources,
+            Map<String, String> providerStatuses,
+            Map<String, Map<String, Object>> providerDiagnostics) {
+        public SearchOutcome(
+                List<Map<String, Object>> items,
+                List<String> warnings,
+                Map<String, Long> sources) {
+            this(items, warnings, sources, Map.of(), Map.of());
+        }
+
         public SearchOutcome {
             items = items == null
                     ? List.of()
@@ -93,6 +114,17 @@ public class UnifiedInventoryService {
                             .filter(warning -> warning != null && !warning.isBlank())
                             .toList();
             sources = sources == null ? Map.of() : Map.copyOf(sources);
+            providerStatuses = providerStatuses == null
+                    ? Map.of()
+                    : Map.copyOf(providerStatuses);
+            if (providerDiagnostics == null) {
+                providerDiagnostics = Map.of();
+            } else {
+                Map<String, Map<String, Object>> copy = new LinkedHashMap<>();
+                providerDiagnostics.forEach((source, values) ->
+                        copy.put(source, values == null ? Map.of() : Map.copyOf(values)));
+                providerDiagnostics = Map.copyOf(copy);
+            }
         }
     }
 
@@ -142,6 +174,8 @@ public class UnifiedInventoryService {
 
         List<String> warnings = new ArrayList<>();
         List<Map<String, Object>> results = new ArrayList<>();
+        Map<String, String> providerStatuses = new LinkedHashMap<>();
+        Map<String, Map<String, Object>> providerDiagnostics = new LinkedHashMap<>();
         try {
             List<Map<String, Object>> partnerItems = partnerSearch.get();
             if (partnerItems != null) {
@@ -160,12 +194,23 @@ public class UnifiedInventoryService {
                 providerItems = providerFutures.get(index).join();
             } catch (CompletionException exception) {
                 warnings.add(providers.get(index).warning());
+                providerStatuses.put(providers.get(index).source(), "unavailable");
+                providerDiagnostics.put(
+                        providers.get(index).source(),
+                        Map.of("error_type", exception.getCause() == null
+                                ? exception.getClass().getSimpleName()
+                                : exception.getCause().getClass().getSimpleName()));
                 continue;
             }
             if (providerItems == null) {
                 warnings.add(providers.get(index).warning());
+                providerStatuses.put(providers.get(index).source(), "unavailable");
+                providerDiagnostics.put(providers.get(index).source(), Map.of());
                 continue;
             }
+            providerStatuses.put(providers.get(index).source(), providerItems.status());
+            providerDiagnostics.put(
+                    providers.get(index).source(), providerItems.diagnostics());
             providerItems.items().stream()
                     .filter(item -> item != null)
                     .map(item -> normalize(item, type))
@@ -188,7 +233,9 @@ public class UnifiedInventoryService {
         return new SearchOutcome(
                 List.copyOf(results),
                 List.copyOf(new LinkedHashSet<>(warnings)),
-                sourceCounts);
+                sourceCounts,
+                providerStatuses,
+                providerDiagnostics);
     }
 
     public FilterOutcome filterHotels(

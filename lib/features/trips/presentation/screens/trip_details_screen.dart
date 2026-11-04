@@ -133,7 +133,9 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                 locale: locale),
                             Icons.calendar_today_outlined),
                     ]).animate().fade(delay: 280.ms),
-                if (trip.bookingRef != null) ...[
+                if (trip.bookingRef != null ||
+                    trip.selectedSeats.isNotEmpty ||
+                    trip.extras.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   _DetailSection(
                       title: l10n.tripsBookingDetails,
@@ -148,6 +150,13 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                   ? '${trip.priceCurrencyCode} ${trip.price!.toStringAsFixed(2)}'
                                   : '\$${trip.price!.toStringAsFixed(0)}',
                               Icons.attach_money_rounded),
+                        if (trip.selectedSeats.isNotEmpty)
+                          _DetailRow(l10n.tripSeatsLabel,
+                              trip.selectedSeats.join(', '),
+                              Icons.airline_seat_recline_normal_rounded),
+                        if (trip.extras.isNotEmpty)
+                          _DetailRow(l10n.tripExtrasLabel,
+                              trip.extras.join(', '), Icons.luggage_rounded),
                       ]).animate().fade(delay: 360.ms),
                 ],
                 if (trip.refundStatus != null) ...[
@@ -180,6 +189,12 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                   subtitle: trip.flightNumber,
                                   refCode:
                                       trip.bookingRef ?? trip.id.toString(),
+                                   details: [
+                                     if (trip.selectedSeats.isNotEmpty)
+                                       '${l10n.tripSeatsLabel}: ${trip.selectedSeats.join(', ')}',
+                                     if (trip.extras.isNotEmpty)
+                                       '${l10n.tripExtrasLabel}: ${trip.extras.join(', ')}',
+                                   ],
                                 ))),
                     icon: const Icon(Icons.qr_code_rounded, size: 16),
                     label: FittedBox(

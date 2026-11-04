@@ -9,6 +9,7 @@ class FlightBookingDraft {
   final DateTime? returnDate;
   final double totalPrice;
   final List<String> extras;
+  final int? paymentAttemptId;
 
   const FlightBookingDraft({
     required this.flight,
@@ -18,6 +19,7 @@ class FlightBookingDraft {
     required this.returnDate,
     required this.totalPrice,
     this.extras = const [],
+    this.paymentAttemptId,
   });
 }
 

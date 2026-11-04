@@ -508,21 +508,27 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         ? 'ZT-SIM-DUF-${DateTime.now().microsecondsSinceEpoch}'
         : 'flight-$flightId-${DateTime.now().microsecondsSinceEpoch}';
     final paymentLauncher = widget.paymentLauncher;
-    final paid = paymentLauncher == null
-        ? await PaymentCheckoutScreen.start(
+    int? paymentAttemptId;
+    final bool paid;
+    if (paymentLauncher == null) {
+      final payment = await PaymentCheckoutScreen.start(
             context,
             amountUsd: bookingTotal,
             currencyCode: isDuffel ? widget.flight.priceCurrencyCode : 'USD',
             description: '${widget.flight.flightNumber} seat booking',
             referenceId: requestReference,
-          )
-        : await paymentLauncher(
+          );
+      paymentAttemptId = payment?.attemptId;
+      paid = payment?.paid == true;
+    } else {
+      paid = await paymentLauncher(
             context,
             amount: bookingTotal,
             currencyCode: isDuffel ? widget.flight.priceCurrencyCode : 'USD',
             description: '${widget.flight.flightNumber} seat booking',
             referenceId: requestReference,
           );
+    }
     if (!mounted) return;
     if (!paid) {
       if (isDuffel) {
@@ -570,9 +576,15 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         sourceOfferId: widget.flight.duffelOfferId ?? widget.flight.id,
         priceCurrencyCode: widget.flight.priceCurrencyCode,
         isSimulated: true,
+        selectedSeats: selectedSeats,
+        extras: selectedExtras,
       );
-      final saved = await (widget.tripCreator ??
-          ApiService.instance.createFlightTrip)(trip);
+      final saved = widget.tripCreator != null
+          ? await widget.tripCreator!(trip)
+          : await ApiService.instance.createFlightTrip(
+              trip,
+              paymentAttemptId: paymentAttemptId,
+            );
       if (!mounted) return;
       if (saved.isFailure || saved.data == null) {
         setState(() => _submitting = false);
@@ -598,6 +610,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         returnDate: widget.returnDate,
         totalPrice: bookingTotal,
         extras: selectedExtras,
+        paymentAttemptId: paymentAttemptId,
       );
       if (_reviewPushed) Navigator.of(context).pop();
       await Navigator.of(context).push(
@@ -620,6 +633,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       returnDate: widget.returnDate,
       totalPrice: bookingTotal,
       extras: selectedExtras,
+      paymentAttemptId: paymentAttemptId,
     );
     if (_reviewPushed) Navigator.of(context).pop();
     await Navigator.of(context).push(

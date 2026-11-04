@@ -1776,7 +1776,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get hotelNoResults => 'No hotels found';
+  String get hotelNoResults => 'No hotels for these dates.';
+
+  @override
+  String get hotelSearchUnavailable =>
+      'Search temporarily unavailable. Try again.';
 
   @override
   String get hotelFilterAll => 'All';
@@ -2214,6 +2218,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tripsFilterTours => 'Tours & monuments';
+
+  @override
+  String get tripsFilterTransfers => 'Transfers';
+
+  @override
+  String get tripsKindTransfer => 'Transfer';
+
+  @override
+  String get transferVehicleLabel => 'Vehicle';
+
+  @override
+  String get tripSeatsLabel => 'Seats';
+
+  @override
+  String get tripExtrasLabel => 'Extras';
 
   @override
   String get tripsKindFlight => 'Flight';

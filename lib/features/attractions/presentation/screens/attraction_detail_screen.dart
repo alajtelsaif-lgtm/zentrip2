@@ -82,14 +82,16 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
     }
 
     // لو النشاط مجاني (entryFee = null أو صفر) نتخطى الدفع تمامًا.
+    int? paymentAttemptId;
     if (a.entryFee != null && a.entryFee! > 0) {
-      final paid = await PaymentCheckoutScreen.start(context,
+      final payment = await PaymentCheckoutScreen.start(context,
           amountUsd: a.entryFee!, description: a.name, referenceId: ref);
       if (!mounted) return;
-      if (!paid) {
+      if (payment?.paid != true) {
         AppSnackbar.error(context, l10n.paymentFailedMessage);
         return;
       }
+      paymentAttemptId = payment?.attemptId;
     }
 
     setState(() => _isBooking = true);
@@ -107,7 +109,10 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
       imageUrl: a.imageUrl,
       partnerListingId: a.partnerListingId,
     );
-    final createResult = await ApiService.instance.createBooking(booking);
+    final createResult = await ApiService.instance.createBooking(
+      booking,
+      paymentAttemptId: paymentAttemptId,
+    );
     if (createResult.isFailure) {
       if (!mounted) return;
       setState(() => _isBooking = false);

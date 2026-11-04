@@ -1158,17 +1158,25 @@ public class ApiController {
                    details ->> 'duffel_offer_id' AS duffel_offer_id,
                    details ->> 'price_currency' AS price_currency,
                    details ->> 'is_simulated' AS is_simulated,
+                   ARRAY(SELECT jsonb_array_elements_text(COALESCE(
+                       details -> 'selected_seats', details -> 'seat_numbers',
+                       '[]'::jsonb))) AS selected_seats,
+                   ARRAY(SELECT jsonb_array_elements_text(COALESCE(
+                       details -> 'extras', '[]'::jsonb))) AS extras,
                    details ->> 'refund_status' AS refund_status,
                    details ->> 'refund_method' AS refund_method
             FROM trips WHERE user_id = ? ORDER BY created_at DESC
             """, userId);
-        return Map.of("trips", rows);
+        return Map.of("trips", rows.stream()
+                .map(ApiController::normalizeTripHistoryRow)
+                .toList());
     }
 
     @PostMapping("/trips")
     @Transactional
     public ResponseEntity<?> createTrip(@RequestBody Map<String, Object> body, HttpServletRequest request) {
         long userId = requireUserId(request);
+        Long paymentAttemptId = lockSuccessfulPaymentAttempt(body, userId);
         String originCode = required(body, "origin_code");
         String originCity = required(body, "origin_city");
         String destinationCode = required(body, "destination_code");
@@ -1202,6 +1210,8 @@ public class ApiController {
             providerDetails.put(
                     "price_currency", value(body, "price_currency", "USD").toUpperCase());
             providerDetails.put("is_simulated", true);
+            providerDetails.put("selected_seats", stringList(body.get("selected_seats")));
+            providerDetails.put("extras", stringList(body.get("extras")));
         }
         String providerDetailsJson = JSON.valueToTree(providerDetails).toString();
         jdbc.queryForList("SELECT id FROM users WHERE id = ? FOR UPDATE", userId);
@@ -1222,6 +1232,9 @@ public class ApiController {
                 flightNumber, body.get("airline"), body.get("airline_logo_url"), bool(body.get("is_direct"), true),
                 value(body, "seat_class", "Economy"), price, body.get("booking_ref"),
                 "upcoming", arrival.toString(), passengerCount, providerDetailsJson);
+        if (paymentAttemptId != null) {
+            linkPaymentAttemptToTrip(paymentAttemptId, userId, id);
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("trip", tripRow(id)));
     }
 
@@ -1328,6 +1341,7 @@ public class ApiController {
         ResponseEntity<?> existingConfirmation =
                 existingSeatConfirmation(flightId, userId, seats);
         if (existingConfirmation != null) return existingConfirmation;
+        Long paymentAttemptId = lockSuccessfulPaymentAttempt(body, userId);
 
         for (String seat : seats) {
             List<String> held = jdbc.queryForList("""
@@ -1419,6 +1433,9 @@ public class ApiController {
                 flightNumber, airline,
                 airlineLogoUrl.isBlank() ? null : airlineLogoUrl,
                 isDirect, seatClassLabel, totalPrice, reference, detailsJson);
+        if (paymentAttemptId != null) {
+            linkPaymentAttemptToTrip(paymentAttemptId, userId, tripId);
+        }
         String confirmationSql = """
                 UPDATE flight_seat_holds
                 SET status = 'confirmed', booking_ref = ?, trip_id = ?, updated_at = NOW()
@@ -1767,11 +1784,15 @@ public class ApiController {
     }
 
     private Map<String, Object> tripRow(long id) {
-        return jdbc.queryForMap("""
+        return normalizeTripHistoryRow(jdbc.queryForMap("""
                 SELECT trips.*,
                        details ->> 'arrival_date' AS arrival_date,
                        details ->> 'passenger_count' AS passenger_count,
-                       details -> 'seat_numbers' AS seat_numbers,
+                       ARRAY(SELECT jsonb_array_elements_text(COALESCE(
+                           details -> 'selected_seats', details -> 'seat_numbers',
+                           '[]'::jsonb))) AS selected_seats,
+                       ARRAY(SELECT jsonb_array_elements_text(COALESCE(
+                           details -> 'extras', '[]'::jsonb))) AS extras,
                        details ->> 'source' AS source,
                        details ->> 'duffel_offer_id' AS duffel_offer_id,
                        details ->> 'price_currency' AS price_currency,
@@ -1779,7 +1800,38 @@ public class ApiController {
                        details ->> 'refund_status' AS refund_status,
                        details ->> 'refund_method' AS refund_method
                 FROM trips WHERE id = ?
-                """, id);
+                """, id));
+    }
+
+    private static Map<String, Object> normalizeTripHistoryRow(
+            Map<String, Object> source) {
+        Map<String, Object> row = new LinkedHashMap<>(source);
+        row.put("selected_seats", postgresTextArray(row.get("selected_seats")));
+        row.put("extras", postgresTextArray(row.get("extras")));
+        return row;
+    }
+
+    private static List<String> postgresTextArray(Object value) {
+        try {
+            if (value instanceof java.sql.Array postgresArray) {
+                value = postgresArray.getArray();
+            }
+        } catch (java.sql.SQLException exception) {
+            throw new IllegalStateException("Could not read trip history array", exception);
+        }
+        if (value instanceof Object[] values) {
+            return java.util.Arrays.stream(values)
+                    .filter(java.util.Objects::nonNull)
+                    .map(Object::toString)
+                    .toList();
+        }
+        if (value instanceof List<?> values) {
+            return values.stream()
+                    .filter(java.util.Objects::nonNull)
+                    .map(Object::toString)
+                    .toList();
+        }
+        return List.of();
     }
 
     @DeleteMapping("/trips/{id}")
@@ -1870,6 +1922,7 @@ public class ApiController {
     @Transactional(rollbackFor = Exception.class)
     public ResponseEntity<?> createBooking(@RequestBody Map<String, Object> body, HttpServletRequest request) {
         long userId = requireUserId(request);
+        Long paymentAttemptId = lockSuccessfulPaymentAttempt(body, userId);
         String type = supportedBookingType(required(body, "type"));
         try {
             String title = required(body, "title");
@@ -1920,6 +1973,9 @@ public class ApiController {
                     start, price, body.get("ref_code"),
                     bookingDetailsJson(end, body.get("image_url"), hotelRoomCount,
                             hotelRoomReserved, carReserved));
+            if (paymentAttemptId != null) {
+                linkPaymentAttemptToBooking(paymentAttemptId, userId, id);
+            }
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("booking", bookingPayload(jdbc.queryForMap("""
                             SELECT bookings.*,
@@ -2093,6 +2149,7 @@ public class ApiController {
             @RequestBody Map<String, Object> body, HttpServletRequest request) {
         long userId = requireUserId(request);
         try {
+            Long paymentAttemptId = lockSuccessfulPaymentAttempt(body, userId);
             OffsetDateTime pickupTime = dateTime(required(body, "pickup_time"));
             int durationMinutes = integer(body.get("duration_minutes"), 0);
             validateTransferDuration(durationMinutes);
@@ -2128,6 +2185,9 @@ public class ApiController {
             jdbc.update(
                     "INSERT INTO transfer_schedules (transfer_id, duration_minutes) VALUES (?, ?)",
                     id, durationMinutes);
+            if (paymentAttemptId != null) {
+                linkPaymentAttemptToTransfer(paymentAttemptId, userId, id);
+            }
             Map<String, Object> transfer = jdbc.queryForMap("SELECT * FROM transfers WHERE id = ?", id);
             transfer.put("id", Long.toString(id));
             transfer.put("duration_minutes", durationMinutes);
@@ -2177,15 +2237,103 @@ public class ApiController {
     }
 
     @PostMapping("/payments/checkout")
-    public Map<String, Object> checkout(@RequestBody Map<String, Object> body) {
-        required(body, "amount");
-        String reference = value(body, "reference_id", UUID.randomUUID().toString());
-        return Map.of("session_id", "mock_" + reference, "checkout_url", "mock://checkout");
+    public Map<String, Object> checkout(
+            @RequestBody Map<String, Object> body, HttpServletRequest request) {
+        requireUserId(request);
+        BigDecimal amount = decimal(required(body, "amount"));
+        if (amount.signum() < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "amount must not be negative");
+        }
+        String currency = value(body, "currency", "USD").toUpperCase(Locale.ROOT);
+        if (!currency.matches("[A-Z]{3}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "currency must be a 3-letter code");
+        }
+        return Map.of(
+                "session_id", "mock_" + UUID.randomUUID(),
+                "checkout_url", "mock://checkout");
     }
 
     @GetMapping("/payments/verify/{sessionId}")
-    public Map<String, Object> verifyPayment(@PathVariable String sessionId) {
-        return Map.of("paid", true, "session_id", sessionId);
+    public Map<String, Object> paymentAttempt(
+            @PathVariable String sessionId, HttpServletRequest request) {
+        long userId = requireUserId(request);
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT id, status FROM payment_attempts
+                WHERE session_id = ? AND user_id = ?
+                """, sessionId, userId);
+        if (rows.isEmpty()) {
+            return Map.of(
+                    "attempted", false,
+                    "paid", false,
+                    "session_id", sessionId);
+        }
+        Map<String, Object> row = rows.getFirst();
+        String status = value(row.get("status"), "failed");
+        return Map.of(
+                "attempted", true,
+                "attempt_id", number(row.get("id")),
+                "status", status,
+                "paid", "success".equals(status),
+                "session_id", sessionId);
+    }
+
+    @PostMapping("/payments/verify/{sessionId}")
+    @Transactional
+    public ResponseEntity<?> recordPaymentAttempt(
+            @PathVariable String sessionId,
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        long userId = requireUserId(request);
+        if (sessionId == null || !sessionId.startsWith("mock_")
+                || sessionId.length() > 128) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "Invalid simulated payment session");
+        }
+        if (!(body.get("paid") instanceof Boolean paid)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "paid must be a boolean");
+        }
+        BigDecimal amount = decimal(required(body, "amount"));
+        if (amount.signum() < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "amount must not be negative");
+        }
+        String currency = value(body, "currency", "USD").toUpperCase(Locale.ROOT);
+        if (!currency.matches("[A-Z]{3}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "currency must be a 3-letter code");
+        }
+        String status = paid ? "success" : "failed";
+        jdbc.update("""
+                INSERT INTO payment_attempts
+                    (session_id, user_id, amount, currency, status, is_simulation)
+                VALUES (?, ?, ?, ?, ?, TRUE)
+                ON CONFLICT (session_id) DO NOTHING
+                """, sessionId, userId, amount, currency, status);
+
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT id, user_id, amount, currency, status
+                FROM payment_attempts WHERE session_id = ?
+                """, sessionId);
+        if (rows.isEmpty() || number(rows.getFirst().get("user_id")) != userId) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Payment session is already associated with another account");
+        }
+        Map<String, Object> row = rows.getFirst();
+        boolean sameRequest = status.equals(row.get("status"))
+                && amount.compareTo(new BigDecimal(text(row.get("amount")))) == 0
+                && currency.equals(text(row.get("currency")).trim());
+        if (!sameRequest) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Payment session was already recorded differently");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "attempt_id", number(row.get("id")),
+                "status", status,
+                "paid", paid,
+                "is_simulation", true));
     }
 
     @GetMapping("/maps/search")
@@ -2444,6 +2592,85 @@ public class ApiController {
         Object userId = request.getAttribute("authUserId");
         if (!(userId instanceof Number number)) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
         return number.longValue();
+    }
+
+    private Long lockSuccessfulPaymentAttempt(Map<String, Object> body, long userId) {
+        Object rawId = body.get("payment_attempt_id");
+        if (rawId == null || text(rawId).isBlank()) return null;
+        long attemptId;
+        try {
+            attemptId = Long.parseLong(text(rawId));
+        } catch (NumberFormatException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "Invalid payment_attempt_id");
+        }
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT status, booking_id, trip_id, transfer_id
+                FROM payment_attempts
+                WHERE id = ? AND user_id = ?
+                FOR UPDATE
+                """, attemptId, userId);
+        if (rows.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Payment attempt not found for this account");
+        }
+        Map<String, Object> attempt = rows.getFirst();
+        if (!"success".equals(text(attempt.get("status")))) {
+            throw new ResponseStatusException(
+                    HttpStatus.PAYMENT_REQUIRED, "PAYMENT_ATTEMPT_FAILED");
+        }
+        if (attempt.get("booking_id") != null || attempt.get("trip_id") != null
+                || attempt.get("transfer_id") != null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Payment attempt is already linked");
+        }
+        return attemptId;
+    }
+
+    private void linkPaymentAttemptToBooking(long attemptId, long userId, long bookingId) {
+        int updated = jdbc.update("""
+                UPDATE payment_attempts
+                SET booking_id = ?
+                WHERE id = ? AND user_id = ? AND status = 'success'
+                  AND booking_id IS NULL AND trip_id IS NULL AND transfer_id IS NULL
+                """, bookingId, attemptId, userId);
+        requirePaymentAttemptLink(updated);
+    }
+
+    private void linkPaymentAttemptToTrip(long attemptId, long userId, long tripId) {
+        int updated = jdbc.update("""
+                UPDATE payment_attempts
+                SET trip_id = ?
+                WHERE id = ? AND user_id = ? AND status = 'success'
+                  AND booking_id IS NULL AND trip_id IS NULL AND transfer_id IS NULL
+                """, tripId, attemptId, userId);
+        requirePaymentAttemptLink(updated);
+    }
+
+    private void linkPaymentAttemptToTransfer(long attemptId, long userId, long transferId) {
+        int updated = jdbc.update("""
+                UPDATE payment_attempts
+                SET transfer_id = ?
+                WHERE id = ? AND user_id = ? AND status = 'success'
+                  AND booking_id IS NULL AND trip_id IS NULL AND transfer_id IS NULL
+                """, transferId, attemptId, userId);
+        requirePaymentAttemptLink(updated);
+    }
+
+    private static void requirePaymentAttemptLink(int updated) {
+        if (updated != 1) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Payment attempt could not be linked");
+        }
+    }
+
+    private static List<String> stringList(Object value) {
+        if (!(value instanceof List<?> values)) return List.of();
+        return values.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(Object::toString)
+                .filter(item -> !item.isBlank())
+                .toList();
     }
 
     private long insert(String sql, Object... args) {

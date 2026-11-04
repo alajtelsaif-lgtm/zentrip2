@@ -1,3 +1,17 @@
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR to_regclass('public.users') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zentrip_api_runtime')
+       OR to_regprocedure('public.zentrip_rls_user_id()') IS NULL
+       OR to_regprocedure('public.zentrip_rls_role()') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261105_user_push_tokens requires users and the 20261101_role_access_rls runtime role/helpers';
+    END IF;
+END
+$$;
+
 CREATE TABLE IF NOT EXISTS public.user_push_tokens (
     token TEXT PRIMARY KEY
         CHECK (length(btrim(token)) BETWEEN 1 AND 4096),
@@ -66,4 +80,10 @@ GRANT EXECUTE ON FUNCTION public.zentrip_register_user_push_token(TEXT, TEXT)
     TO zentrip_api_runtime;
 
 GRANT SELECT, DELETE ON public.user_push_tokens TO zentrip_api_runtime;
-REVOKE ALL ON public.user_push_tokens FROM anon, authenticated;
+REVOKE ALL ON public.user_push_tokens FROM PUBLIC, anon, authenticated;
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261105_user_push_tokens', 'user_push_tokens')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

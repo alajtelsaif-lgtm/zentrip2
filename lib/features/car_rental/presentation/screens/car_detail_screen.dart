@@ -67,12 +67,12 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
       return;
     }
 
-    final paid = await PaymentCheckoutScreen.start(context,
+    final payment = await PaymentCheckoutScreen.start(context,
         amountUsd: totalPrice,
         description: '${car.brand} ${car.model}',
         referenceId: ref);
     if (!mounted) return;
-    if (!paid) {
+    if (payment?.paid != true) {
       AppSnackbar.error(context, l10n.paymentFailedMessage);
       return;
     }
@@ -98,7 +98,10 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
       title: AppLocalizations.of(context).hotelBookingInProgress,
       subtitle: '${car.brand} ${car.model}',
       serviceIcon: Icons.directions_car_rounded,
-      action: () => ApiService.instance.createBooking(booking),
+      action: () => ApiService.instance.createBooking(
+        booking,
+        paymentAttemptId: payment?.attemptId,
+      ),
     );
     if (createResult.isFailure) {
       if (!mounted) return;

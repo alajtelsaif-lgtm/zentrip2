@@ -22,16 +22,16 @@ public class HotelDestinationCatalogService {
     private static final int SUGGESTION_LIMIT = 12;
 
     private final JdbcTemplate jdbc;
-    private final OpenTripMapAttractionService openTripMap;
+    private final GeoapifyAirportService geoapify;
     private final AtomicBoolean missingTableLogged = new AtomicBoolean();
     private volatile Boolean catalogAvailable;
     private volatile long catalogCheckedAtMillis;
 
     public HotelDestinationCatalogService(
             JdbcTemplate jdbc,
-            OpenTripMapAttractionService openTripMap) {
+            GeoapifyAirportService geoapify) {
         this.jdbc = jdbc;
-        this.openTripMap = openTripMap;
+        this.geoapify = geoapify;
     }
 
     public List<Map<String, Object>> suggest(String query, String language) {
@@ -42,26 +42,13 @@ public class HotelDestinationCatalogService {
         List<Map<String, Object>> local = searchCatalog(normalized, locale);
         if (!local.isEmpty()) return local;
 
-        List<Map<String, Object>> popular = popularMatches(normalized);
-        if (!popular.isEmpty()) return popular;
-
         try {
-            OpenTripMapAttractionService.DestinationSuggestion place =
-                    openTripMap.suggestDestination(query, locale);
-            if (place != null) {
-                Map<String, Object> suggestion = new LinkedHashMap<>();
-                suggestion.put("name", place.name());
-                suggestion.put("localized_name", locale.equals("ar")
-                        ? place.name() : null);
-                suggestion.put("country_name", place.country());
-                suggestion.put("country_name_localized", null);
-                suggestion.put("type", "city");
-                suggestion.put("latitude", place.latitude());
-                suggestion.put("longitude", place.longitude());
-                return List.of(suggestion);
-            }
+            GeoapifyAirportService.GeocodedPlace place =
+                    geoapify.resolveCity(query, "");
+            Map<String, Object> suggestion = citySuggestion(place, query);
+            if (suggestion != null) return List.of(suggestion);
         } catch (RuntimeException exception) {
-            LOG.debug("OpenTripMap destination fallback unavailable ({})",
+            LOG.debug("Geoapify hotel destination lookup unavailable ({})",
                     exception.getClass().getSimpleName());
         }
         return List.of();
@@ -74,6 +61,7 @@ public class HotelDestinationCatalogService {
         try {
             List<Map<String, Object>> rows = jdbc.queryForList("""
                     SELECT destination_type, destination_code, name_en, name_ar,
+                           country_code,
                            country_name_en, country_name_ar, latitude, longitude
                     FROM public.hotel_destinations
                     WHERE search_text LIKE ?
@@ -95,6 +83,11 @@ public class HotelDestinationCatalogService {
                 suggestion.put("country_name", nullableText(row.get("country_name_en")));
                 suggestion.put("country_name_localized",
                         nullableText(row.get("country_name_ar")));
+                String countryCode = text(row.get("country_code")
+                        ).toUpperCase(Locale.ROOT);
+                if (countryCode.matches("[A-Z]{2}")) {
+                    suggestion.put("country_code", countryCode);
+                }
                 String type = text(row.get("destination_type"));
                 suggestion.put("type", type);
                 if (!"country".equals(type)) {
@@ -110,8 +103,8 @@ public class HotelDestinationCatalogService {
             catalogAvailable = false;
             catalogCheckedAtMillis = System.currentTimeMillis();
             if (missingTableLogged.compareAndSet(false, true)) {
-                LOG.warn("Hotel destination catalog query unavailable; using cached "
-                        + "geocoding and popular cities ({})",
+                LOG.warn("Hotel destination catalog query unavailable; using "
+                        + "Geoapify city geocoding ({})",
                         exception.getClass().getSimpleName());
             }
             return List.of();
@@ -144,47 +137,31 @@ public class HotelDestinationCatalogService {
             catalogCheckedAtMillis = now;
             if (!catalogAvailable && missingTableLogged.compareAndSet(false, true)) {
                 LOG.warn("Hotel destination catalog table is not installed; using "
-                        + "OpenTripMap and popular-city fallbacks");
+                        + "Geoapify city geocoding");
             }
             return catalogAvailable;
         }
     }
 
-    private static List<Map<String, Object>> popularMatches(String query) {
-        List<PopularDestination> popular = List.of(
-                new PopularDestination("London", "لندن", "United Kingdom",
-                        "المملكة المتحدة", 51.5072, -0.1276),
-                new PopularDestination("Paris", "باريس", "France", "فرنسا",
-                        48.8566, 2.3522),
-                new PopularDestination("Dubai", "دبي", "United Arab Emirates",
-                        "الإمارات العربية المتحدة", 25.2048, 55.2708),
-                new PopularDestination("Cairo", "القاهرة", "Egypt", "مصر",
-                        30.0444, 31.2357),
-                new PopularDestination("Tripoli", "طرابلس", "Libya", "ليبيا",
-                        32.8872, 13.1913),
-                new PopularDestination("Istanbul", "إسطنبول", "Türkiye", "تركيا",
-                        41.0082, 28.9784),
-                new PopularDestination("Tunis", "تونس", "Tunisia", "تونس",
-                        36.8065, 10.1815));
-        return popular.stream()
-                .filter(place -> normalize(place.name()).contains(query)
-                        || normalize(place.localizedName()).contains(query)
-                        || normalize(place.country()).contains(query)
-                        || normalize(place.localizedCountry()).contains(query))
-                .limit(SUGGESTION_LIMIT)
-                .map(place -> {
-                    Map<String, Object> suggestion = new LinkedHashMap<>();
-                    suggestion.put("name", place.name());
-                    suggestion.put("localized_name", place.localizedName());
-                    suggestion.put("country_name", place.country());
-                    suggestion.put("country_name_localized",
-                            place.localizedCountry());
-                    suggestion.put("type", "city");
-                    suggestion.put("latitude", place.latitude());
-                    suggestion.put("longitude", place.longitude());
-                    return suggestion;
-                })
-                .toList();
+    private static Map<String, Object> citySuggestion(
+            GeoapifyAirportService.GeocodedPlace place, String query) {
+        if (place == null || place.latitude() < -90 || place.latitude() > 90
+                || place.longitude() < -180 || place.longitude() > 180) {
+            return null;
+        }
+        String name = firstNonBlank(place.city(), place.name(), query);
+        String countryCode = text(place.countryCode()).toUpperCase(Locale.ROOT);
+        if (name.isBlank() || !countryCode.matches("[A-Z]{2}")) return null;
+
+        Map<String, Object> suggestion = new LinkedHashMap<>();
+        suggestion.put("name", name);
+        suggestion.put("country_name", nullableText(place.country()));
+        suggestion.put("country_code", countryCode);
+        suggestion.put("place_id", nullableText(place.placeId()));
+        suggestion.put("type", "city");
+        suggestion.put("latitude", place.latitude());
+        suggestion.put("longitude", place.longitude());
+        return suggestion;
     }
 
     private static String normalize(String value) {
@@ -213,11 +190,11 @@ public class HotelDestinationCatalogService {
         }
     }
 
-    private record PopularDestination(
-            String name,
-            String localizedName,
-            String country,
-            String localizedCountry,
-            double latitude,
-            double longitude) {}
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            String candidate = text(value);
+            if (!candidate.isBlank()) return candidate;
+        }
+        return "";
+    }
 }

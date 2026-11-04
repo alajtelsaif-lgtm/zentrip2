@@ -432,7 +432,7 @@ class _TransfersScreenState extends State<TransfersScreen> {
                                     return;
                                   }
 
-                                  final paid =
+                                  final payment =
                                       await PaymentCheckoutScreen.start(
                                     context,
                                     amountUsd: total,
@@ -442,7 +442,7 @@ class _TransfersScreenState extends State<TransfersScreen> {
                                   );
 
                                   if (!context.mounted) return;
-                                  if (!paid) {
+                                  if (payment?.paid != true) {
                                     AppSnackbar.error(context,
                                         bookingL10n.paymentFailedMessage);
                                     return;
@@ -460,6 +460,7 @@ class _TransfersScreenState extends State<TransfersScreen> {
                                       transfer,
                                       passengers: _passengers,
                                       referenceId: ref,
+                                      paymentAttemptId: payment?.attemptId,
                                     ),
                                   );
 

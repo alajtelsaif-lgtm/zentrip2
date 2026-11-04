@@ -1,5 +1,17 @@
 -- Additive worldwide landmark cache. Existing tourist_monuments data is untouched.
 -- Run against the target Supabase database deliberately before enabling the catalog.
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zentrip_api_runtime')
+       OR to_regprocedure('public.zentrip_rls_user_id()') IS NULL
+       OR to_regprocedure('public.zentrip_rls_role()') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261102_landmark_catalog requires 20261101_role_access_rls and its zentrip_api_runtime role/helpers';
+    END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS public.landmark_places (
     id UUID PRIMARY KEY,
@@ -99,6 +111,9 @@ ALTER TABLE public.landmark_place_aliases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.landmark_search_areas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.landmark_merge_candidates ENABLE ROW LEVEL SECURITY;
 
+REVOKE ALL ON public.landmark_places, public.landmark_place_aliases,
+    public.landmark_search_areas, public.landmark_merge_candidates
+    FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.landmark_places TO zentrip_api_runtime;
 GRANT SELECT, INSERT, UPDATE ON public.landmark_place_aliases TO zentrip_api_runtime;
 GRANT SELECT, INSERT, UPDATE ON public.landmark_search_areas TO zentrip_api_runtime;
@@ -123,3 +138,9 @@ CREATE POLICY zentrip_landmark_search_areas_runtime
 CREATE POLICY zentrip_landmark_merge_candidates_runtime
     ON public.landmark_merge_candidates FOR ALL TO zentrip_api_runtime
     USING (TRUE) WITH CHECK (TRUE);
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261102_landmark_catalog', 'landmark_catalog')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

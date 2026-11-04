@@ -97,6 +97,38 @@ class UnifiedInventoryServiceTest {
     }
 
     @Test
+    void emptyLiteApiRatesDoNotRemovePartnerFallbackHotels() {
+        UnifiedInventoryService.SearchOutcome result = service.merge(
+                "hotel",
+                () -> List.of(Map.of(
+                        "id", "partner-tripoli-1",
+                        "source", "partner",
+                        "name", "Partner Hotel",
+                        "price_per_night", 80)),
+                List.of(new UnifiedInventoryService.ProviderSearch(
+                        "liteapi",
+                        "LiteAPI returned no rates",
+                        () -> new UnifiedInventoryService.SourceOutcome(
+                                List.of(),
+                                List.of("No LiteAPI rates for the selected dates."),
+                                "empty",
+                                Map.of(
+                                        "metadata_count", 0,
+                                        "rates_count", 0,
+                                        "rates_http_status", 200)))),
+                "Partner unavailable");
+
+        assertEquals(1, result.items().size());
+        assertEquals("partner-tripoli-1", result.items().getFirst().get("id"));
+        assertEquals(Map.of("partner", 1L, "liteapi", 0L), result.sources());
+        assertEquals("empty", result.providerStatuses().get("liteapi"));
+        assertEquals(0, result.providerDiagnostics()
+                .get("liteapi").get("rates_count"));
+        assertTrue(result.warnings().contains(
+                "No LiteAPI rates for the selected dates."));
+    }
+
+    @Test
     void oneProviderFailureDoesNotRemoveResultsFromOtherProviders() {
         UnifiedInventoryService.SearchOutcome result = service.merge(
                 "hotel",

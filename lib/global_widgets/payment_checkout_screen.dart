@@ -4,12 +4,13 @@ import '../core/constants/app_colors.dart';
 import '../core/services/api_service.dart';
 import '../l10n/app_localizations.dart';
 import '../models/payment_session.dart';
+import '../models/payment_attempt_receipt.dart';
 
 /// بتفتح صفحة دفع (Hosted Checkout) وترجع true/false حسب نجاح الدفع من
 /// عدمه. استخدمها هكذا:
 /// ```dart
-/// final paid = await PaymentCheckoutScreen.start(context, amountUsd: 120, description: 'حجز فندق', referenceId: bookingRef);
-/// if (paid) { ... }
+/// final payment = await PaymentCheckoutScreen.start(context, amountUsd: 120, description: 'حجز فندق', referenceId: bookingRef);
+/// if (payment?.paid == true) { ... }
 /// ```
 class PaymentCheckoutScreen extends StatefulWidget {
   final PaymentSession session;
@@ -25,7 +26,7 @@ class PaymentCheckoutScreen extends StatefulWidget {
 
   /// بيبدأ عملية دفع كاملة: يطلب رابط الدفع من الباك اند، يفتح الشاشة،
   /// ويتحقق من نجاح الدفع فعليًا مع السيرفر قبل ما يرجّع true.
-  static Future<bool> start(
+  static Future<PaymentAttemptReceipt?> start(
     BuildContext context, {
     required double amountUsd,
     String currencyCode = 'USD',
@@ -38,7 +39,7 @@ class PaymentCheckoutScreen extends StatefulWidget {
       description: description,
       referenceId: referenceId,
     );
-    if (sessionResult.data == null || !context.mounted) return false;
+    if (sessionResult.data == null || !context.mounted) return null;
 
     final completedInCheckout = await Navigator.push<bool>(
       context,
@@ -49,12 +50,16 @@ class PaymentCheckoutScreen extends StatefulWidget {
                 currencyCode: currencyCode.toUpperCase(),
               )),
     );
-    if (completedInCheckout != true || !context.mounted) return false;
+    if (completedInCheckout == null || !context.mounted) return null;
 
-    final verifyResult =
-        await ApiService.instance.verifyPayment(sessionResult.data!.sessionId);
-    if (verifyResult.isFailure) return false;
-    return verifyResult.data == true;
+    final attempt = await ApiService.instance.verifyPayment(
+      sessionResult.data!.sessionId,
+      paid: completedInCheckout,
+      amount: amountUsd,
+      currencyCode: currencyCode,
+    );
+    if (attempt.isFailure) return null;
+    return attempt.data;
   }
 
   @override

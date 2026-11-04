@@ -25,6 +25,8 @@ void main() {
       sourceOfferId: 'off_example',
       priceCurrencyCode: 'EUR',
       isSimulated: true,
+      selectedSeats: const ['10A', '10B'],
+      extras: const ['checked_bag'],
     );
     final restored = TripModel.fromJson(original.toJson());
 
@@ -32,6 +34,8 @@ void main() {
     expect(restored.sourceOfferId, 'off_example');
     expect(restored.priceCurrencyCode, 'EUR');
     expect(restored.isSimulated, isTrue);
+    expect(restored.selectedSeats, ['10A', '10B']);
+    expect(restored.extras, ['checked_bag']);
   });
 
   testWidgets('My Trips marks Duffel simulator trips and keeps currency',
@@ -64,6 +68,8 @@ void main() {
         sourceOfferId: 'off_example',
         priceCurrencyCode: 'EUR',
         isSimulated: true,
+        selectedSeats: const ['10A', '10B'],
+        extras: const ['checked_bag'],
       ),
     );
     await tester.pumpWidget(MaterialApp(
@@ -84,6 +90,8 @@ void main() {
 
     expect(find.text('Simulation'), findsOneWidget);
     expect(find.text('EUR 240.00'), findsOneWidget);
+    expect(find.text('Seats: 10A, 10B'), findsOneWidget);
+    expect(find.text('Extras: checked_bag'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

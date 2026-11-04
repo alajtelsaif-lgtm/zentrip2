@@ -58,6 +58,7 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
         seatClass: widget.draft.seatClass,
         returnDate: widget.draft.returnDate,
         extras: widget.draft.extras,
+        paymentAttemptId: widget.draft.paymentAttemptId,
       );
       if (!mounted) return;
       if (result.isFailure || result.data == null) {

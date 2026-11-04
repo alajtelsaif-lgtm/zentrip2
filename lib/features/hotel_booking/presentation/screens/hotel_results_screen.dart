@@ -112,14 +112,13 @@ class _HotelResultsScreenState extends State<HotelResultsScreen> {
                                   const SizedBox(height: 12),
                                   Text(
                                       ctrl.hasSearchError
-                                          ? l10n.genericError
+                                          ? l10n.hotelSearchUnavailable
                                           : l10n.hotelNoResults,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                           color: AppColors.textSecondary,
                                           fontWeight: FontWeight.w600)),
-                                  if (ctrl.hasSearchError &&
-                                      ctrl.searchParams != null) ...[
+                                  if (ctrl.searchParams != null) ...[
                                     const SizedBox(height: 12),
                                     OutlinedButton.icon(
                                       onPressed: () =>

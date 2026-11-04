@@ -1,6 +1,20 @@
 -- Run against the existing Supabase database before restarting the backend.
 -- This migration adds a non-login runtime role so the JDBC app does not bypass
 -- RLS through the postgres/BYPASSRLS connection. It does not alter row data.
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR to_regclass('public.users') IS NULL
+       OR to_regclass('public.partners') IS NULL
+       OR to_regclass('public.bookings') IS NULL
+       OR to_regclass('public.trips') IS NULL
+       OR to_regclass('public.transfers') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261101_role_access_rls requires schema_migrations and the core users, partners, bookings, trips, and transfers tables; apply the base schema and migration tracker first';
+    END IF;
+END
+$$;
 
 DO $$
 DECLARE
@@ -24,6 +38,7 @@ GRANT zentrip_api_runtime TO postgres;
 GRANT USAGE ON SCHEMA public TO zentrip_api_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public
     TO zentrip_api_runtime;
+REVOKE ALL ON public.schema_migrations FROM zentrip_api_runtime;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public
     TO zentrip_api_runtime;
 
@@ -386,5 +401,11 @@ CREATE POLICY zentrip_user_reviews_admin
     ON public.user_reviews FOR ALL TO zentrip_api_runtime, authenticated
     USING (public.zentrip_rls_role() = 'admin')
     WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261101_role_access_rls', 'role_access_rls')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
 
 -- Ensure owner role reads used by the API are constrained even with legacy direct Supabase users.

@@ -933,7 +933,7 @@ public class PartnerController {
         return searchHotelsEndpoint(
                 city, checkIn, checkOut, rooms, guests, currency, priceMin,
                 priceMax, ratingMin, amenities, roomType, preferences,
-                null, null, null);
+                null, null, null, null, null);
     }
 
     @GetMapping("/hotels/search")
@@ -953,7 +953,9 @@ public class PartnerController {
             @RequestParam(name = "destination_code", required = false)
                     String destinationCode,
             @RequestParam(name = "lat", required = false) Double latitude,
-            @RequestParam(name = "lon", required = false) Double longitude) {
+            @RequestParam(name = "lon", required = false) Double longitude,
+            @RequestParam(name = "country_code", required = false) String countryCode,
+            @RequestParam(name = "place_id", required = false) String placeId) {
         if (rooms < 1 || rooms > 10 || guests < 1 || guests > 20) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Invalid room or guest count");
@@ -970,6 +972,18 @@ public class PartnerController {
                 && !normalizedDestinationCode.matches("[A-Za-z0-9_-]{1,32}")) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Invalid destination code");
+        }
+        String normalizedCountryCode = countryCode == null
+                ? "" : countryCode.trim().toUpperCase(Locale.ROOT);
+        if (!normalizedCountryCode.isEmpty()
+                && !normalizedCountryCode.matches("[A-Z]{2}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid destination country code");
+        }
+        String normalizedPlaceId = placeId == null ? "" : placeId.trim();
+        if (normalizedPlaceId.length() > 256) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid destination place ID");
         }
         String normalizedCurrency = UnifiedInventoryService.validateCurrency(currency);
         UnifiedInventoryService.HotelFilters hotelFilters =
@@ -1014,7 +1028,8 @@ public class PartnerController {
                                 guests,
                                 normalizedCurrency,
                                 latitude,
-                                longitude)));
+                                longitude,
+                                normalizedCountryCode)));
         UnifiedInventoryService.SearchOutcome merged = unifiedInventoryService.merge(
                 "hotel",
                 () -> hotelSearchRows(normalizedCity).stream()
@@ -1031,12 +1046,45 @@ public class PartnerController {
                 .filter(hotel -> "partner".equals(hotel.get("source"))).count();
         long liteApiCount = filtered.hotels().stream()
                 .filter(hotel -> "liteapi".equals(hotel.get("source"))).count();
-        return Map.of(
-                "hotels", filtered.hotels(),
-                "sources", Map.of(
-                        "partner", partnerCount,
-                        "liteapi", liteApiCount),
-                "warnings", warnings.stream().distinct().toList());
+        List<String> distinctWarnings = warnings.stream().distinct().toList();
+        boolean hasProviderFailure = merged.providerStatuses().values().stream()
+                .anyMatch(status -> "error".equals(status)
+                        || "unavailable".equals(status));
+        String searchStatus = !filtered.hotels().isEmpty()
+                ? distinctWarnings.isEmpty() ? "success" : "partial"
+                : hasProviderFailure ? "unavailable" : "empty";
+        String reason = distinctWarnings.isEmpty()
+                ? filtered.hotels().isEmpty()
+                        ? "No hotels are available for this destination and stay dates."
+                        : ""
+                : distinctWarnings.getFirst();
+        Map<String, Object> destination = new LinkedHashMap<>();
+        destination.put("city", normalizedCity);
+        if (!normalizedCountryCode.isBlank()) {
+            destination.put("country_code", normalizedCountryCode);
+        }
+        if (!normalizedPlaceId.isBlank()) destination.put("place_id", normalizedPlaceId);
+        if (latitude != null) destination.put("latitude", latitude);
+        if (longitude != null) destination.put("longitude", longitude);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("hotels", filtered.hotels());
+        response.put("sources", Map.of(
+                "partner", partnerCount,
+                "liteapi", liteApiCount));
+        response.put("warnings", distinctWarnings);
+        response.put("status", searchStatus);
+        response.put("reason", reason);
+        response.put("provider_statuses", merged.providerStatuses());
+        response.put("provider_diagnostics", merged.providerDiagnostics());
+        response.put("destination", destination);
+        response.put("stay", Map.of(
+                "check_in", parsedCheckIn == null ? "" : parsedCheckIn.toString(),
+                "check_out", parsedCheckOut == null ? "" : parsedCheckOut.toString(),
+                "rooms", rooms,
+                "guests", guests,
+                "currency", normalizedCurrency));
+        return response;
     }
 
     @GetMapping("/hotels/nearby")

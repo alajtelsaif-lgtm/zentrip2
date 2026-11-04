@@ -3325,8 +3325,14 @@ abstract class AppLocalizations {
   /// No description provided for @hotelNoResults.
   ///
   /// In ar, this message translates to:
-  /// **'لا توجد فنادق'**
+  /// **'لا توجد فنادق لهذه التواريخ.'**
   String get hotelNoResults;
+
+  /// No description provided for @hotelSearchUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'البحث غير متاح مؤقتًا. حاول مرة أخرى.'**
+  String get hotelSearchUnavailable;
 
   /// No description provided for @hotelFilterAll.
   ///
@@ -4131,6 +4137,36 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'جولات ومعالم'**
   String get tripsFilterTours;
+
+  /// No description provided for @tripsFilterTransfers.
+  ///
+  /// In ar, this message translates to:
+  /// **'التوصيلات'**
+  String get tripsFilterTransfers;
+
+  /// No description provided for @tripsKindTransfer.
+  ///
+  /// In ar, this message translates to:
+  /// **'توصيلة'**
+  String get tripsKindTransfer;
+
+  /// No description provided for @transferVehicleLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'السيارة'**
+  String get transferVehicleLabel;
+
+  /// No description provided for @tripSeatsLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'المقاعد'**
+  String get tripSeatsLabel;
+
+  /// No description provided for @tripExtrasLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإضافات'**
+  String get tripExtrasLabel;
 
   /// No description provided for @tripsKindFlight.
   ///

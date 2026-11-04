@@ -3,6 +3,8 @@ class HotelDestinationSuggestion {
   final String? localizedName;
   final String? countryName;
   final String? countryNameLocalized;
+  final String? countryCode;
+  final String? placeId;
   final String? destinationCode;
   final String type;
   final double? latitude;
@@ -13,6 +15,8 @@ class HotelDestinationSuggestion {
     this.localizedName,
     this.countryName,
     this.countryNameLocalized,
+    this.countryCode,
+    this.placeId,
     this.destinationCode,
     this.type = 'city',
     this.latitude,
@@ -46,6 +50,8 @@ class HotelDestinationSuggestion {
           optionalText(json['country_name']) ?? optionalText(json['country']),
       countryNameLocalized: optionalText(json['country_name_localized']) ??
           optionalText(json['country_name_ar']),
+      countryCode: optionalText(json['country_code'])?.toUpperCase(),
+      placeId: optionalText(json['place_id']),
       destinationCode:
           optionalText(json['destination_code']) ?? optionalText(json['code']),
       type: optionalText(json['type']) ?? 'city',

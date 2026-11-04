@@ -10,14 +10,17 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -68,6 +71,21 @@ public class LiteApiHotelService {
             String currency,
             Double latitude,
             Double longitude) {
+        return searchHotels(
+                city, checkIn, checkOut, rooms, guests, currency,
+                latitude, longitude, null);
+    }
+
+    public UnifiedInventoryService.SourceOutcome searchHotels(
+            String city,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            int rooms,
+            int guests,
+            String currency,
+            Double latitude,
+            Double longitude,
+            String countryCode) {
         String normalizedCity = city == null ? "" : city.trim();
         if (normalizedCity.isBlank()) {
             return UnifiedInventoryService.SourceOutcome.of(List.of());
@@ -94,8 +112,79 @@ public class LiteApiHotelService {
             return unavailable("LiteAPI hotel search received an unsupported currency.");
         }
 
+        String normalizedCountryCode = countryCode == null
+                ? ""
+                : countryCode.trim().toUpperCase(Locale.ROOT);
+        if (!normalizedCountryCode.isEmpty()
+                && !normalizedCountryCode.matches("[A-Z]{2}")) {
+            return unavailable("LiteAPI hotel search received an invalid country code.");
+        }
+
+        Map<String, Object> diagnostics = new LinkedHashMap<>();
+        List<String> warnings = new ArrayList<>();
+        JsonNode metadataResponse = null;
+        List<String> hotelIds = List.of();
+        boolean canSearchMetadata = !normalizedCountryCode.isEmpty()
+                || validCoordinates(latitude, longitude);
+
         try {
-            JsonNode response = client.post()
+            if (canSearchMetadata) {
+                String metadataStage = "/data/hotels";
+                try {
+                    ResponseEntity<JsonNode> metadataEntity = client.get()
+                            .uri(uri -> {
+                                var builder = uri.path(metadataStage)
+                                        .queryParam("limit", MAX_HOTELS);
+                                if (!normalizedCountryCode.isEmpty()) {
+                                    builder.queryParam("cityName", normalizedCity)
+                                            .queryParam("countryCode", normalizedCountryCode);
+                                } else {
+                                    builder.queryParam("latitude", latitude)
+                                            .queryParam("longitude", longitude)
+                                            .queryParam("radius", DEFAULT_RADIUS_METERS);
+                                }
+                                return builder.build();
+                            })
+                            .headers(this::applyAuthentication)
+                            .accept(MediaType.APPLICATION_JSON)
+                            .retrieve()
+                            .toEntity(JsonNode.class);
+                    diagnostics.put("metadata_http_status",
+                            metadataEntity.getStatusCode().value());
+                    metadataResponse = metadataEntity.getBody();
+                    if (metadataResponse != null
+                            && metadataResponse.path("error").isMissingNode()) {
+                        List<JsonNode> metadata = array(metadataResponse.path("data"));
+                        diagnostics.put("metadata_count", metadata.size());
+                        diagnostics.put("metadata_total",
+                                metadataResponse.path("total").asInt(metadata.size()));
+                        Set<String> uniqueIds = new LinkedHashSet<>();
+                        for (JsonNode hotel : metadata) {
+                            String id = firstText(hotel, "id", "hotelId");
+                            if (!id.isBlank()) uniqueIds.add(id);
+                        }
+                        hotelIds = List.copyOf(uniqueIds.stream()
+                                .limit(MAX_HOTELS)
+                                .toList());
+                        diagnostics.put("metadata_ids_count", hotelIds.size());
+                    } else {
+                        diagnostics.put("metadata_count", 0);
+                        warnings.add("LiteAPI hotel details returned an empty response.");
+                    }
+                } catch (RestClientResponseException exception) {
+                    diagnostics.put("metadata_http_status",
+                            exception.getStatusCode().value());
+                    logProviderFailure(exception, metadataStage);
+                    warnings.add("LiteAPI hotel details could not be loaded "
+                            + "(HTTP " + exception.getStatusCode().value()
+                            + "); checking rates by location.");
+                }
+            } else {
+                diagnostics.put("metadata_http_status", "skipped");
+                diagnostics.put("metadata_count", 0);
+            }
+
+            ResponseEntity<JsonNode> rateEntity = client.post()
                     .uri("/hotels/rates")
                     .headers(this::applyAuthentication)
                     .contentType(MediaType.APPLICATION_JSON)
@@ -108,11 +197,19 @@ public class LiteApiHotelService {
                             guests,
                             normalizedCurrency,
                             latitude,
-                            longitude))
+                            longitude,
+                            hotelIds))
                     .retrieve()
-                    .body(JsonNode.class);
+                    .toEntity(JsonNode.class);
+            diagnostics.put("rates_http_status", rateEntity.getStatusCode().value());
+            JsonNode response = rateEntity.getBody();
             if (response == null) {
-                return unavailable("LiteAPI returned an empty hotel response.");
+                diagnostics.put("rates_count", 0);
+                return new UnifiedInventoryService.SourceOutcome(
+                        List.of(),
+                        List.of("LiteAPI returned an empty hotel rates response."),
+                        "error",
+                        diagnostics);
             }
             JsonNode error = response.path("error");
             if (!error.isMissingNode() && !error.isNull()) {
@@ -120,13 +217,27 @@ public class LiteApiHotelService {
                         error, "message", "description"));
                 LOG.warn("LiteAPI hotel rates returned an error code={} message={}",
                         firstText(error, "code", "errorCode"), message);
-                return unavailable("LiteAPI hotel search is temporarily unavailable.");
+                diagnostics.put("rates_count", 0);
+                diagnostics.put("error_code", firstText(error, "code", "errorCode"));
+                diagnostics.put("error_message", message);
+                return new UnifiedInventoryService.SourceOutcome(
+                        List.of(),
+                        List.of("LiteAPI hotel search is temporarily unavailable."),
+                        "error",
+                        diagnostics);
             }
 
+            List<JsonNode> rawRates = array(response.path("data"));
+            diagnostics.put("rates_count", rawRates.size());
+            if (response.has("sandbox")) {
+                diagnostics.put("sandbox", response.path("sandbox").asBoolean());
+            }
             Map<String, JsonNode> hotelDetails = indexHotelDetails(response);
+            indexHotelMetadata(metadataResponse)
+                    .forEach(hotelDetails::putIfAbsent);
             long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
             List<Map<String, Object>> hotels = new ArrayList<>();
-            for (JsonNode result : array(response.path("data"))) {
+            for (JsonNode result : rawRates) {
                 String hotelId = firstText(result, "hotelId", "id");
                 if (hotelId.isBlank()) continue;
                 JsonNode details = hotelDetails.getOrDefault(
@@ -142,9 +253,31 @@ public class LiteApiHotelService {
                 if (normalized != null) hotels.add(normalized);
                 if (hotels.size() >= MAX_HOTELS) break;
             }
-            return UnifiedInventoryService.SourceOutcome.of(hotels);
+            diagnostics.put("normalized_count", hotels.size());
+            if (hotels.isEmpty()) {
+                String warning;
+                if (!rawRates.isEmpty()) {
+                    warning = "LiteAPI returned rates, but none had a usable price "
+                            + "for the selected currency.";
+                } else if (diagnostics.get("metadata_count") instanceof Number count
+                        && count.intValue() > 0) {
+                    warning = "LiteAPI found "
+                            + diagnostics.get("metadata_count")
+                            + " hotel properties, but no rates for the selected dates.";
+                } else {
+                    warning = "LiteAPI found no hotel properties or rates for this "
+                            + "destination and stay dates.";
+                }
+                warnings.add(warning);
+                return new UnifiedInventoryService.SourceOutcome(
+                        List.of(), warnings, "empty", diagnostics);
+            }
+            String status = warnings.isEmpty() ? "success" : "partial";
+            return new UnifiedInventoryService.SourceOutcome(
+                    hotels, warnings, status, diagnostics);
         } catch (RestClientResponseException exception) {
-            logProviderFailure(exception);
+            diagnostics.put("rates_http_status", exception.getStatusCode().value());
+            logProviderFailure(exception, "/hotels/rates");
             int status = exception.getStatusCode().value();
             String warning = switch (status) {
                 case 401 -> "LiteAPI authentication failed. Verify the API key and environment.";
@@ -152,14 +285,25 @@ public class LiteApiHotelService {
                 case 400 -> "LiteAPI rejected this destination. Select a destination suggestion and retry.";
                 default -> "LiteAPI hotel search is temporarily unavailable.";
             };
-            return unavailable(warning);
+            return new UnifiedInventoryService.SourceOutcome(
+                    List.of(), List.of(warning), "error", diagnostics);
         } catch (ResourceAccessException exception) {
             LOG.warn("LiteAPI hotel search timed out or could not connect");
-            return unavailable("LiteAPI hotel search is temporarily unavailable.");
+            diagnostics.put("rates_error", exception.getClass().getSimpleName());
+            return new UnifiedInventoryService.SourceOutcome(
+                    List.of(),
+                    List.of("LiteAPI hotel search is temporarily unavailable."),
+                    "error",
+                    diagnostics);
         } catch (RestClientException | IllegalArgumentException exception) {
             LOG.warn("LiteAPI hotel search failed ({})",
                     exception.getClass().getSimpleName());
-            return unavailable("LiteAPI hotel search is temporarily unavailable.");
+            diagnostics.put("rates_error", exception.getClass().getSimpleName());
+            return new UnifiedInventoryService.SourceOutcome(
+                    List.of(),
+                    List.of("LiteAPI hotel search is temporarily unavailable."),
+                    "error",
+                    diagnostics);
         }
     }
 
@@ -175,7 +319,8 @@ public class LiteApiHotelService {
             int guests,
             String currency,
             Double latitude,
-            Double longitude) {
+            Double longitude,
+            List<String> hotelIds) {
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("checkin", checkIn.toString());
         request.put("checkout", checkOut.toString());
@@ -189,7 +334,9 @@ public class LiteApiHotelService {
                 "field", "price",
                 "direction", "ascending")));
 
-        if (validCoordinates(latitude, longitude)) {
+        if (hotelIds != null && !hotelIds.isEmpty()) {
+            request.put("hotelIds", hotelIds);
+        } else if (validCoordinates(latitude, longitude)) {
             request.put("latitude", latitude);
             request.put("longitude", longitude);
             request.put("radius", DEFAULT_RADIUS_METERS);
@@ -224,6 +371,15 @@ public class LiteApiHotelService {
         if (source.isObject()) source = source.path("hotels");
         Map<String, JsonNode> indexed = new LinkedHashMap<>();
         for (JsonNode hotel : array(source)) {
+            String id = firstText(hotel, "id", "hotelId");
+            if (!id.isBlank()) indexed.putIfAbsent(id, hotel);
+        }
+        return indexed;
+    }
+
+    private static Map<String, JsonNode> indexHotelMetadata(JsonNode response) {
+        Map<String, JsonNode> indexed = new LinkedHashMap<>();
+        for (JsonNode hotel : array(response == null ? null : response.path("data"))) {
             String id = firstText(hotel, "id", "hotelId");
             if (!id.isBlank()) indexed.putIfAbsent(id, hotel);
         }
@@ -272,7 +428,7 @@ public class LiteApiHotelService {
         if (name.isBlank()) name = firstText(rateResult, "name");
         if (name.isBlank()) name = "Hotel";
         String address = firstText(details, "address");
-        String city = firstText(details, "city_name");
+        String city = firstText(details, "city_name", "city");
         if (city.isBlank()) city = requestedCity;
         String image = firstText(details, "main_photo", "thumbnail");
         List<String> gallery = new ArrayList<>();
@@ -285,7 +441,7 @@ public class LiteApiHotelService {
         hotel.put("provider_accommodation_id", hotelId);
         hotel.put("name", name);
         hotel.put("city", city);
-        hotel.put("country", firstText(details, "country_code"));
+        hotel.put("country", firstText(details, "country_code", "country"));
         hotel.put("location_name", address);
         hotel.put("address", address);
         hotel.put("price_per_night", nightlyPrice);
@@ -300,7 +456,10 @@ public class LiteApiHotelService {
         hotel.put("stars", integer(details.path("stars")));
         hotel.put("rating", decimal(details.path("rating")));
         hotel.put("review_score", decimal(details.path("rating")));
-        hotel.put("google_review_count", integer(details.path("review_count")));
+        hotel.put("google_review_count",
+                integer(details.path("review_count").isMissingNode()
+                        ? details.path("reviewCount")
+                        : details.path("review_count")));
         hotel.put("rating_source", "liteapi");
         hotel.put("latitude", decimal(details.path("latitude")));
         hotel.put("longitude", decimal(details.path("longitude")));
@@ -423,11 +582,11 @@ public class LiteApiHotelService {
         return "";
     }
 
-    private void logProviderFailure(RestClientResponseException exception) {
+    private void logProviderFailure(
+            RestClientResponseException exception, String endpoint) {
         JsonNode body = null;
         try {
             String responseBody = exception.getResponseBodyAsString();
-            if (!responseBody.isBlank()) body = JSON.readTree(responseBody);
         } catch (Exception ignored) {
             // Keep provider response parsing best-effort and never log raw bodies.
         }
@@ -442,8 +601,8 @@ public class LiteApiHotelService {
                         headers.getFirst("X-Request-ID"),
                         headers.getFirst("X-Correlation-Id"));
         int status = exception.getStatusCode().value();
-        LOG.warn("LiteAPI hotel rates failed: status={}, errorCode={}, message={}, requestId={}",
-                status, code, message, requestId);
+        LOG.warn("LiteAPI {} failed: status={}, errorCode={}, message={}, requestId={}",
+                endpoint, status, code, message, requestId);
     }
 
     private static String firstNonBlank(String... values) {
@@ -465,7 +624,8 @@ public class LiteApiHotelService {
     }
 
     private static UnifiedInventoryService.SourceOutcome unavailable(String warning) {
-        return new UnifiedInventoryService.SourceOutcome(List.of(), List.of(warning));
+        return new UnifiedInventoryService.SourceOutcome(
+                List.of(), List.of(warning), "error", Map.of());
     }
 
     private static String validateBaseUrl(String configured) {

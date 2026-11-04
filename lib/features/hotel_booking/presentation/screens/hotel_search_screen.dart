@@ -140,26 +140,25 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
     _destinationFocusNode.unfocus();
   }
 
-  Future<void> _selectFirstDestination() async {
-    if (_selectedDestination != null) return;
+  Future<void> _loadDestinationSuggestions() async {
+    if (_selectedDestination != null || _cityCtrl.text.trim().length < 2) {
+      return;
+    }
     await _ctrl.loadDestinationSuggestionsNow(
       _cityCtrl.text,
       languageCode: Localizations.localeOf(context).languageCode,
     );
-    if (!mounted || _ctrl.destinationSuggestions.isEmpty) return;
-    _selectDestination(_ctrl.destinationSuggestions.first);
   }
 
   Future<void> _search() async {
     if (_selectedDestination == null) {
-      await _selectFirstDestination();
-    }
-    if (!mounted) return;
-    final selected = _selectedDestination;
-    if (selected == null) {
+      await _loadDestinationSuggestions();
+      if (!mounted) return;
       setState(() => _destinationError = true);
       return;
     }
+    final selected = _selectedDestination;
+    if (selected == null) return;
     final language = Localizations.localeOf(context).languageCode;
     final visibleCity = selected.displayName(language);
     final city = selected.name;
@@ -169,6 +168,8 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
     final params = HotelSearchParams(
       city: city,
       destinationCode: selected.destinationCode,
+      countryCode: selected.countryCode,
+      placeId: selected.placeId,
       latitude: selected.latitude,
       longitude: selected.longitude,
       checkIn: _checkIn,
@@ -370,7 +371,7 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
               focusNode: _destinationFocusNode,
               textInputAction: TextInputAction.search,
               onChanged: _onDestinationChanged,
-              onSubmitted: (_) => _selectFirstDestination(),
+              onSubmitted: (_) => _loadDestinationSuggestions(),
               decoration: InputDecoration(
                 hintText: l10n.hotelDestinationHint,
                 prefixIcon:

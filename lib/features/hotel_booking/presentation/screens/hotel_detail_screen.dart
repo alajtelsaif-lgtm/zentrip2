@@ -119,10 +119,10 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
     final ref =
         'ZT-H-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
 
-    final paid = await PaymentCheckoutScreen.start(context,
+    final payment = await PaymentCheckoutScreen.start(context,
         amountUsd: totalPrice, description: hotel.name, referenceId: ref);
     if (!mounted) return;
-    if (!paid) {
+    if (payment?.paid != true) {
       AppSnackbar.error(context, l10n.paymentFailedMessage);
       return;
     }
@@ -149,7 +149,10 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
       title: l10n.hotelBookingInProgress,
       subtitle: hotel.name,
       serviceIcon: Icons.hotel_rounded,
-      action: () => ApiService.instance.createBooking(booking),
+      action: () => ApiService.instance.createBooking(
+        booking,
+        paymentAttemptId: payment?.attemptId,
+      ),
     );
     if (createResult.isFailure) {
       if (!mounted) return;

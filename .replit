@@ -2,7 +2,7 @@ modules = ["java-graalvm22.3", "python-base-3.13", "nodejs-24"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["maven", "postgresql"]
+packages = ["maven", "postgresql", "jdk21"]
 
 [agent]
 expertMode = true
@@ -43,6 +43,10 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 8001
+externalPort = 3000
 
 [postMerge]
 path = "scripts/build-replit.sh"

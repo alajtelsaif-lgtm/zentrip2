@@ -14,6 +14,8 @@ class HotelSearchParams {
   final int rooms;
   final int guests;
   final String? destinationCode;
+  final String? countryCode;
+  final String? placeId;
   final double? latitude;
   final double? longitude;
   final double? ratingMin;
@@ -28,6 +30,8 @@ class HotelSearchParams {
     this.rooms = 1,
     this.guests = 2,
     this.destinationCode,
+    this.countryCode,
+    this.placeId,
     this.latitude,
     this.longitude,
     this.ratingMin,
@@ -106,6 +110,8 @@ class HotelController extends ChangeNotifier {
   List<HotelModel> results = [];
   bool isLoading = false;
   bool hasSearchError = false;
+  String searchStatus = 'idle';
+  String searchReason = '';
   HotelSort sort = HotelSort.rating;
   HotelFilter filter = HotelFilter.all;
   HotelModel? selectedHotel;
@@ -130,6 +136,11 @@ class HotelController extends ChangeNotifier {
     searchParams = params;
     isLoading = true;
     hasSearchError = false;
+    searchStatus = 'loading';
+    searchReason = '';
+    _all = [];
+    results = [];
+    _serverFiltered = false;
     searchWarnings = const [];
     notifyListeners();
     comparison.refresh();
@@ -139,6 +150,8 @@ class HotelController extends ChangeNotifier {
           : await ApiService.instance.searchHotels(
               city: params.city,
               destinationCode: params.destinationCode,
+              countryCode: params.countryCode,
+              placeId: params.placeId,
               latitude: params.latitude,
               longitude: params.longitude,
               checkIn: params.checkIn,
@@ -157,15 +170,28 @@ class HotelController extends ChangeNotifier {
                 searchWarnings = List.unmodifiable(warnings);
                 notifyListeners();
               },
+              onStatus: (status, reason) {
+                if (revision != _searchRevision) return;
+                searchStatus = status;
+                searchReason = reason;
+                hasSearchError = status == 'error' || status == 'unavailable';
+                notifyListeners();
+              },
             );
       if (revision != _searchRevision) return;
       _all = hotels;
+      if (searchStatus == 'loading') {
+        searchStatus = hotels.isEmpty ? 'empty' : 'success';
+      }
       _serverFiltered = searchHotels == null;
       _applyFilter();
     } catch (_) {
       if (revision != _searchRevision) return;
-      if (_all.isEmpty) results = [];
+      _all = [];
+      results = [];
       hasSearchError = true;
+      searchStatus = 'unavailable';
+      searchReason = '';
       searchWarnings = const [];
     } finally {
       if (revision == _searchRevision) {

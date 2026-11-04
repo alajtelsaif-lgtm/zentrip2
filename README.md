@@ -14,22 +14,30 @@ Configure `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and `SERPAPI_KEY` as described
 
 Run the backend suite with `bash scripts/test-backend.sh`. It first checks the Flutter/Spring endpoint contract, then runs the mock-based Java tests. PostgreSQL migration and HTTP integration tests are skipped in this mode because the script unsets database settings and does not start a database.
 
-To run the full suite, including those PostgreSQL tests, use `bash scripts/test-postgres.sh`. It creates a fresh temporary PostgreSQL cluster bound only to `127.0.0.1`, loads the base schema and applies the complete migration chain before running all backend tests. It then stops and removes the cluster. It does not connect to Supabase or use application database credentials. PostgreSQL server tools (`initdb`, `pg_ctl`, `createdb`, and `psql`), Maven, and JDK 25 are required.
+To run the full suite, including those PostgreSQL tests, use `bash scripts/test-postgres.sh`. It creates a fresh temporary PostgreSQL cluster bound only to `127.0.0.1`, loads the base schema, drops the seven feature tables to simulate an older database, and applies the migration chain before running all backend tests. It then stops and removes the cluster. The script clears database connection environment variables and does not connect to Supabase or use application database credentials. PostgreSQL server tools (`initdb`, `pg_ctl`, `createdb`, and `psql`), Maven, and JDK 25 or newer are required. `MAVEN_JAVA_VERSION` can override the compiler release when the installed JDK supports it.
 
 The full PostgreSQL suite also runs in GitHub Actions on pushes and pull requests via `.github/workflows/backend-postgres.yml`.
 
 ## Supabase migration order
 
-For a new database, apply `backend/src/main/resources/schema.sql` first. For an existing database, first confirm the base tables from that schema are present; do not use this step as a data reset. In Supabase SQL Editor, apply only migrations that are not already installed, in the order below, using a database owner. Do not replay an already-applied migration; the `20261104_core_data_rls.sql` and `20261105_user_push_tokens.sql` migrations are idempotent.
+**Back up the Supabase database before any manual SQL change.** No migrations were applied to production as part of this work. `schema.sql` is only for a new/temporary database; never use it to reset an existing Supabase database.
 
-1. `backend/src/main/resources/migrations/20261101_global_airport_directory.sql`
-2. `backend/src/main/resources/migrations/20261101_role_access_rls.sql`
-3. `backend/src/main/resources/migrations/20261102_landmark_catalog.sql`
-4. `backend/src/main/resources/migrations/20261103_hotel_destination_catalog.sql`
-5. `backend/src/main/resources/migrations/20261104_core_data_rls.sql`
-6. `backend/src/main/resources/migrations/20261105_user_push_tokens.sql`
+For an existing database, first run the read-only schema/policy inspection query in `docs/DATABASE_VERIFICATION.md` and compare its output with the migration files. Then apply only missing work as a database owner, in this order:
 
-Back up the database before applying them. The backend does not run these migrations automatically. Afterward, verify `zentrip_api_runtime` is `NOLOGIN` and `NOBYPASSRLS`, confirm the JDBC login can `SET ROLE zentrip_api_runtime`, and confirm row security is enabled for the application tables. If `SUPABASE_DB_USER` is not `postgres`, grant `zentrip_api_runtime` to that login as well.
+1. `backend/src/main/resources/migrations/20261101_schema_migrations.sql` — create the private migration ledger.
+2. `backend/src/main/resources/migrations/20261101_global_airport_directory.sql` — run only if the airport columns/indexes are absent.
+3. `backend/src/main/resources/migrations/20261101_role_access_rls.sql` — one-time baseline. Do **not** replay it against an existing policy set. If the runtime role/helpers already exist, compare policy definitions and skip this file; record its version in `schema_migrations` only after confirming the intended baseline is present.
+4. `backend/src/main/resources/migrations/20261102_landmark_catalog.sql`
+5. `backend/src/main/resources/migrations/20261103_hotel_destination_catalog.sql`
+6. `backend/src/main/resources/migrations/20261104_core_data_rls.sql`
+7. `backend/src/main/resources/migrations/20261104_payment_attempts.sql`
+8. `backend/src/main/resources/migrations/20261105_user_push_tokens.sql`
+
+The feature migrations are transactional and safe to rerun after a successful commit. Do not mark an older migration as applied merely because a similarly named table exists; verify its columns, policies, grants, and helper functions first. The backend does not run production migrations automatically. After applying, confirm `zentrip_api_runtime` is `NOLOGIN` and `NOBYPASSRLS`, the database login can `SET ROLE zentrip_api_runtime`, and the visit tables deny direct `anon`/`authenticated` access while runtime API calls still work. If `SUPABASE_DB_USER` is not `postgres`, verify it can assume the runtime role.
+
+Supabase SQL Editor cannot read files from this repository. After the backup and inspection steps, open one migration file at a time, paste its complete contents into SQL Editor, and run it only if the checklist above says it is safe and missing. Keep the file's transaction intact. Do not replay the one-time role baseline against an existing policy set; reconcile unexpected policies before applying `20261104_core_data_rls.sql`. After each successful migration, verify its row in `public.schema_migrations` and rerun the read-only metadata/permission checks. The exact read-only queries and the locally verified expected state are in `docs/DATABASE_VERIFICATION.md`.
+
+`payment_attempts` records only the success/failure of the in-app **simulator** and links it to one booking, flight trip, or transfer. It stores no card number, security code, or expiry and is not proof of a real charge.
 
 ## CORS origins
 

@@ -23,6 +23,8 @@ class TripModel {
   final String? sourceOfferId;
   final String priceCurrencyCode;
   final bool isSimulated;
+  final List<String> selectedSeats;
+  final List<String> extras;
 
   const TripModel({
     required this.id,
@@ -49,6 +51,8 @@ class TripModel {
     this.sourceOfferId,
     this.priceCurrencyCode = 'USD',
     this.isSimulated = false,
+    this.selectedSeats = const [],
+    this.extras = const [],
   });
 
   static int _intFromDynamic(dynamic value, [int fallback = 0]) {
@@ -116,7 +120,18 @@ class TripModel {
         priceCurrencyCode:
             (json['price_currency'] ?? 'USD').toString().toUpperCase(),
         isSimulated: _boolFromDynamic(json['is_simulated'], false),
+        selectedSeats: _stringList(json['selected_seats']),
+        extras: _stringList(json['extras']),
       );
+
+  static List<String> _stringList(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .where((item) => item != null)
+        .map((item) => item.toString())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -143,6 +158,8 @@ class TripModel {
         'duffel_offer_id': sourceOfferId,
         'price_currency': priceCurrencyCode,
         'is_simulated': isSimulated,
+        'selected_seats': selectedSeats,
+        'extras': extras,
       };
 
   TripModel copyWith({
@@ -155,6 +172,8 @@ class TripModel {
     String? sourceOfferId,
     String? priceCurrencyCode,
     bool? isSimulated,
+    List<String>? selectedSeats,
+    List<String>? extras,
   }) =>
       TripModel(
         id: id,
@@ -181,5 +200,7 @@ class TripModel {
         sourceOfferId: sourceOfferId ?? this.sourceOfferId,
         priceCurrencyCode: priceCurrencyCode ?? this.priceCurrencyCode,
         isSimulated: isSimulated ?? this.isSimulated,
+        selectedSeats: selectedSeats ?? this.selectedSeats,
+        extras: extras ?? this.extras,
       );
 }

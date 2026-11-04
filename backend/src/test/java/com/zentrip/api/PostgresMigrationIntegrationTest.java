@@ -608,6 +608,155 @@ class PostgresMigrationIntegrationTest {
     }
 
     @Test
+    void failedPaymentAttemptIsSavedButCannotCreateBookingAndSuccessIsOwnerScoped()
+            throws Exception {
+        JsonNode failedSession = postJson("/api/payments/checkout",
+                Map.of("amount", 25, "currency", "USD"), 200);
+        String failedSessionId = failedSession.path("session_id").asText();
+        JsonNode failedAttempt = postJson(
+                "/api/payments/verify/" + failedSessionId,
+                Map.of("paid", false, "amount", 25, "currency", "USD"), 201);
+        long failedAttemptId = failedAttempt.path("attempt_id").asLong();
+
+        Map<String, Object> failedBooking = new java.util.HashMap<>(Map.of(
+                "type", "attraction",
+                "title", "Failed payment attraction",
+                "subtitle", "Tripoli",
+                "date", "2035-11-12T10:00:00Z",
+                "price", 25,
+                "ref_code", "ZT-FAILED-PAYMENT"));
+        failedBooking.put("payment_attempt_id", failedAttemptId);
+        postJson("/api/bookings", failedBooking, 402);
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM bookings WHERE user_id = ?", Integer.class, userId));
+        assertEquals("failed", jdbc.queryForObject(
+                "SELECT status FROM payment_attempts WHERE id = ?",
+                String.class, failedAttemptId));
+
+        JsonNode successSession = postJson("/api/payments/checkout",
+                Map.of("amount", 25, "currency", "USD"), 200);
+        String successSessionId = successSession.path("session_id").asText();
+        long successfulAttemptId = postJson(
+                "/api/payments/verify/" + successSessionId,
+                Map.of("paid", true, "amount", 25, "currency", "USD"), 201)
+                .path("attempt_id").asLong();
+        Map<String, Object> successfulBooking = new java.util.HashMap<>(failedBooking);
+        successfulBooking.put("title", "Successful payment attraction");
+        successfulBooking.put("payment_attempt_id", successfulAttemptId);
+        long bookingId = postJson("/api/bookings", successfulBooking, 201)
+                .path("booking").path("id").asLong();
+        assertEquals(bookingId, jdbc.queryForObject(
+                "SELECT booking_id FROM payment_attempts WHERE id = ?",
+                Long.class, successfulAttemptId));
+
+        String otherToken = UUID.randomUUID().toString();
+        long otherUserId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password)
+                VALUES ('Other payment user', ?, 'unused-test-hash') RETURNING id
+                """, Long.class, otherToken + "@example.invalid");
+        jdbc.update("""
+                INSERT INTO api_tokens (user_id, token_hash, expires_at)
+                VALUES (?, ?, ?)
+                """, otherUserId, TokenAuthFilter.sha256(otherToken),
+                Timestamp.from(Instant.now().plusSeconds(3600)));
+        http.perform(get("/api/payments/verify/" + successSessionId)
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attempted").value(false))
+                .andExpect(jsonPath("$.paid").value(false));
+    }
+
+    @Test
+    @Transactional
+    void paymentAttemptRowsCanOnlyBeReadAndChangedByTheirOwner() {
+        long otherUserId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password)
+                VALUES ('Other payment owner', ?, 'unused-test-hash') RETURNING id
+                """, Long.class, UUID.randomUUID() + "@example.invalid");
+        long ownAttemptId = jdbc.queryForObject("""
+                INSERT INTO payment_attempts (session_id, user_id, amount, currency, status)
+                VALUES (?, ?, 12.50, 'USD', 'failed') RETURNING id
+                """, Long.class, "own-payment-" + UUID.randomUUID(), userId);
+        long otherAttemptId = jdbc.queryForObject("""
+                INSERT INTO payment_attempts (session_id, user_id, amount, currency, status)
+                VALUES (?, ?, 18.00, 'EUR', 'success') RETURNING id
+                """, Long.class, "other-payment-" + UUID.randomUUID(), otherUserId);
+
+        assumeRuntime(userId, "customer", null);
+        assertEquals(1, visibleCount(
+                "SELECT COUNT(*) FROM payment_attempts WHERE id IN (?, ?)",
+                ownAttemptId, otherAttemptId));
+        assertEquals(0, jdbc.update(
+                "UPDATE payment_attempts SET status = 'failed' WHERE id = ?",
+                otherAttemptId));
+        jdbc.execute("SAVEPOINT reject_foreign_payment_delete");
+        assertThrows(org.springframework.dao.DataAccessException.class,
+                () -> jdbc.update(
+                        "DELETE FROM payment_attempts WHERE id = ?", otherAttemptId));
+        jdbc.execute("ROLLBACK TO SAVEPOINT reject_foreign_payment_delete");
+
+        jdbc.execute("SAVEPOINT reject_foreign_payment_insert");
+        assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.update("""
+                INSERT INTO payment_attempts (session_id, user_id, amount, currency, status)
+                VALUES (?, ?, 7.00, 'USD', 'failed')
+                """, "forged-payment-" + UUID.randomUUID(), otherUserId));
+        jdbc.execute("ROLLBACK TO SAVEPOINT reject_foreign_payment_insert");
+        assertEquals(1, visibleCount(
+                "SELECT COUNT(*) FROM payment_attempts WHERE id = ?", ownAttemptId));
+        assertEquals(0, visibleCount(
+                "SELECT COUNT(*) FROM payment_attempts WHERE id = ?", otherAttemptId));
+    }
+
+    @Test
+    @Transactional
+    void duffelTripReturnsPersistedSeatsAndExtrasFromTripHistory() throws Exception {
+        String sessionId = postJson("/api/payments/checkout",
+                Map.of("amount", 137, "currency", "EUR"), 200)
+                .path("session_id").asText();
+        long attemptId = postJson("/api/payments/verify/" + sessionId,
+                Map.of("paid", true, "amount", 137, "currency", "EUR"), 201)
+                .path("attempt_id").asLong();
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("origin_code", "MRA");
+        body.put("origin_city", "Misrata");
+        body.put("destination_code", "TUN");
+        body.put("destination_city", "Tunis");
+        body.put("departure_date", "2035-11-10T08:00:00Z");
+        body.put("arrival_date", "2035-11-10T10:00:00Z");
+        body.put("flight_number", "EA123");
+        body.put("airline", "Example Air");
+        body.put("is_direct", true);
+        body.put("seat_class", "economy");
+        body.put("price", 137);
+        body.put("booking_ref", "ZT-DUF-SEATS");
+        body.put("passenger_count", 2);
+        body.put("source", "duffel");
+        body.put("duffel_offer_id", "off_test_123");
+        body.put("price_currency", "EUR");
+        body.put("is_simulated", true);
+        body.put("selected_seats", java.util.List.of("12A", "12B"));
+        body.put("extras", java.util.List.of("checked_bag", "priority"));
+        body.put("payment_attempt_id", attemptId);
+
+        JsonNode created = postJson("/api/trips", body, 201).path("trip");
+        long tripId = created.path("id").asLong();
+        assertEquals("12A", created.path("selected_seats").get(0).asText());
+        assertEquals("checked_bag", created.path("extras").get(0).asText());
+        assertEquals(tripId, jdbc.queryForObject(
+                "SELECT trip_id FROM payment_attempts WHERE id = ?",
+                Long.class, attemptId));
+
+        JsonNode history = json.readTree(http.perform(
+                        get("/api/trips").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        JsonNode restored = history.path("trips").get(0);
+        assertEquals(tripId, restored.path("id").asLong());
+        assertEquals("12B", restored.path("selected_seats").get(1).asText());
+        assertEquals("priority", restored.path("extras").get(1).asText());
+    }
+
+    @Test
     void flightCancellationPreservesJsonAndRestoresSeatsOnce() throws Exception {
         long listing = listing("flight", "{\"seats_available\":5}");
         long trip = jdbc.queryForObject("""
@@ -866,7 +1015,7 @@ class PostgresMigrationIntegrationTest {
                 SELECT rolsuper OR rolcanlogin OR rolbypassrls
                 FROM pg_roles WHERE rolname = 'zentrip_api_runtime'
                 """, Boolean.class));
-        assertEquals(27, jdbc.queryForObject("""
+        assertEquals(28, jdbc.queryForObject("""
                 SELECT COUNT(*)
                 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -883,7 +1032,7 @@ class PostgresMigrationIntegrationTest {
                       'transfer_schedules', 'api_tokens', 'hotel_destinations',
                       'landmark_places', 'landmark_place_aliases',
                        'landmark_search_areas', 'landmark_merge_candidates',
-                       'user_push_tokens'
+                       'user_push_tokens', 'payment_attempts'
                   )
                 """, Integer.class));
 
@@ -955,6 +1104,69 @@ class PostgresMigrationIntegrationTest {
                 "SELECT COUNT(*) FROM user_profiles WHERE user_id IN (?, ?)", userId, otherUserId));
         assertEquals(2, visibleCount(
                 "SELECT COUNT(*) FROM partner_listings WHERE id IN (?, ?)", ownListing, otherListing));
+    }
+
+    @Test
+    void publicRolesHaveNoDirectAccessToVisitCountersOrNewPrivateTables() {
+        String[] protectedTables = {
+                "attraction_visit_counts", "attraction_visit_dedup",
+                "hotel_destinations", "landmark_places", "landmark_place_aliases",
+                "landmark_search_areas", "landmark_merge_candidates",
+                "legacy_attraction_partner_reviews", "user_push_tokens",
+                "payment_attempts"
+        };
+        for (String table : protectedTables) {
+            assertTrue(jdbc.queryForObject("""
+                    SELECT relrowsecurity FROM pg_class
+                    WHERE oid = to_regclass(?)
+                    """, Boolean.class, "public." + table), table);
+            for (String role : new String[]{"anon", "authenticated"}) {
+                for (String privilege : new String[]{"SELECT", "INSERT", "UPDATE"}) {
+                    assertFalse(jdbc.queryForObject(
+                            "SELECT has_table_privilege(?, ?, ?)",
+                            Boolean.class, role, "public." + table, privilege),
+                            role + " must not have direct " + privilege + " on " + table);
+                }
+            }
+        }
+
+        for (String role : new String[]{"anon", "authenticated"}) {
+            for (String privilege : new String[]{"SELECT", "INSERT", "UPDATE"}) {
+                assertFalse(jdbc.queryForObject(
+                        "SELECT has_table_privilege(?, 'public.schema_migrations', ?)",
+                        Boolean.class, role, privilege),
+                        role + " must not have direct " + privilege + " on schema_migrations");
+            }
+        }
+    }
+
+    @Test
+    @Transactional
+    void legacyAttractionReviewRowsAreVisibleOnlyToAdminRuntimeContext() {
+        long partnerId = jdbc.queryForObject("""
+                INSERT INTO partners (slug, name, service_type)
+                VALUES (?, 'Review isolation partner', 'attraction') RETURNING id
+                """, Long.class, UUID.randomUUID().toString());
+        long reviewId = jdbc.queryForObject("""
+                INSERT INTO legacy_attraction_partner_reviews
+                    (partner_id, reviewed_by, decisions)
+                VALUES (?, ?, '{}'::jsonb) RETURNING id
+                """, Long.class, partnerId, userId);
+
+        jdbc.execute("SET LOCAL ROLE zentrip_api_runtime");
+        jdbc.queryForObject(
+                "SELECT set_config('app.user_id', ?, true)",
+                String.class, Long.toString(userId));
+        jdbc.queryForObject(
+                "SELECT set_config('app.auth_role', 'customer', true)", String.class);
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM legacy_attraction_partner_reviews WHERE id = ?",
+                Integer.class, reviewId));
+        jdbc.queryForObject(
+                "SELECT set_config('app.auth_role', 'admin', true)", String.class);
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM legacy_attraction_partner_reviews WHERE id = ?",
+                Integer.class, reviewId));
     }
 
     @Test

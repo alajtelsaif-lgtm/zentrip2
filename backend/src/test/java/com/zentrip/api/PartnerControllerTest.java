@@ -673,7 +673,8 @@ class PartnerControllerTest {
                 2,
                 "USD",
                 null,
-                null))
+                null,
+                ""))
                 .thenReturn(UnifiedInventoryService.SourceOutcome.of(
                         List.of(liteApiHotel)));
 
@@ -705,7 +706,8 @@ class PartnerControllerTest {
                 2,
                 "USD",
                 null,
-                null);
+                null,
+                "");
     }
 
     @Test
@@ -742,7 +744,8 @@ class PartnerControllerTest {
                 eq(2),
                 eq("USD"),
                 isNull(),
-                isNull()))
+                isNull(),
+                eq("")))
                 .thenReturn(new UnifiedInventoryService.SourceOutcome(
                         List.of(),
                         List.of("LiteAPI access was denied.")));

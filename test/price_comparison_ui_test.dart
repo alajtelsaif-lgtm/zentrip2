@@ -213,4 +213,75 @@ void main() {
     expect(tester.takeException(), isNull);
     c.dispose();
   });
+
+  for (final locale in const [Locale('en'), Locale('ar')]) {
+    testWidgets(
+        'hotel empty search shows localized retry ${locale.languageCode}',
+        (tester) async {
+      final ctrl = HotelController(
+        comparison: _comparison(),
+        searchHotels: (_) async => <HotelModel>[],
+      );
+      await ctrl.search(HotelSearchParams(
+        city: 'Paris',
+        checkIn: _now,
+        checkOut: _now.add(const Duration(days: 2)),
+      ));
+      await tester.pumpWidget(_app(const HotelResultsScreen(), ctrl, locale));
+      await tester.pumpAndSettle();
+
+      final l10n =
+          AppLocalizations.of(tester.element(find.byType(HotelResultsScreen)));
+      expect(find.text(l10n.hotelNoResults), findsOneWidget);
+      expect(find.text(l10n.tryAgain), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      ctrl.dispose();
+    });
+
+    testWidgets(
+        'hotel provider error clears results and shows localized retry '
+        '${locale.languageCode}', (tester) async {
+      var attempts = 0;
+      final ctrl = HotelController(
+        comparison: _comparison(),
+        searchHotels: (_) async {
+          attempts++;
+          if (attempts == 1) {
+            return [
+              HotelModel.fromJson({
+                'id': 'stale-paris',
+                'name': 'Stale Paris Hotel',
+                'source': 'liteapi',
+                'price_per_night': 90,
+              }),
+            ];
+          }
+          throw StateError('provider unavailable');
+        },
+      );
+      await ctrl.search(HotelSearchParams(
+        city: 'Paris',
+        checkIn: _now,
+        checkOut: _now.add(const Duration(days: 2)),
+      ));
+      expect(ctrl.results, hasLength(1));
+      await ctrl.search(HotelSearchParams(
+        city: 'Dubai',
+        checkIn: _now,
+        checkOut: _now.add(const Duration(days: 2)),
+      ));
+      await tester.pumpWidget(_app(const HotelResultsScreen(), ctrl, locale));
+      await tester.pumpAndSettle();
+
+      final l10n =
+          AppLocalizations.of(tester.element(find.byType(HotelResultsScreen)));
+      expect(ctrl.results, isEmpty);
+      expect(ctrl.hasSearchError, isTrue);
+      expect(find.text(l10n.hotelSearchUnavailable), findsOneWidget);
+      expect(find.text('Stale Paris Hotel'), findsNothing);
+      expect(find.text(l10n.tryAgain), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      ctrl.dispose();
+    });
+  }
 }

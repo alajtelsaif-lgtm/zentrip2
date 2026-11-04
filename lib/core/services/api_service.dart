@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/payment_session.dart';
+import '../../models/payment_attempt_receipt.dart';
 import '../../models/review_model.dart';
 import '../../models/destination_info_model.dart';
 import '../../models/booking_model.dart';
@@ -63,6 +64,7 @@ class ApiService {
 
   static final ValueNotifier<int> flightTripsRevision = ValueNotifier(0);
   static final ValueNotifier<int> bookingsRevision = ValueNotifier(0);
+  static final ValueNotifier<int> transfersRevision = ValueNotifier(0);
 
   static const String _configuredBaseUrl =
       String.fromEnvironment('ZENTRIP_API_URL');
@@ -653,22 +655,33 @@ class ApiService {
 
   /// بيتأكد من نجاح الدفع فعليًا من عند السيرفر (مش بس من إعادة توجيه
   /// الـ WebView، اللي ممكن يتلاعب بيها) قبل ما نأكد الحجز.
-  Future<ApiResult<bool>> verifyPayment(String sessionId) async {
+  Future<ApiResult<PaymentAttemptReceipt>> verifyPayment(
+    String sessionId, {
+    required bool paid,
+    required double amount,
+    required String currencyCode,
+  }) async {
     if (useMockMode) {
       return _request(() async {
         await Future.delayed(_mockDelay);
-        return true;
+        return PaymentAttemptReceipt(
+          attemptId: null,
+          paid: paid,
+          status: paid ? 'success' : 'failed',
+        );
       });
     }
     return _request(() async {
-      final res = await _dio.get('/payments/verify/$sessionId');
-      final rawPaid = res.data['paid'];
-      if (rawPaid is bool) return rawPaid;
-      if (rawPaid is String) {
-        final normalized = rawPaid.trim().toLowerCase();
-        return normalized == 'true' || normalized == '1' || normalized == 'yes';
-      }
-      return false;
+      final res = await _dio.post(
+        '/payments/verify/${Uri.encodeComponent(sessionId)}',
+        data: {
+          'paid': paid,
+          'amount': amount,
+          'currency': currencyCode.toUpperCase(),
+        },
+      );
+      return PaymentAttemptReceipt.fromJson(
+          Map<String, dynamic>.from(res.data as Map));
     });
   }
 
@@ -1252,6 +1265,7 @@ class ApiService {
     required String seatClass,
     DateTime? returnDate,
     List<String> extras = const [],
+    int? paymentAttemptId,
   }) async {
     final result = await _request(() async {
       final response = await _dio.post(
@@ -1261,6 +1275,7 @@ class ApiService {
           'seats': seats,
           'seat_class': seatClass,
           'extras': extras,
+          if (paymentAttemptId != null) 'payment_attempt_id': paymentAttemptId,
           if (returnDate != null)
             'return_date': returnDate.toUtc().toIso8601String(),
         },
@@ -1277,8 +1292,9 @@ class ApiService {
     TransferModel transfer, {
     required int passengers,
     required String referenceId,
+    int? paymentAttemptId,
   }) async {
-    return _request(() async {
+    final result = await _request(() async {
       final res = await _dio.post(
         '/transfers',
         data: {
@@ -1293,12 +1309,32 @@ class ApiService {
           'reference_id': referenceId,
           'status': 'confirmed',
           'partner_listing_id': transfer.partnerListingId,
+          if (paymentAttemptId != null) 'payment_attempt_id': paymentAttemptId,
         },
       );
 
       return TransferModel.fromJson(
         res.data['transfer'] as Map<String, dynamic>,
       );
+    });
+    if (result.isSuccess) transfersRevision.value++;
+    return result;
+  }
+
+  Future<ApiResult<List<TransferModel>>> getMyTransfers() async {
+    if (useMockMode) {
+      return ApiResult.success(const []);
+    }
+    return _request(() async {
+      final res = await _dio.get('/transfers');
+      final rows = res.data['transfers'];
+      if (rows is! List) {
+        throw const FormatException('Transfer response must contain a list');
+      }
+      return rows
+          .whereType<Map>()
+          .map((row) => TransferModel.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false);
     });
   }
 
@@ -1321,6 +1357,8 @@ class ApiService {
   Future<List<HotelModel>> searchHotels({
     required String city,
     String? destinationCode,
+    String? countryCode,
+    String? placeId,
     double? latitude,
     double? longitude,
     DateTime? checkIn,
@@ -1335,6 +1373,7 @@ class ApiService {
     String? roomType,
     List<String> preferences = const [],
     void Function(List<String> warnings)? onWarnings,
+    void Function(String status, String reason)? onStatus,
   }) async {
     final normalizedCurrency = currency.trim().toUpperCase();
     if (!const {'USD', 'EUR', 'GBP'}.contains(normalizedCurrency)) {
@@ -1351,6 +1390,10 @@ class ApiService {
         'city': city,
         if (destinationCode != null && destinationCode.trim().isNotEmpty)
           'destination_code': destinationCode.trim(),
+        if (countryCode != null && countryCode.trim().isNotEmpty)
+          'country_code': countryCode.trim().toUpperCase(),
+        if (placeId != null && placeId.trim().isNotEmpty)
+          'place_id': placeId.trim(),
         if (latitude != null && longitude != null) 'lat': latitude,
         if (latitude != null && longitude != null) 'lon': longitude,
         if (checkIn != null) 'check_in': _formatDate(checkIn),
@@ -1378,6 +1421,12 @@ class ApiService {
             .where((warning) => warning.isNotEmpty)
             .toList(growable: false)
         : const []);
+    final rawStatus = payload['status']?.toString().trim();
+    final rawReason = payload['reason']?.toString().trim();
+    onStatus?.call(
+      rawStatus == null || rawStatus.isEmpty ? 'unknown' : rawStatus,
+      rawReason ?? '',
+    );
     final byId = <String, HotelModel>{};
     for (final value in payload['hotels'] as List) {
       if (value is! Map) continue;
@@ -1430,9 +1479,10 @@ class ApiService {
   }) async {
     final normalized = query.trim();
     if (normalized.length < 2) return const [];
-    final localFallback = HotelDestinationSuggestion.popularMatches(normalized);
 
-    if (useMockMode) return localFallback;
+    if (useMockMode) {
+      return HotelDestinationSuggestion.popularMatches(normalized);
+    }
 
     try {
       final response = await _dio.get(
@@ -1462,9 +1512,8 @@ class ApiService {
         }
       }
       if (suggestions.isNotEmpty) return suggestions;
-      return localFallback;
+      return const [];
     } catch (_) {
-      if (localFallback.isNotEmpty) return localFallback;
       rethrow;
     }
   }
@@ -1660,12 +1709,16 @@ class ApiService {
     String? category,
     String? country,
     String? language,
+    double? latitude,
+    double? longitude,
   }) async =>
       (await searchAttractionPage(
         city: city,
         category: category,
         country: country,
         language: language,
+        latitude: latitude,
+        longitude: longitude,
       ))
           .attractions;
 
@@ -1983,7 +2036,10 @@ class ApiService {
       'local_flight_trips_${currentUser?.email ?? 'guest'}';
   String get _bookingsKey => 'local_bookings_${currentUser?.email ?? 'guest'}';
 
-  Future<ApiResult<TripModel>> createFlightTrip(TripModel trip) async {
+  Future<ApiResult<TripModel>> createFlightTrip(
+    TripModel trip, {
+    int? paymentAttemptId,
+  }) async {
     if (useMockMode) {
       final result = await _request(() async {
         await Future.delayed(_mockDelay);
@@ -1996,7 +2052,10 @@ class ApiService {
       return result;
     }
     final result = await _request(() async {
-      final res = await _dio.post('/trips', data: trip.toJson());
+      final res = await _dio.post('/trips', data: {
+        ...trip.toJson(),
+        if (paymentAttemptId != null) 'payment_attempt_id': paymentAttemptId,
+      });
       return TripModel.fromJson(res.data['trip'] as Map<String, dynamic>);
     });
     if (result.isSuccess) flightTripsRevision.value++;
@@ -2074,7 +2133,10 @@ class ApiService {
     return result;
   }
 
-  Future<ApiResult<BookingModel>> createBooking(BookingModel booking) async {
+  Future<ApiResult<BookingModel>> createBooking(
+    BookingModel booking, {
+    int? paymentAttemptId,
+  }) async {
     if (useMockMode) {
       final result = await _request(() async {
         await Future.delayed(_mockDelay);
@@ -2087,7 +2149,10 @@ class ApiService {
       return result;
     }
     final result = await _request(() async {
-      final res = await _dio.post('/bookings', data: booking.toJson());
+      final res = await _dio.post('/bookings', data: {
+        ...booking.toJson(),
+        if (paymentAttemptId != null) 'payment_attempt_id': paymentAttemptId,
+      });
       return BookingModel.fromJson(res.data['booking'] as Map<String, dynamic>);
     });
     if (result.isSuccess) bookingsRevision.value++;

@@ -1,7 +1,6 @@
 package com.zentrip.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -16,10 +15,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 class HotelDestinationCatalogServiceTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    private final OpenTripMapAttractionService openTripMap =
-            mock(OpenTripMapAttractionService.class);
+    private final GeoapifyAirportService geoapify = mock(GeoapifyAirportService.class);
     private final HotelDestinationCatalogService service =
-            new HotelDestinationCatalogService(jdbc, openTripMap);
+            new HotelDestinationCatalogService(jdbc, geoapify);
 
     @Test
     void returnsEnglishAndArabicNamesFromTheLocalCatalog() {
@@ -33,6 +31,7 @@ class HotelDestinationCatalogServiceTest {
                         "destination_code", "LON",
                         "name_en", "London",
                         "name_ar", "لندن",
+                        "country_code", "GB",
                         "country_name_en", "United Kingdom",
                         "country_name_ar", "المملكة المتحدة",
                         "latitude", 51.5072,
@@ -44,57 +43,68 @@ class HotelDestinationCatalogServiceTest {
         assertEquals("London", suggestions.getFirst().get("name"));
         assertEquals("لندن", suggestions.getFirst().get("localized_name"));
         assertEquals("LON", suggestions.getFirst().get("destination_code"));
+        assertEquals("GB", suggestions.getFirst().get("country_code"));
         assertEquals("المملكة المتحدة",
                 suggestions.getFirst().get("country_name_localized"));
     }
 
     @Test
-    void usesOpenTripMapThenPopularCitiesWhenCatalogIsNotInstalled() {
+    void usesAResolvedCityInsteadOfAnOpenTripMapGeonameOrHardcodedMatch() {
         when(jdbc.queryForObject(
                 eq("SELECT to_regclass('public.hotel_destinations') IS NOT NULL"),
                 eq(Boolean.class)))
                 .thenReturn(false);
-        when(openTripMap.suggestDestination("par", "en")).thenReturn(null);
+        when(geoapify.resolveCity("New York", ""))
+                .thenReturn(new GeoapifyAirportService.GeocodedPlace(
+                        "New York",
+                        "New York",
+                        "United States",
+                        "us",
+                        "New York",
+                        "New York, NY, USA",
+                        "city",
+                        "geoapify-new-york",
+                        null,
+                        40.7127281,
+                        -74.0060152));
 
-        List<Map<String, Object>> suggestions = service.suggest("par", "en");
+        List<Map<String, Object>> suggestions = service.suggest("New York", "en");
 
-        assertTrue(suggestions.stream().anyMatch(
-                suggestion -> "Paris".equals(suggestion.get("name"))));
+        assertEquals(1, suggestions.size());
+        assertEquals("New York", suggestions.getFirst().get("name"));
+        assertEquals("US", suggestions.getFirst().get("country_code"));
+        assertEquals("geoapify-new-york", suggestions.getFirst().get("place_id"));
+        assertEquals(40.7127281, suggestions.getFirst().get("latitude"));
+        assertEquals(-74.0060152, suggestions.getFirst().get("longitude"));
     }
 
     @Test
-    void popularFallbackSupportsEnglishAndArabicPrefixes() {
+    void doesNotInventAPopularDestinationWhenGeocodingReturnsNothing() {
         when(jdbc.queryForObject(
                 eq("SELECT to_regclass('public.hotel_destinations') IS NOT NULL"),
                 eq(Boolean.class)))
                 .thenReturn(false);
-        when(openTripMap.suggestDestination(anyString(), anyString()))
-                .thenReturn(null);
+        when(geoapify.resolveCity(anyString(), anyString())).thenReturn(null);
 
-        assertPopular("lo", "en", "London");
-        assertPopular("par", "en", "Paris");
-        assertPopular("دب", "ar", "Dubai");
-        assertPopular("القا", "ar", "Cairo");
-    }
-
-    private void assertPopular(String query, String language, String expectedName) {
-        assertTrue(service.suggest(query, language).stream().anyMatch(
-                suggestion -> expectedName.equals(suggestion.get("name"))));
+        assertEquals(List.of(), service.suggest("Somewhere", "en"));
     }
 
     @Test
-    void returnsCoordinatesForAnOpenTripMapGeonameFallback() {
+    void returnsCoordinatesAndCountryForGeoapifyCitySuggestions() {
         when(jdbc.queryForObject(
                 eq("SELECT to_regclass('public.hotel_destinations') IS NOT NULL"),
                 eq(Boolean.class)))
                 .thenReturn(false);
-        when(openTripMap.suggestDestination("Zürich", "en"))
-                .thenReturn(new OpenTripMapAttractionService.DestinationSuggestion(
-                        "Zurich", "Switzerland", 47.3769, 8.5417));
+        when(geoapify.resolveCity("Zürich", ""))
+                .thenReturn(new GeoapifyAirportService.GeocodedPlace(
+                        "Zurich", "Zurich", "Switzerland", "CH", "Zurich",
+                        "Zurich, Switzerland", "city", "geoapify-zurich",
+                        null, 47.3769, 8.5417));
 
         List<Map<String, Object>> suggestions = service.suggest("Zürich", "en");
 
         assertEquals(1, suggestions.size());
+        assertEquals("CH", suggestions.getFirst().get("country_code"));
         assertEquals(47.3769, suggestions.getFirst().get("latitude"));
         assertEquals(8.5417, suggestions.getFirst().get("longitude"));
     }

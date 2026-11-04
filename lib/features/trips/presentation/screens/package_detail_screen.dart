@@ -51,12 +51,12 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
       return;
     }
 
-    final paid = await PaymentCheckoutScreen.start(context,
+    final payment = await PaymentCheckoutScreen.start(context,
         amountUsd: package.totalPricePerPerson,
         description: package.title,
         referenceId: ref);
     if (!mounted) return;
-    if (!paid) {
+    if (payment?.paid != true) {
       AppSnackbar.error(context, l10n.paymentFailedMessage);
       return;
     }
@@ -76,7 +76,10 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
       imageUrl: package.imageUrl.isEmpty ? null : package.imageUrl,
       partnerListingId: package.partnerListingId,
     );
-    final createResult = await ApiService.instance.createBooking(booking);
+    final createResult = await ApiService.instance.createBooking(
+      booking,
+      paymentAttemptId: payment?.attemptId,
+    );
     if (createResult.isFailure) {
       if (!mounted) return;
       setState(() => _isBooking = false);

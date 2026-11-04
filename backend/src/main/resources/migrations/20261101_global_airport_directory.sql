@@ -1,4 +1,15 @@
 -- Additive airport-directory migration. It preserves existing airport rows.
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.airports') IS NULL
+       OR to_regclass('public.schema_migrations') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261101_global_airport_directory requires public.airports and schema_migrations; apply the base schema and migration tracker first';
+    END IF;
+END
+$$;
+
 ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS icao_code CHAR(4);
 ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
 ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
@@ -19,3 +30,9 @@ CREATE INDEX IF NOT EXISTS airports_country_search_index ON public.airports (LOW
 CREATE INDEX IF NOT EXISTS airports_name_search_index ON public.airports (LOWER(airport_name));
 CREATE INDEX IF NOT EXISTS airports_coordinates_index ON public.airports (latitude, longitude)
     WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261101_global_airport_directory', 'global_airport_directory')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

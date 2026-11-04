@@ -167,13 +167,23 @@ public class GeoapifyAirportService {
     }
 
     public GeocodedPlace resolveLocation(String requestedQuery, String countryCode) {
+        return resolveLocation(requestedQuery, countryCode, null);
+    }
+
+    public GeocodedPlace resolveCity(String requestedQuery, String countryCode) {
+        return resolveLocation(requestedQuery, countryCode, "city");
+    }
+
+    private GeocodedPlace resolveLocation(
+            String requestedQuery, String countryCode, String resultType) {
         String query = requestedQuery == null ? "" : requestedQuery.trim();
         if (apiKey.isBlank() || query.length() < 2) return null;
 
         String filterCountry = countryCode == null ? ""
                 : countryCode.trim().toLowerCase(Locale.ROOT);
         if (!filterCountry.isEmpty() && !filterCountry.matches("[a-z]{2}")) return null;
-        String cacheKey = query.toLowerCase(Locale.ROOT) + "|" + filterCountry;
+        String cacheKey = query.toLowerCase(Locale.ROOT) + "|" + filterCountry
+                + "|" + (resultType == null ? "" : resultType);
         LocationCacheEntry previous = locationCache.get(cacheKey);
         Instant now = Instant.now();
         if (previous != null && now.isBefore(previous.expiresAt())) {
@@ -188,6 +198,9 @@ public class GeoapifyAirportService {
                             .queryParam("format", "json")
                             .queryParam("limit", 1)
                             .queryParam("apiKey", apiKey);
+                        if (resultType != null && !resultType.isBlank()) {
+                            builder.queryParam("type", resultType);
+                        }
                         if (!filterCountry.isBlank()) {
                             builder.queryParam("filter", "countrycode:" + filterCountry);
                         }
