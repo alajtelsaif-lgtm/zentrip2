@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zentrip/core/constants/app_colors.dart';
 import 'package:zentrip/core/services/api_result.dart';
 import 'package:zentrip/features/flight_booking/presentation/screens/flight_seat_selection.dart';
 import 'package:zentrip/features/flight_booking/presentation/screens/flight_primary_button.dart';
@@ -15,7 +16,8 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(_app(loader: (_) async => ApiResult.success(_map())));
+    await tester
+        .pumpWidget(_app(loader: (_) async => ApiResult.success(_map())));
     await tester.pumpAndSettle();
 
     expect(find.text('CAI–DPS'), findsOneWidget);
@@ -43,7 +45,8 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(_app(loader: (_) async => ApiResult.success(_map())));
+    await tester
+        .pumpWidget(_app(loader: (_) async => ApiResult.success(_map())));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('2'));
@@ -78,6 +81,90 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets(
+      'selected seat is theme blue, taken seats stay disabled, and deselect restores it',
+      (tester) async {
+    await tester
+        .pumpWidget(_app(loader: (_) async => ApiResult.success(_map())));
+    await tester.pumpAndSettle();
+
+    final availableSeat = find.byKey(const ValueKey('seat-12A'));
+    final takenSeat = find.byKey(const ValueKey('seat-12B'));
+
+    expect(_seatMaterial(tester, availableSeat).color, Colors.white);
+    expect(_seatBorder(tester, availableSeat).top.color, AppColors.border);
+    expect(
+      find.descendant(of: takenSeat, matching: find.text('B')),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<InkWell>(
+            find.descendant(of: takenSeat, matching: find.byType(InkWell)),
+          )
+          .onTap,
+      isNull,
+    );
+
+    await tester.tap(availableSeat);
+    await tester.pumpAndSettle();
+    expect(_seatMaterial(tester, availableSeat).color, AppColors.primary);
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(of: availableSeat, matching: find.text('A')),
+          )
+          .style!
+          .color,
+      Colors.white,
+    );
+
+    await tester.tap(availableSeat);
+    await tester.pumpAndSettle();
+    expect(_seatMaterial(tester, availableSeat).color, Colors.white);
+    expect(_seatBorder(tester, availableSeat).top.color, AppColors.border);
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(of: availableSeat, matching: find.text('A')),
+          )
+          .style!
+          .color,
+      const Color(0xFF20263A),
+    );
+  });
+
+  testWidgets('numbers identify selected seats for multiple passengers',
+      (tester) async {
+    await tester.pumpWidget(
+      _app(
+        passengerCount: 2,
+        loader: (_) async => ApiResult.success(_map()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final firstSeat = find.byKey(const ValueKey('seat-12A'));
+    final secondSeat = find.byKey(const ValueKey('seat-13A'));
+    await tester.ensureVisible(firstSeat);
+    await tester.tap(firstSeat);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(secondSeat);
+    await tester.tap(secondSeat);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: firstSeat, matching: find.text('1')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: secondSeat, matching: find.text('2')),
+      findsOneWidget,
+    );
+    expect(_seatMaterial(tester, firstSeat).color, AppColors.primary);
+    expect(_seatMaterial(tester, secondSeat).color, AppColors.primary);
+  });
+
   testWidgets('taken seats are disabled and refresh error offers retry',
       (tester) async {
     final semantics = tester.ensureSemantics();
@@ -98,13 +185,19 @@ void main() {
     expect(find.bySemanticsLabel('Seat 12B, taken'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('seat-12A')));
     await tester.pumpAndSettle();
-    expect(tester.widget<FlightPrimaryButton>(find.byType(FlightPrimaryButton)).onPressed,
+    expect(
+        tester
+            .widget<FlightPrimaryButton>(find.byType(FlightPrimaryButton))
+            .onPressed,
         isNotNull);
 
     await tester.tap(find.byTooltip('Refresh availability'));
     await tester.pumpAndSettle();
     expect(find.text('Seat map temporarily unavailable'), findsOneWidget);
-    expect(tester.widget<FlightPrimaryButton>(find.byType(FlightPrimaryButton)).onPressed,
+    expect(
+        tester
+            .widget<FlightPrimaryButton>(find.byType(FlightPrimaryButton))
+            .onPressed,
         isNull);
     expect(find.text('Retry'), findsOneWidget);
     await tester.tap(find.text('Retry'));
@@ -115,13 +208,14 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('limits passenger selection and reconciles seats on periodic refresh',
+  testWidgets(
+      'limits passenger selection and reconciles seats on periodic refresh',
       (tester) async {
     var calls = 0;
     await tester.pumpWidget(_app(loader: (_) async {
       calls++;
-      return ApiResult.success(_map(
-          occupied: calls > 1 ? {'12A', '12B', '14C', '15D'} : null));
+      return ApiResult.success(
+          _map(occupied: calls > 1 ? {'12A', '12B', '14C', '15D'} : null));
     }));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('seat-12A')));
@@ -135,13 +229,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(calls, 2);
     expect(find.textContaining('no longer available'), findsOneWidget);
-    expect(tester.widget<FlightPrimaryButton>(find.byType(FlightPrimaryButton)).onPressed,
+    expect(
+        tester
+            .widget<FlightPrimaryButton>(find.byType(FlightPrimaryButton))
+            .onPressed,
         isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
 
-Widget _app({required FlightSeatMapLoader loader}) => MaterialApp(
+Widget _app({
+  required FlightSeatMapLoader loader,
+  int passengerCount = 1,
+}) =>
+    MaterialApp(
       home: FlightSeatSelectionScreen(
         flight: FlightModel(
           id: '81',
@@ -161,7 +262,7 @@ Widget _app({required FlightSeatMapLoader loader}) => MaterialApp(
           seatsAvailable: 24,
           aircraftName: 'Airbus A320',
         ),
-        passengerCount: 1,
+        passengerCount: passengerCount,
         seatClass: 'economy',
         returnDate: null,
         seatsPerSide: 3,
@@ -212,3 +313,15 @@ FlightSeatMap _map({Set<String>? occupied}) => FlightSeatMap(
       bookingFee: 8,
       extras: {'extra_baggage': 18, 'flexible_ticket': 12},
     );
+
+Material _seatMaterial(WidgetTester tester, Finder seat) =>
+    tester.widget<Material>(
+      find.descendant(of: seat, matching: find.byType(Material)),
+    );
+
+BoxBorder _seatBorder(WidgetTester tester, Finder seat) => (tester
+        .widget<Container>(
+          find.descendant(of: seat, matching: find.byType(Container)),
+        )
+        .decoration! as BoxDecoration)
+    .border!;

@@ -1,10 +1,11 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_colors.dart';
+
 const _seatNavy = Color(0xFF1E1B4B);
 const _seatInk = Color(0xFF20263A);
 const _seatMuted = Color(0xFF8991A2);
-const _available = Color(0xFFE8ECF5);
 const _taken = Color(0xFFE9EBF0);
 
 /// Cabin rows are the actual aircraft row numbers supplied by the seat API.
@@ -15,6 +16,7 @@ class FlightSeatMapView extends StatelessWidget {
   final Set<int> extraLegroomRows;
   final Set<String> occupiedSeats;
   final Set<String> selectedSeats;
+  final bool showPassengerNumbers;
   final bool enabled;
   final ValueChanged<String> onSeatTap;
 
@@ -25,6 +27,7 @@ class FlightSeatMapView extends StatelessWidget {
     required this.extraLegroomRows,
     required this.occupiedSeats,
     required this.selectedSeats,
+    this.showPassengerNumbers = false,
     required this.enabled,
     required this.onSeatTap,
   });
@@ -35,6 +38,11 @@ class FlightSeatMapView extends StatelessWidget {
     final split = seatLetters.length ~/ 2;
     final upper = seatLetters.take(split).toList();
     final lower = seatLetters.skip(split).toList();
+    final selectedSeatNumbers = <String, int>{};
+    var passengerNumber = 1;
+    for (final seat in selectedSeats) {
+      selectedSeatNumbers[seat] = passengerNumber++;
+    }
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -99,6 +107,9 @@ class FlightSeatMapView extends StatelessWidget {
                             premium: extraLegroomRows.contains(row),
                             occupied: occupiedSeats.contains('$row$letter'),
                             selected: selectedSeats.contains('$row$letter'),
+                            passengerNumber: showPassengerNumbers
+                                ? selectedSeatNumbers['$row$letter']
+                                : null,
                             enabled: enabled,
                             onTap: onSeatTap,
                           ),
@@ -120,6 +131,9 @@ class FlightSeatMapView extends StatelessWidget {
                             premium: extraLegroomRows.contains(row),
                             occupied: occupiedSeats.contains('$row$letter'),
                             selected: selectedSeats.contains('$row$letter'),
+                            passengerNumber: showPassengerNumbers
+                                ? selectedSeatNumbers['$row$letter']
+                                : null,
                             enabled: enabled,
                             onTap: onSeatTap,
                           ),
@@ -141,6 +155,7 @@ class _SeatTile extends StatelessWidget {
   final bool premium;
   final bool occupied;
   final bool selected;
+  final int? passengerNumber;
   final bool enabled;
   final ValueChanged<String> onTap;
 
@@ -150,6 +165,7 @@ class _SeatTile extends StatelessWidget {
     required this.premium,
     required this.occupied,
     required this.selected,
+    required this.passengerNumber,
     required this.enabled,
     required this.onTap,
   });
@@ -158,17 +174,19 @@ class _SeatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final canSelect = enabled && (!occupied || selected);
     final fill = selected
-        ? _seatNavy
+        ? AppColors.primary
         : occupied
             ? _taken
             : premium
                 ? Colors.white
-                : _available;
+                : Colors.white;
     final edge = selected
-        ? _seatNavy
+        ? AppColors.primary
         : premium && !occupied
             ? _seatNavy
-            : Colors.transparent;
+            : occupied
+                ? Colors.transparent
+                : AppColors.border;
     final foreground = selected
         ? Colors.white
         : occupied
@@ -197,13 +215,33 @@ class _SeatTile extends StatelessWidget {
                   border: Border.all(color: edge, width: 1.5),
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  occupied && !selected ? '' : letter,
-                  style: TextStyle(
-                    color: foreground,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Text(
+                        occupied && !selected ? '' : letter,
+                        style: TextStyle(
+                          color: foreground,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (selected && passengerNumber != null)
+                      PositionedDirectional(
+                        top: 1,
+                        end: 3,
+                        child: Text(
+                          '$passengerNumber',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.78),
+                            fontSize: 7,
+                            height: 1,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -217,7 +255,9 @@ class _SeatTile extends StatelessWidget {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     if (isArabic) {
       final status = selected
-          ? 'مقعدك'
+          ? passengerNumber == null
+              ? 'مقعدك'
+              : 'مقعد الراكب $passengerNumber'
           : occupied
               ? 'محجوز'
               : premium
@@ -226,7 +266,9 @@ class _SeatTile extends StatelessWidget {
       return 'المقعد $seatId، $status';
     }
     final status = selected
-        ? 'your seat'
+        ? passengerNumber == null
+            ? 'your seat'
+            : 'passenger $passengerNumber seat'
         : occupied
             ? 'taken'
             : premium

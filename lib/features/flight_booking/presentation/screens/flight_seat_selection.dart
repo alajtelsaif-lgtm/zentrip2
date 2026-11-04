@@ -876,6 +876,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
           extraLegroomRows: map.extraLegroomRows,
           occupiedSeats: map.occupiedSeats.difference(_heldSeats),
           selectedSeats: _selectedSeats,
+          showPassengerNumbers: widget.passengerCount > 1,
           enabled:
               !_submitting && !_loading && !_refreshing && _seatError == null,
           onSeatTap: _toggleSeat,
