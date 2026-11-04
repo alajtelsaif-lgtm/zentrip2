@@ -88,13 +88,15 @@ The API runs at `http://127.0.0.1:8080/api`. Start the copied Flutter app from t
 
 ## Backend tests
 
-The normal `scripts/test-backend.sh` run does not set `ZENTRIP_POSTGRES_TEST_URL`, so the 21 tests in `PostgresMigrationIntegrationTest` are skipped by their loopback-only environment guard. Run the full suite, including those real PostgreSQL migration and HTTP/JDBC checks, with:
+The normal `scripts/test-backend.sh` run first checks the Flutter/Spring API contract and then runs mock-backed Java tests. PostgreSQL integration tests are skipped by their loopback-only environment guard. Run the full suite, including real PostgreSQL migration and HTTP/JDBC checks, with:
 
 ```bash
 bash scripts/test-postgres.sh
 ```
 
-The script creates a fresh disposable PostgreSQL cluster on loopback, loads `schema.sql`, creates the non-login `zentrip_api_runtime` role used by request tests, runs all backend tests, and removes the cluster on exit. It unsets the configured Supabase connection variables and never connects to the application database. The GitHub Actions workflow `.github/workflows/backend-postgres.yml` runs this same script for pushes and pull requests.
+The script creates a fresh disposable PostgreSQL cluster on loopback, loads `schema.sql`, installs local Supabase-compatible role/function stubs, and applies the migrations in the same order documented in the root README before running all backend tests. It reapplies the new RLS and push-token migrations to verify idempotency, and grants the test login membership in the non-login `zentrip_api_runtime` role. It unsets configured Supabase connection variables and never connects to the application database. The GitHub Actions workflow `.github/workflows/backend-postgres.yml` runs this same script for pushes and pull requests.
+
+For Supabase, apply the migration files manually and in order using a database owner; the backend does not migrate production automatically. Back up first. If the configured JDBC login is not `postgres`, grant `zentrip_api_runtime` to that login. Confirm the runtime role is `NOLOGIN NOBYPASSRLS` and that request connections can switch to it.
 
 Zen AI uses the authenticated `POST /api/ai/chat` endpoint. The Java backend streams Requesty's OpenAI-compatible chat-completions response to the app as server-sent events, so text appears as soon as the provider generates it. The app sends up to 10 recent messages per user and chat session and allows up to 512 generated tokens. Replies follow the latest user message's language, with the app language as a fallback. Set `REQUESTY_API_KEY` and `REQUESTY_MODEL` in `backend/.env`; a lower-latency model available to your Requesty account may improve the time to the first token and total response time. Restart the backend after changing these settings. Never place the key in Flutter code or commit it to Git.
 

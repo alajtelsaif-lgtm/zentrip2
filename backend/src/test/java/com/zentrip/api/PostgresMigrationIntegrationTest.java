@@ -858,4 +858,187 @@ class PostgresMigrationIntegrationTest {
         assertEquals("confirmed", jdbc.queryForObject(
                 "SELECT status FROM flight_seat_holds WHERE flight_listing_id = ?", String.class, flight));
     }
+
+    @Test
+    @Transactional
+    void coreRlsIsEnabledAndSeparatesCustomerPartnerAndAdminData() {
+        assertFalse(jdbc.queryForObject("""
+                SELECT rolsuper OR rolcanlogin OR rolbypassrls
+                FROM pg_roles WHERE rolname = 'zentrip_api_runtime'
+                """, Boolean.class));
+        assertEquals(27, jdbc.queryForObject("""
+                SELECT COUNT(*)
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public'
+                  AND c.relkind = 'r'
+                  AND c.relrowsecurity
+                  AND c.relname IN (
+                      'partners', 'users', 'password_reset_codes', 'partner_listings',
+                      'airports', 'user_reviews', 'user_profiles', 'ai_chat_messages',
+                      'travel_preferences', 'tourist_monuments',
+                      'legacy_attraction_partner_reviews', 'attraction_visit_counts',
+                      'attraction_visit_dedup', 'offers', 'offer_catalog_metadata',
+                      'trips', 'flight_seat_holds', 'bookings', 'transfers',
+                      'transfer_schedules', 'api_tokens', 'hotel_destinations',
+                      'landmark_places', 'landmark_place_aliases',
+                       'landmark_search_areas', 'landmark_merge_candidates',
+                       'user_push_tokens'
+                  )
+                """, Integer.class));
+
+        long otherUserId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password)
+                VALUES ('Other Customer', ?, 'unused-test-hash') RETURNING id
+                """, Long.class, UUID.randomUUID() + "@example.invalid");
+        long adminId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password, role)
+                VALUES ('Admin', ?, 'unused-test-hash', 'admin') RETURNING id
+                """, Long.class, UUID.randomUUID() + "@example.invalid");
+
+        long ownListing = listing("hotel", "{}");
+        long otherListing = listing("hotel", "{}");
+        long ownPartnerId = jdbc.queryForObject(
+                "SELECT partner_id FROM partner_listings WHERE id = ?", Long.class, ownListing);
+        long otherPartnerId = jdbc.queryForObject(
+                "SELECT partner_id FROM partner_listings WHERE id = ?", Long.class, otherListing);
+        long partnerUserId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password, role, partner_id)
+                VALUES ('Partner User', ?, 'unused-test-hash', 'partner', ?) RETURNING id
+                """, Long.class, UUID.randomUUID() + "@example.invalid", ownPartnerId);
+
+        long ownBooking = rlsBooking(userId, ownPartnerId, ownListing);
+        long otherBooking = rlsBooking(otherUserId, otherPartnerId, otherListing);
+        long ownTrip = rlsTrip(userId, ownPartnerId, ownListing);
+        long otherTrip = rlsTrip(otherUserId, otherPartnerId, otherListing);
+        jdbc.update("INSERT INTO user_profiles (user_id, photo_url) VALUES (?, ?)",
+                userId, "https://example.invalid/a.jpg");
+        jdbc.update("INSERT INTO user_profiles (user_id, photo_url) VALUES (?, ?)",
+                otherUserId, "https://example.invalid/b.jpg");
+
+        assumeRuntime(userId, "customer", null);
+        assertEquals(1, visibleCount("SELECT COUNT(*) FROM bookings WHERE id = ?", ownBooking));
+        assertEquals(0, visibleCount("SELECT COUNT(*) FROM bookings WHERE id = ?", otherBooking));
+        assertEquals(0, jdbc.update("UPDATE bookings SET status = 'changed' WHERE id = ?", otherBooking));
+        assertEquals(0, jdbc.update("DELETE FROM bookings WHERE id = ?", otherBooking));
+        assertEquals(1, visibleCount("SELECT COUNT(*) FROM trips WHERE id = ?", ownTrip));
+        assertEquals(0, visibleCount("SELECT COUNT(*) FROM trips WHERE id = ?", otherTrip));
+        assertEquals(0, jdbc.update("UPDATE trips SET status = 'changed' WHERE id = ?", otherTrip));
+        assertEquals(0, jdbc.update("DELETE FROM trips WHERE id = ?", otherTrip));
+        assertEquals(1, visibleCount("SELECT COUNT(*) FROM user_profiles WHERE user_id = ?", userId));
+        assertEquals(0, visibleCount("SELECT COUNT(*) FROM user_profiles WHERE user_id = ?", otherUserId));
+        assertEquals(0, jdbc.update(
+                "UPDATE user_profiles SET photo_url = 'https://example.invalid/changed.jpg' WHERE user_id = ?",
+                otherUserId));
+        assertEquals(0, jdbc.update("DELETE FROM user_profiles WHERE user_id = ?", otherUserId));
+
+        jdbc.execute("RESET ROLE");
+        assumeRuntime(partnerUserId, "partner", ownPartnerId);
+        assertEquals(1, visibleCount("SELECT COUNT(*) FROM bookings WHERE id = ?", ownBooking));
+        assertEquals(0, visibleCount("SELECT COUNT(*) FROM bookings WHERE id = ?", otherBooking));
+        assertEquals(0, jdbc.update("UPDATE bookings SET status = 'changed' WHERE id = ?", otherBooking));
+        assertEquals(1, visibleCount("SELECT COUNT(*) FROM trips WHERE id = ?", ownTrip));
+        assertEquals(0, visibleCount("SELECT COUNT(*) FROM trips WHERE id = ?", otherTrip));
+        assertEquals(1, visibleCount("SELECT COUNT(*) FROM partner_listings WHERE id = ?", ownListing));
+        assertEquals(0, visibleCount("SELECT COUNT(*) FROM partner_listings WHERE id = ?", otherListing));
+        assertEquals(0, jdbc.update(
+                "UPDATE partner_listings SET title = 'Not owned' WHERE id = ?", otherListing));
+        assertEquals(0, jdbc.update("DELETE FROM partner_listings WHERE id = ?", otherListing));
+
+        jdbc.execute("RESET ROLE");
+        assumeRuntime(adminId, "admin", null);
+        assertEquals(2, visibleCount(
+                "SELECT COUNT(*) FROM bookings WHERE id IN (?, ?)", ownBooking, otherBooking));
+        assertEquals(2, visibleCount(
+                "SELECT COUNT(*) FROM trips WHERE id IN (?, ?)", ownTrip, otherTrip));
+        assertEquals(2, visibleCount(
+                "SELECT COUNT(*) FROM user_profiles WHERE user_id IN (?, ?)", userId, otherUserId));
+        assertEquals(2, visibleCount(
+                "SELECT COUNT(*) FROM partner_listings WHERE id IN (?, ?)", ownListing, otherListing));
+    }
+
+    @Test
+    @Transactional
+    void pushTokenApiStoresAndRemovesAUsersOwnDeviceToken() throws Exception {
+        String deviceToken = "fcm-" + UUID.randomUUID();
+        http.perform(post("/api/users/fcm-token")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(json.writeValueAsString(Map.of(
+                                "token", deviceToken, "platform", "android"))))
+                .andExpect(status().isOk());
+
+        Map<String, Object> stored = jdbc.queryForMap("""
+                SELECT user_id, platform FROM user_push_tokens WHERE token = ?
+                """, deviceToken);
+        assertEquals(userId, ((Number) stored.get("user_id")).longValue());
+        assertEquals("android", stored.get("platform"));
+
+        http.perform(delete("/api/users/fcm-token")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(json.writeValueAsString(Map.of("token", deviceToken))))
+                .andExpect(status().isNoContent());
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM user_push_tokens WHERE token = ?",
+                Integer.class, deviceToken));
+    }
+
+    @Test
+    @Transactional
+    void runtimeRoleCannotReadOrDeleteAnotherUsersPushToken() {
+        long otherUserId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password)
+                VALUES ('Push Token Owner', ?, 'unused-test-hash') RETURNING id
+                """, Long.class, UUID.randomUUID() + "@example.invalid");
+        String ownToken = "own-" + UUID.randomUUID();
+        String otherToken = "other-" + UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO user_push_tokens (token, user_id, platform)
+                VALUES (?, ?, 'web'), (?, ?, 'ios')
+                """, ownToken, userId, otherToken, otherUserId);
+
+        jdbc.execute("SET LOCAL ROLE zentrip_api_runtime");
+        jdbc.queryForObject(
+                "SELECT set_config('app.user_id', ?, true)",
+                String.class, Long.toString(userId));
+        jdbc.queryForObject(
+                "SELECT set_config('app.auth_role', 'customer', true)", String.class);
+
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM user_push_tokens", Integer.class));
+        assertEquals(0, jdbc.update(
+                "DELETE FROM user_push_tokens WHERE user_id = ? AND token = ?",
+                otherUserId, otherToken));
+    }
+
+    private long rlsBooking(long ownerId, long partnerId, long listingId) {
+        return jdbc.queryForObject("""
+                INSERT INTO bookings (
+                    user_id, partner_id, partner_listing_id, type, status,
+                    total_amount, title, subtitle, "date"
+                ) VALUES (?, ?, ?, 'hotel', 'upcoming', 100, 'RLS stay', 'Test', NOW())
+                RETURNING id
+                """, Long.class, ownerId, partnerId, listingId);
+    }
+
+    private long rlsTrip(long ownerId, long partnerId, long listingId) {
+        return jdbc.queryForObject("""
+                INSERT INTO trips (user_id, partner_id, partner_listing_id, title, destination)
+                VALUES (?, ?, ?, 'RLS trip', 'Tripoli') RETURNING id
+                """, Long.class, ownerId, partnerId, listingId);
+    }
+
+    private void assumeRuntime(long authenticatedUserId, String role, Long partnerId) {
+        jdbc.execute("SET LOCAL ROLE zentrip_api_runtime");
+        jdbc.queryForObject("SELECT set_config('app.user_id', ?, TRUE)", String.class,
+                Long.toString(authenticatedUserId));
+        jdbc.queryForObject("SELECT set_config('app.auth_role', ?, TRUE)", String.class, role);
+        jdbc.queryForObject("SELECT set_config('app.partner_id', ?, TRUE)", String.class,
+                partnerId == null ? "" : Long.toString(partnerId));
+    }
+
+    private int visibleCount(String query, Object... args) {
+        return jdbc.queryForObject(query, Integer.class, args);
+    }
 }

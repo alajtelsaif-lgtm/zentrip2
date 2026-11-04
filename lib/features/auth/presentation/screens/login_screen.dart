@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/services/api_service.dart';
 import '../../../../routes/app_routes.dart';
 import '../../logic/auth_controller.dart';
 import 'auth_shared.dart' show AuthScaffold;
@@ -206,47 +207,46 @@ class _LoginScreenState extends State<LoginScreen> {
           loading: _loading,
           onTap: _submitLogin,
         ),
-        const SizedBox(height: 16),
-
-        // Divider
-        Row(
-          children: [
-            const Expanded(child: Divider(color: Color(0xFFE9ECF3))),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                'Or sign up with',
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  color: AppColors.hint,
+        if (ApiService.socialAuthConfigured) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Expanded(child: Divider(color: Color(0xFFE9ECF3))),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'Or sign up with',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: AppColors.hint,
+                  ),
                 ),
               ),
-            ),
-            const Expanded(child: Divider(color: Color(0xFFE9ECF3))),
-          ],
-        ),
-        const SizedBox(height: 14),
-
-        Row(
-          children: [
-            Expanded(
-              child: _SocialButton(
-                label: 'Google',
-                icon: const _GoogleG(),
-                onTap: () => _socialLogin(withApple: false),
+              const Expanded(child: Divider(color: Color(0xFFE9ECF3))),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _SocialButton(
+                  label: 'Google',
+                  icon: const _GoogleG(),
+                  onTap: () => _socialLogin(withApple: false),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _SocialButton(
-                label: 'Apple',
-                icon: const Icon(Icons.apple, size: 22, color: Colors.black),
-                onTap: () => _socialLogin(withApple: true),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SocialButton(
+                  label: 'Apple',
+                  icon: const Icon(Icons.apple, size: 22, color: Colors.black),
+                  onTap: () => _socialLogin(withApple: true),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
+            ],
+          ),
+          const SizedBox(height: 18),
+        ],
 
         GestureDetector(
           behavior: HitTestBehavior.opaque,

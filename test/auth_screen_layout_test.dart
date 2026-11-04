@@ -97,6 +97,20 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('unconfigured social sign-in options are hidden', (tester) async {
+    _setViewport(tester);
+    await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+    await tester.pump();
+    expect(find.text('Google'), findsNothing);
+    expect(find.text('Apple'), findsNothing);
+
+    await tester.pumpWidget(const MaterialApp(home: RegisterScreen()));
+    await tester.pump();
+    expect(find.text('Google'), findsNothing);
+    expect(find.text('Apple'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
 
 void _setViewport(WidgetTester tester) {

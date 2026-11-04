@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,7 +21,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.cors.allowed-origins=https://app.zentrip.example")
 @AutoConfigureMockMvc
 class SecurityConfigIntegrationTest {
     @Autowired
@@ -45,6 +46,21 @@ class SecurityConfigIntegrationTest {
 
         mockMvc.perform(get("/api/attractions/suggestions")
                         .param("query", "Trip")
+                        .param("lang", "en"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void nearbyAttractionsArePublicAndReachTheProviderService() throws Exception {
+        when(openTripMapAttractionService.searchNearby(
+                32.8, 13.2, 5000.0, "historical", "en"))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/attractions/nearby")
+                        .param("lat", "32.8")
+                        .param("lng", "13.2")
+                        .param("radius", "5000")
+                        .param("category", "historical")
                         .param("lang", "en"))
                 .andExpect(status().isOk());
     }
@@ -90,6 +106,30 @@ class SecurityConfigIntegrationTest {
     void unknownApiRoutesAreNotPublicByDefault() throws Exception {
         mockMvc.perform(get("/api/not-a-real-route"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void pushTokenRouteRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/users/fcm-token")
+                        .contentType("application/json")
+                        .content("{\"token\":\"device-token\",\"platform\":\"web\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void corsAllowsOnlyTheConfiguredExactOrigin() throws Exception {
+        mockMvc.perform(options("/api/offers")
+                        .header("Origin", "https://app.zentrip.example")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("Access-Control-Allow-Origin",
+                                "https://app.zentrip.example"));
+
+        mockMvc.perform(options("/api/offers")
+                        .header("Origin", "https://untrusted.example")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

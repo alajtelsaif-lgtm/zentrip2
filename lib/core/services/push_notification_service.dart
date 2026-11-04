@@ -5,8 +5,8 @@ import '../../features/notifications/logic/notifications_store.dart';
 import 'api_service.dart';
 
 /// استقبال الإشعارات (Push Notifications) عن طريق Firebase Cloud Messaging.
-/// ملحوظة: FCM هنا للإشعارات بس — الحسابات والبيانات لسه في Laravel زي
-/// ما هو مخطط، Firebase مش بديل لهم.
+/// FCM handles device notifications only; account data remains in the
+/// authenticated Zentrip API and PostgreSQL.
 ///
 /// ── لتفعيلها ────────────────────────────────────────────────────────────
 /// 1. اعمل مشروع على https://console.firebase.google.com
@@ -17,9 +17,8 @@ import 'api_service.dart';
 ///    وفي android/app/build.gradle.kts ضيف بلجن Google Services — التفاصيل
 ///    الكاملة في: https://firebase.google.com/docs/flutter/setup
 /// 4. خلي [isConfigured] = true تحت.
-/// 5. الباك اند (Laravel) هو اللي هيبعت الإشعارات فعليًا عن طريق
-///    Firebase Admin SDK باستخدام الـ Token اللي بنسجّله هنا في
-///    /users/fcm-token — التطبيق مايبعتش لنفسه إشعارات، هو بس بيستقبل.
+/// 5. The backend uses Firebase Admin SDK to send notifications to tokens
+///    registered at /users/fcm-token. The client only receives notifications.
 class PushNotificationService {
   static final PushNotificationService instance = PushNotificationService._();
   PushNotificationService._();
@@ -29,7 +28,8 @@ class PushNotificationService {
   static const String _androidChannelId = 'zentrip_default';
   static const String _androidChannelName = 'Zentrip Notifications';
 
-  final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _local =
+      FlutterLocalNotificationsPlugin();
   String? _fcmToken;
   bool _initialized = false;
 
@@ -69,15 +69,30 @@ class PushNotificationService {
 
   Future<void> _syncToken(String token) async {
     _fcmToken = token;
+    if (ApiService.instance.currentUser == null) return;
     await ApiService.instance.registerFcmToken(token);
   }
 
+  Future<void> detachTokenFromCurrentUser() async {
+    final token = _fcmToken;
+    if (token != null && ApiService.instance.currentUser != null) {
+      await ApiService.instance.unregisterFcmToken(token);
+    }
+  }
+
   Future<void> _initLocalNotifications() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings();
-    await _local.initialize(const InitializationSettings(android: androidSettings, iOS: iosSettings));
-    const channel = AndroidNotificationChannel(_androidChannelId, _androidChannelName, importance: Importance.high);
-    await _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
+    await _local.initialize(const InitializationSettings(
+        android: androidSettings, iOS: iosSettings));
+    const channel = AndroidNotificationChannel(
+        _androidChannelId, _androidChannelName,
+        importance: Importance.high);
+    await _local
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
   }
 
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
@@ -85,14 +100,17 @@ class PushNotificationService {
     final body = message.notification?.body ?? '';
     if (title.isEmpty && body.isEmpty) return;
 
-    await NotificationsStore.instance.add(kind: NotifKind.promo, title: title, subtitle: body);
+    await NotificationsStore.instance
+        .add(kind: NotifKind.promo, title: title, subtitle: body);
 
     await _local.show(
       message.hashCode,
       title,
       body,
       const NotificationDetails(
-        android: AndroidNotificationDetails(_androidChannelId, _androidChannelName, importance: Importance.high, priority: Priority.high),
+        android: AndroidNotificationDetails(
+            _androidChannelId, _androidChannelName,
+            importance: Importance.high, priority: Priority.high),
         iOS: DarwinNotificationDetails(),
       ),
     );

@@ -551,6 +551,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String get visaRequired => 'تأشيرة مطلوبة';
 
   @override
+  String get sampleDataLabel => 'بيانات تجريبية';
+
+  @override
+  String get destinationInfoUnavailable =>
+      'معلومات الطقس والتأشيرة غير متاحة حاليًا.';
+
+  @override
+  String get destinationInfoPartial => 'بعض معلومات الوجهة غير متاحة.';
+
+  @override
   String get offlineBannerText => 'انت غير متصل — بنعرضلك آخر بيانات محفوظة';
 
   @override
@@ -1157,7 +1167,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get carResults => 'النتائج';
 
   @override
-  String get carNoResults => 'لا توجد سيارات متاحة';
+  String get carNoResults =>
+      'لا توجد سيارات من الشركاء تطابق الموقع والتواريخ المحددة.';
 
   @override
   String carSeatsCount(Object count) {
@@ -1287,7 +1298,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get transferNoSuitableRides =>
-      'لا توجد سيارة تناسب عدد الركاب. جرّب تقليل العدد.';
+      'لا توجد خدمات نقل من الشركاء تطابق المواقع وعدد الركاب.';
 
   @override
   String get transferLocationRequired => 'أدخل موقع الانطلاق والوجهة.';

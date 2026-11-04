@@ -125,6 +125,7 @@ class AuthController extends ChangeNotifier {
 
   Future<bool> logout() {
     return _run(() async {
+      await PushNotificationService.instance.detachTokenFromCurrentUser();
       final r = await _api.logout();
       if (r.isSuccess) {
         currentUser = null;

@@ -6,6 +6,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -35,6 +36,7 @@ public class SecurityConfig {
             TokenAuthFilter tokenAuthFilter,
             RlsContextFilter rlsContextFilter) throws Exception {
         http
+            .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
@@ -54,7 +56,9 @@ public class SecurityConfig {
                 ).permitAll()
                 .requestMatchers("/api/admin", "/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/partner", "/api/partner/**").hasRole("PARTNER")
-                .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
+                .requestMatchers(
+                    "/api/auth/me", "/api/auth/logout", "/api/users/fcm-token"
+                ).authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/attractions/*/visits")
                     .permitAll()
                 .requestMatchers(
@@ -82,6 +86,7 @@ public class SecurityConfig {
                     "/api/inventory/**",
                     "/api/offers",
                     "/api/attractions/search",
+                    "/api/attractions/nearby",
                     "/api/attractions/map",
                     "/api/attractions/suggestions",
                     "/api/attractions/recent-destination",

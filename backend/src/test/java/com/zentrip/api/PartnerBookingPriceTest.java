@@ -58,9 +58,10 @@ class PartnerBookingPriceTest {
                 eq(7L),
                 eq("hotel")))
                 .thenReturn(List.of());
-        when(jdbc.update(
-                contains("available_rooms"), anyInt(), anyInt(), anyLong(), anyInt()))
-                .thenReturn(1);
+        when(jdbc.queryForObject(
+                eq("SELECT public.zentrip_adjust_listing_inventory(?, ?, ?, ?)"),
+                eq(Boolean.class), eq(44L), eq("hotel_rooms"), eq(1), eq(false)))
+                .thenReturn(true);
         when(jdbc.update(any(PreparedStatementCreator.class), any(KeyHolder.class)))
                 .thenAnswer(invocation -> {
                     KeyHolder holder = invocation.getArgument(1);

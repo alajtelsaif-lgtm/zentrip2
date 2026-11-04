@@ -34,10 +34,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-    SELECT COALESCE(
-        NULLIF(current_setting('app.user_id', true), '')::BIGINT,
-        public.current_app_user_id()
-    )
+    SELECT NULLIF(current_setting('app.user_id', true), '')::BIGINT
 $$;
 
 CREATE OR REPLACE FUNCTION public.zentrip_rls_role()
@@ -49,12 +46,6 @@ SET search_path = ''
 AS $$
     SELECT COALESCE(
         NULLIF(current_setting('app.auth_role', true), ''),
-        (
-            SELECT LOWER(u.role)
-            FROM public.users u
-            WHERE u.auth_user_id = auth.uid()
-            LIMIT 1
-        ),
         'anonymous'
     )
 $$;
@@ -66,16 +57,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-    SELECT COALESCE(
-        NULLIF(current_setting('app.partner_id', true), '')::BIGINT,
-        (
-            SELECT u.partner_id
-            FROM public.users u
-            WHERE u.auth_user_id = auth.uid()
-              AND LOWER(u.role) = 'partner'
-            LIMIT 1
-        )
-    )
+    SELECT NULLIF(current_setting('app.partner_id', true), '')::BIGINT
 $$;
 
 GRANT EXECUTE ON FUNCTION public.zentrip_rls_user_id()

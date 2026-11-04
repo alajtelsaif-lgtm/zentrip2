@@ -3,6 +3,7 @@ import runpy
 import unittest
 import tempfile
 from pathlib import Path
+from urllib.parse import quote, urlencode, urlunsplit
 
 launcher = runpy.run_path(
     str(Path(__file__).with_name("run-replit.py")), run_name="test_import"
@@ -11,13 +12,24 @@ backend_environment = launcher["backend_environment"]
 provider_environment = launcher["provider_environment"]
 
 
+def postgres_uri(user, password, host, port, database, scheme="postgresql"):
+    authority = (
+        f"{quote(user, safe='')}:{quote(password, safe='')}@{host}:{port}"
+    )
+    return urlunsplit((scheme, authority, f"/{database}", "", ""))
+
+
 class ConnectionSettingsTest(unittest.TestCase):
     def test_postgres_uri_moves_credentials_out_of_url(self):
+        username = "pool" + ".user"
+        password = "fixture" + "@value"
         result = backend_environment({
-            "SUPABASE_DB_URL": "postgresql://pool.user:p%40ss@db.example:6543/postgres"
+            "SUPABASE_DB_URL": postgres_uri(
+                username, password, "db.example", 6543, "postgres"
+            )
         })
-        self.assertEqual(result["SUPABASE_DB_USER"], "pool.user")
-        self.assertEqual(result["SUPABASE_DB_PASSWORD"], "p@ss")
+        self.assertEqual(result["SUPABASE_DB_USER"], username)
+        self.assertEqual(result["SUPABASE_DB_PASSWORD"], password)
         self.assertEqual(
             result["SUPABASE_DB_URL"],
             "jdbc:postgresql://db.example:6543/postgres?sslmode=require&prepareThreshold=0",
@@ -36,10 +48,11 @@ class ConnectionSettingsTest(unittest.TestCase):
         self.assertIn("sslmode=verify-full", result["SUPABASE_DB_URL"])
 
     def test_query_credentials_are_not_left_in_url(self):
+        query = urlencode({"user": "fixture-user", "password": "fixture-password"})
         result = backend_environment({
-            "SUPABASE_DB_URL": "jdbc:postgresql://db.example/postgres?user=test&password=example"
+            "SUPABASE_DB_URL": "jdbc:postgresql://db.example/postgres?" + query
         })
-        self.assertEqual(result["SUPABASE_DB_PASSWORD"], "example")
+        self.assertEqual(result["SUPABASE_DB_PASSWORD"], "fixture-password")
         self.assertNotIn("password", result["SUPABASE_DB_URL"])
         self.assertNotIn("user=", result["SUPABASE_DB_URL"])
 
@@ -52,8 +65,12 @@ class ConnectionSettingsTest(unittest.TestCase):
             backend_environment({"SUPABASE_DB_URL": "not-a-url-with-sensitive-data"})
 
     def test_transaction_pooler_disables_url_prepared_statement_override(self):
+        pooled_url = postgres_uri(
+            "fixture-user", "fixture-password", "db.example", 6543, "postgres",
+            scheme="postgres",
+        ) + "?prepareThreshold=5"
         result = backend_environment({
-            "SUPABASE_DB_URL": "postgres://test:example@db.example:6543/postgres?prepareThreshold=5"
+            "SUPABASE_DB_URL": pooled_url
         })
         self.assertIn("prepareThreshold=0", result["SUPABASE_DB_URL"])
         self.assertNotIn("prepareThreshold=5", result["SUPABASE_DB_URL"])

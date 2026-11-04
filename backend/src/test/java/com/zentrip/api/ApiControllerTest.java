@@ -56,6 +56,39 @@ class ApiControllerTest {
     }
 
     @Test
+    void fcmTokenRegistrationUsesOnlyTheAuthenticatedUserContext() {
+        when(jdbc.queryForObject(
+                eq("SELECT public.zentrip_register_user_push_token(?, ?)"),
+                eq(Boolean.class), eq("device-token"), eq("android")))
+                .thenReturn(true);
+
+        ResponseEntity<?> response = controller.registerFcmToken(
+                Map.of("token", "device-token", "platform", "android"),
+                authenticatedRequest());
+
+        assertEquals(200, response.getStatusCode().value());
+        verify(jdbc).queryForObject(
+                eq("SELECT public.zentrip_register_user_push_token(?, ?)"),
+                eq(Boolean.class), eq("device-token"), eq("android"));
+    }
+
+    @Test
+    void fcmTokenRemovalIsScopedToTheAuthenticatedUser() {
+        when(jdbc.update(
+                eq("DELETE FROM public.user_push_tokens WHERE user_id = ? AND token = ?"),
+                eq(7L), eq("device-token")))
+                .thenReturn(1);
+
+        ResponseEntity<Void> response = controller.removeFcmToken(
+                Map.of("token", "device-token"), authenticatedRequest());
+
+        assertEquals(204, response.getStatusCode().value());
+        verify(jdbc).update(
+                eq("DELETE FROM public.user_push_tokens WHERE user_id = ? AND token = ?"),
+                eq(7L), eq("device-token"));
+    }
+
+    @Test
     void recentAttractionDestinationRequiresVerifiedCustomerSession() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute("authRole", "partner");
@@ -560,7 +593,9 @@ class ApiControllerTest {
                         "passenger_count", 2), authenticatedRequest()));
 
         assertEquals(409, error.getStatusCode().value());
-        verify(jdbc).update(contains("'{seats_available}'"), eq(2), eq(51L), eq(2));
+        verify(jdbc).queryForObject(
+                eq("SELECT public.zentrip_adjust_listing_inventory(?, ?, ?, ?)"),
+                eq(Boolean.class), eq(51L), eq("flight_seats"), eq(2), eq(false));
         verify(jdbc, never()).update(
                 any(org.springframework.jdbc.core.PreparedStatementCreator.class),
                 any(org.springframework.jdbc.support.KeyHolder.class));
@@ -644,8 +679,10 @@ class ApiControllerTest {
                                                                 "refund_status", "",
                                                                 "refund_method", "")));
                 when(jdbc.update(contains("jsonb_build_object"), eq(12L), eq(7L))).thenReturn(1);
-                when(jdbc.update(contains("'{seats_available}'"), eq(2), eq(51L)))
-                                .thenReturn(1);
+                when(jdbc.queryForObject(
+                                eq("SELECT public.zentrip_adjust_listing_inventory(?, ?, ?, ?)"),
+                                eq(Boolean.class), eq(51L), eq("flight_seats"), eq(2), eq(true)))
+                                .thenReturn(true);
 
                 ResponseEntity<?> response = controller.deleteTrip(12L, authenticatedRequest());
 
@@ -654,8 +691,9 @@ class ApiControllerTest {
                                 "status", "cancelled",
                                 "refund_status", "pending_airline_review",
                                 "refund_method", "original_payment_method"), response.getBody());
-                verify(jdbc).update(
-                                contains("'{seats_available}'"), eq(2), eq(51L));
+                verify(jdbc).queryForObject(
+                                eq("SELECT public.zentrip_adjust_listing_inventory(?, ?, ?, ?)"),
+                                eq(Boolean.class), eq(51L), eq("flight_seats"), eq(2), eq(true));
                 verify(jdbc, never()).update(contains("DELETE FROM trips"), eq(12L), eq(7L));
         }
 
@@ -734,8 +772,10 @@ class ApiControllerTest {
                         "hotel_rooms_reserved", 2)));
         when(jdbc.update(contains("UPDATE bookings SET status = 'cancelled'"),
                 eq(18L), eq(7L))).thenReturn(1);
-        when(jdbc.update(contains("available_rooms + ?"),
-                eq(2), eq(2), eq(42L))).thenReturn(1);
+        when(jdbc.queryForObject(
+                eq("SELECT public.zentrip_adjust_listing_inventory(?, ?, ?, ?)"),
+                eq(Boolean.class), eq(42L), eq("hotel_rooms"), eq(2), eq(true)))
+                .thenReturn(true);
 
         ResponseEntity<?> response = controller.cancelBooking(18L, authenticatedRequest());
 
@@ -743,8 +783,9 @@ class ApiControllerTest {
         assertEquals(Map.of("status", "cancelled"), response.getBody());
         verify(jdbc).update(contains("UPDATE bookings SET status = 'cancelled'"),
                 eq(18L), eq(7L));
-        verify(jdbc).update(contains("available_rooms + ?"),
-                eq(2), eq(2), eq(42L));
+        verify(jdbc).queryForObject(
+                eq("SELECT public.zentrip_adjust_listing_inventory(?, ?, ?, ?)"),
+                eq(Boolean.class), eq(42L), eq("hotel_rooms"), eq(2), eq(true));
     }
 
     @Test
@@ -833,10 +874,10 @@ class ApiControllerTest {
                 .thenReturn(List.of(Map.of("id", 7L)));
         when(jdbc.queryForList(contains("FROM bookings"), eq(7L), eq("hotel")))
                 .thenReturn(List.of());
-        when(jdbc.update(
-                contains("SET attributes = jsonb_set"),
-                eq(2), eq(2), eq(42L), eq(2)))
-                .thenReturn(0);
+        when(jdbc.queryForObject(
+                eq("SELECT public.zentrip_adjust_listing_inventory(?, ?, ?, ?)"),
+                eq(Boolean.class), eq(42L), eq("hotel_rooms"), eq(2), eq(false)))
+                .thenReturn(false);
 
         ResponseStatusException error = assertThrows(
                 ResponseStatusException.class,
@@ -852,8 +893,9 @@ class ApiControllerTest {
 
         assertEquals(409, error.getStatusCode().value());
         assertEquals("HOTEL_SOLD_OUT", error.getReason());
-        verify(jdbc).update(
-                contains("available_rooms >= ?"), eq(2), eq(2), eq(42L), eq(2));
+        verify(jdbc).queryForObject(
+                eq("SELECT public.zentrip_adjust_listing_inventory(?, ?, ?, ?)"),
+                eq(Boolean.class), eq(42L), eq("hotel_rooms"), eq(2), eq(false));
     }
 
     @Test

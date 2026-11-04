@@ -101,4 +101,23 @@ void main() {
     expect(adminRoute.settings.name, AppRoutes.auth);
     expect(partnerRoute.settings.name, AppRoutes.auth);
   });
+
+  test('detail routes with missing or invalid arguments return home', () {
+    api.currentUser = const UserModel(
+      id: 3,
+      name: 'Customer',
+      email: 'customer@example.com',
+      phone: '',
+    );
+
+    final missingTrip = AppRoutes.onGenerateRoute(
+      const RouteSettings(name: AppRoutes.tripDetails),
+    );
+    final invalidPackage = AppRoutes.onGenerateRoute(
+      const RouteSettings(name: AppRoutes.packageDetail, arguments: 'invalid'),
+    );
+
+    expect(missingTrip.settings.name, AppRoutes.home);
+    expect(invalidPackage.settings.name, AppRoutes.home);
+  });
 }

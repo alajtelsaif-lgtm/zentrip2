@@ -105,14 +105,22 @@ abstract class AppRoutes {
       case home:
         return _fade(const AppShell(), settings);
       case tripDetails:
-        final trip = settings.arguments as TripModel;
+        final argument = settings.arguments;
+        if (argument is! TripModel) {
+          return _fade(const AppShell(), const RouteSettings(name: home));
+        }
+        final trip = argument;
         return _slide(TripDetailsScreen(trip: trip), settings);
       case searchFlights:
         return _slide(const SearchFlightsScreen(), settings);
       case searchHotels:
         return _slide(const SearchHotelsScreen(), settings);
       case packageDetail:
-        final pkg = settings.arguments as TravelPackage;
+        final argument = settings.arguments;
+        if (argument is! TravelPackage) {
+          return _fade(const AppShell(), const RouteSettings(name: home));
+        }
+        final pkg = argument;
         return _slide(PackageDetailScreen(package: pkg), settings);
       case flightSearch:
         final args = settings.arguments;

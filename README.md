@@ -12,11 +12,32 @@ Configure `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and `SERPAPI_KEY` as described
 
 ## Backend tests
 
-Run the mock-based backend suite with `bash scripts/test-backend.sh`. The PostgreSQL migration and HTTP integration tests are intentionally skipped by that command because it unsets database settings and does not start a database.
+Run the backend suite with `bash scripts/test-backend.sh`. It first checks the Flutter/Spring endpoint contract, then runs the mock-based Java tests. PostgreSQL migration and HTTP integration tests are skipped in this mode because the script unsets database settings and does not start a database.
 
-To run the full suite, including those PostgreSQL tests, use `bash scripts/test-postgres.sh`. It creates a fresh temporary PostgreSQL cluster bound only to `127.0.0.1`, loads `backend/src/main/resources/schema.sql`, runs all backend tests, then stops and removes the cluster. It does not connect to Supabase or use application database credentials. PostgreSQL server tools (`initdb`, `pg_ctl`, `createdb`, and `psql`), Maven, and JDK 25 are required.
+To run the full suite, including those PostgreSQL tests, use `bash scripts/test-postgres.sh`. It creates a fresh temporary PostgreSQL cluster bound only to `127.0.0.1`, loads the base schema and applies the complete migration chain before running all backend tests. It then stops and removes the cluster. It does not connect to Supabase or use application database credentials. PostgreSQL server tools (`initdb`, `pg_ctl`, `createdb`, and `psql`), Maven, and JDK 25 are required.
 
 The full PostgreSQL suite also runs in GitHub Actions on pushes and pull requests via `.github/workflows/backend-postgres.yml`.
+
+## Supabase migration order
+
+For a new database, apply `backend/src/main/resources/schema.sql` first. For an existing database, first confirm the base tables from that schema are present; do not use this step as a data reset. In Supabase SQL Editor, apply only migrations that are not already installed, in the order below, using a database owner. Do not replay an already-applied migration; the `20261104_core_data_rls.sql` and `20261105_user_push_tokens.sql` migrations are idempotent.
+
+1. `backend/src/main/resources/migrations/20261101_global_airport_directory.sql`
+2. `backend/src/main/resources/migrations/20261101_role_access_rls.sql`
+3. `backend/src/main/resources/migrations/20261102_landmark_catalog.sql`
+4. `backend/src/main/resources/migrations/20261103_hotel_destination_catalog.sql`
+5. `backend/src/main/resources/migrations/20261104_core_data_rls.sql`
+6. `backend/src/main/resources/migrations/20261105_user_push_tokens.sql`
+
+Back up the database before applying them. The backend does not run these migrations automatically. Afterward, verify `zentrip_api_runtime` is `NOLOGIN` and `NOBYPASSRLS`, confirm the JDBC login can `SET ROLE zentrip_api_runtime`, and confirm row security is enabled for the application tables. If `SUPABASE_DB_USER` is not `postgres`, grant `zentrip_api_runtime` to that login as well.
+
+## CORS origins
+
+Cross-origin browser access is disabled unless `CORS_ALLOWED_ORIGINS` is set. Set it to a comma-separated list of exact origins, including scheme and port when applicable (for example, `https://app.example.com,https://admin.example.com`). Do not use `*`, wildcard patterns, paths, or a trailing slash. Same-origin app preview/API requests and native Flutter requests do not need a CORS origin entry.
+
+## Push-token storage
+
+`POST` and `DELETE /api/users/fcm-token` require an authenticated session and operate only on the current user's device token. The `user_push_tokens` table is protected by RLS and migration `20261105_user_push_tokens.sql`. Push delivery remains disabled in Flutter until Firebase client configuration and backend Firebase Admin credentials are installed; registering a token alone does not send notifications.
 
 ## Run Flutter
 

@@ -557,6 +557,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get visaRequired => 'Visa required';
 
   @override
+  String get sampleDataLabel => 'Sample data';
+
+  @override
+  String get destinationInfoUnavailable =>
+      'Weather and visa information is unavailable right now.';
+
+  @override
+  String get destinationInfoPartial =>
+      'Some destination information is unavailable.';
+
+  @override
   String get offlineBannerText => 'You\'re offline — showing saved data';
 
   @override
@@ -1163,7 +1174,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get carResults => 'Results';
 
   @override
-  String get carNoResults => 'No cars available';
+  String get carNoResults =>
+      'No partner cars match this location and date range.';
 
   @override
   String carSeatsCount(Object count) {
@@ -1293,7 +1305,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get transferNoSuitableRides =>
-      'No rides fit this passenger count. Try fewer passengers.';
+      'No partner transfers match these locations and passenger count.';
 
   @override
   String get transferLocationRequired =>

@@ -57,6 +57,7 @@ public class PasswordResetService {
     public void requestCode(String email) {
         requireDeliveryConfiguration();
         String normalizedEmail = normalizeEmail(email);
+        setLocalRlsSetting("app.auth_email", normalizedEmail);
         if (isRecentlyRequested(normalizedEmail)) return;
 
         Integer userCount = jdbc.queryForObject(
@@ -97,6 +98,7 @@ public class PasswordResetService {
     @Transactional
     public boolean verifyCode(String email, String code) {
         String normalizedEmail = normalizeEmail(email);
+        setLocalRlsSetting("app.auth_email", normalizedEmail);
         if (!isValidCode(code)) return false;
 
         List<Map<String, Object>> rows = jdbc.queryForList(
@@ -129,6 +131,15 @@ public class PasswordResetService {
         String normalizedEmail = normalizeEmail(email);
         if (newPassword.length() < 8 || !verifyCode(normalizedEmail, code)) return false;
 
+        Long userId = jdbc.queryForObject(
+                "SELECT id FROM users WHERE email = ?", Long.class, normalizedEmail);
+        if (userId == null) {
+            deleteCode(normalizedEmail);
+            return false;
+        }
+        setLocalRlsSetting("app.user_id", Long.toString(userId));
+        setLocalRlsSetting("app.auth_role", "password_reset");
+
         int updated = jdbc.update("UPDATE users SET password = ?, updated_at = NOW() WHERE email = ?",
                 passwords.encode(newPassword), normalizedEmail);
         if (updated != 1) {
@@ -154,6 +165,10 @@ public class PasswordResetService {
 
     private void deleteCode(String email) {
         jdbc.update("DELETE FROM password_reset_codes WHERE email = ?", email);
+    }
+
+    private void setLocalRlsSetting(String name, String value) {
+        jdbc.queryForObject("SELECT set_config(?, ?, TRUE)", String.class, name, value);
     }
 
     private void requireDeliveryConfiguration() {

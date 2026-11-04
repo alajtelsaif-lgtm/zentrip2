@@ -22,21 +22,62 @@ createdb -h 127.0.0.1 -p "$port" -U zentrip_test zentrip_test
 psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
   -f backend/src/main/resources/schema.sql > "$cluster/schema.log"
 psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test <<'SQL'
-CREATE ROLE zentrip_api_runtime NOLOGIN;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+        CREATE ROLE anon NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+        CREATE ROLE authenticated NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'postgres') THEN
+        CREATE ROLE postgres NOLOGIN;
+    END IF;
+END
+$$;
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE OR REPLACE FUNCTION auth.uid()
+RETURNS UUID
+LANGUAGE sql
+STABLE
+AS $$ SELECT NULL::UUID $$;
+CREATE OR REPLACE FUNCTION public.current_app_user_id()
+RETURNS BIGINT
+LANGUAGE sql
+STABLE
+AS $$ SELECT NULL::BIGINT $$;
+GRANT USAGE ON SCHEMA auth TO anon, authenticated;
+SQL
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
+  -f backend/src/main/resources/migrations/20261101_global_airport_directory.sql \
+  > "$cluster/airport-migration.log"
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
+  -f backend/src/main/resources/migrations/20261101_role_access_rls.sql \
+  > "$cluster/role-migration.log"
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test <<'SQL'
 GRANT zentrip_api_runtime TO zentrip_test;
-GRANT USAGE ON SCHEMA public TO zentrip_api_runtime;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO zentrip_api_runtime;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO zentrip_api_runtime;
-ALTER DEFAULT PRIVILEGES FOR ROLE zentrip_test IN SCHEMA public
-    GRANT ALL PRIVILEGES ON TABLES TO zentrip_api_runtime;
-ALTER DEFAULT PRIVILEGES FOR ROLE zentrip_test IN SCHEMA public
-    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO zentrip_api_runtime;
 SQL
 psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
   -f backend/src/main/resources/migrations/20261102_landmark_catalog.sql \
   > "$cluster/landmark-migration.log"
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
+  -f backend/src/main/resources/migrations/20261103_hotel_destination_catalog.sql \
+  > "$cluster/hotel-destination-migration.log"
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
+  -f backend/src/main/resources/migrations/20261104_core_data_rls.sql \
+  > "$cluster/core-rls-migration.log"
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
+  -f backend/src/main/resources/migrations/20261104_core_data_rls.sql \
+  > "$cluster/core-rls-idempotency.log"
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
+  -f backend/src/main/resources/migrations/20261105_user_push_tokens.sql \
+  > "$cluster/user-push-tokens-migration.log"
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
+  -f backend/src/main/resources/migrations/20261105_user_push_tokens.sql \
+  > "$cluster/user-push-tokens-idempotency.log"
 export ZENTRIP_POSTGRES_TEST_URL="jdbc:postgresql://127.0.0.1:$port/zentrip_test"
 export ZENTRIP_POSTGRES_TEST_USER=zentrip_test
+python3 scripts/test_client_contract.py
 mvn -B -f backend/pom.xml clean \
   -Dspring.datasource.url="$ZENTRIP_POSTGRES_TEST_URL" \
   -Dspring.datasource.username="$ZENTRIP_POSTGRES_TEST_USER" \

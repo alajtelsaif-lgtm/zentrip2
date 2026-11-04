@@ -36,7 +36,7 @@ import '../../models/admin_dashboard_model.dart';
 import '../../models/partner_dashboard_model.dart';
 import '../../models/legacy_attraction_review_model.dart';
 
-/// طبقة الشبكة المركزية — كل التواصل مع الـ PHP Laravel API يمر من هنا.
+/// طبقة الشبكة المركزية — كل التواصل مع Spring Boot API يمر من هنا.
 /// الـ Controllers لا تُنشئ Dio مباشرةً أبداً، بل تستدعي ApiService.instance.
 ///
 /// ── وضع المحاكاة (Mock Mode) ──────────────────────────────────────────────
@@ -51,7 +51,7 @@ import '../../models/legacy_attraction_review_model.dart';
 /// عند جاهزية الـ Backend:
 ///  1. خلي [useMockMode] = false.
 ///  2. غيّر قيمة [baseUrl] للعنوان الحقيقي.
-///  3. تأكد من أن مسارات الـ endpoints مطابقة لما في Laravel routes/api.php.
+///  3. Use only endpoints implemented and authorized by the Spring API.
 class ApiService {
   Future<ExchangeRates> exchangeRates() async {
     final response = await _dio.get('/exchange-rates');
@@ -85,6 +85,9 @@ class ApiService {
   static const bool useMockMode = false;
   static const String mockVerificationCode = '123456';
   static const Duration _mockDelay = Duration(milliseconds: 700);
+  static const bool socialAuthConfigured = false;
+  static final Map<String, WeatherInfo> _sampleWeatherCache = {};
+  static final Map<String, VisaInfo> _sampleVisaCache = {};
 
   late final Dio _dio;
   UserModel? currentUser;
@@ -208,6 +211,9 @@ class ApiService {
     required String provider,
     required String idToken,
   }) async {
+    if (!socialAuthConfigured) {
+      return ApiResult<UserModel>.failure('Social sign-in is not configured.');
+    }
     if (useMockMode) {
       return _request(() async {
         await Future.delayed(_mockDelay);
@@ -502,40 +508,38 @@ class ApiService {
     if (useMockMode) {
       return _request(() async {
         await Future.delayed(_mockDelay);
-        return WeatherInfo(
-          tempCelsius: 24 + (city.hashCode % 10),
-          condition: 'sunny',
-          cityName: city,
+        final key = city.trim().toLowerCase();
+        return _sampleWeatherCache.putIfAbsent(
+          key,
+          () => WeatherInfo(
+            tempCelsius: 24 + (city.hashCode % 10),
+            condition: 'sunny',
+            cityName: city,
+            isSample: true,
+          ),
         );
       });
     }
-    return _request(() async {
-      final res = await _dio.get(
-        '/destinations/weather',
-        queryParameters: {'city': city},
-      );
-      return WeatherInfo.fromJson(res.data as Map<String, dynamic>);
-    });
+    return ApiResult<WeatherInfo>.failure(
+        'Live weather data is not configured.');
   }
 
   Future<ApiResult<VisaInfo>> getVisaInfo(String country) async {
     if (useMockMode) {
       return _request(() async {
         await Future.delayed(_mockDelay);
-        return const VisaInfo(
-          requirement: 'e_visa',
-          notes:
-              'Visa information will be verified with the destination\'s embassy before booking.',
+        final key = country.trim().toLowerCase();
+        return _sampleVisaCache.putIfAbsent(
+          key,
+          () => const VisaInfo(
+            requirement: 'e_visa',
+            notes: 'Sample only; verify with the destination embassy.',
+            isSample: true,
+          ),
         );
       });
     }
-    return _request(() async {
-      final res = await _dio.get(
-        '/destinations/visa-info',
-        queryParameters: {'country': country},
-      );
-      return VisaInfo.fromJson(res.data as Map<String, dynamic>);
-    });
+    return ApiResult<VisaInfo>.failure('Live visa data is not configured.');
   }
 
   // ── التقييمات (Reviews) ───────────────────────────────────────────────
@@ -688,6 +692,13 @@ class ApiService {
                   : 'android',
         },
       );
+    });
+  }
+
+  Future<ApiResult<void>> unregisterFcmToken(String token) {
+    if (useMockMode) return Future.value(ApiResult<void>.success());
+    return _request(() async {
+      await _dio.delete('/users/fcm-token', data: {'token': token});
     });
   }
 
@@ -1527,41 +1538,21 @@ class ApiService {
             car.availableVehicles > 0 &&
             (carType == null || carType == 'all' || car.type == carType))
         .toList();
-    try {
-      final res = await _dio.get(
-        '/cars/search',
-        queryParameters: {
-          'city': city,
-          if (pickupDate != null) 'pickup_date': _formatDate(pickupDate),
-          if (returnDate != null) 'return_date': _formatDate(returnDate),
-          if (carType != null) 'car_type': carType,
-        },
-      );
-      final cars = (res.data['cars'] as List)
-          .map((c) => CarModel.fromJson(c as Map<String, dynamic>))
-          .where((car) => car.availableVehicles > 0)
-          .toList();
-      return [...partnerCars, ...cars];
-    } catch (_) {
-      var results = MockDataService.cars(city: city);
-      if (carType != null && carType != 'all') {
-        results = results.where((c) => c.type == carType).toList();
-      }
-      return [...partnerCars, ...results];
-    }
+    return partnerCars;
   }
 
   Future<List<String>> searchCarLocations(String query) async {
     final normalized = query.trim();
     if (normalized.length < 2) return const [];
-    final localMatches = MockDataService.cars()
-        .map((car) => car.pickupLocation)
-        .where(
-          (location) =>
-              location.toLowerCase().contains(normalized.toLowerCase()),
-        )
-        .toSet();
-    if (useMockMode) return localMatches.take(12).toList();
+    if (useMockMode) {
+      return MockDataService.cars()
+          .map((car) => car.pickupLocation)
+          .where((location) =>
+              location.toLowerCase().contains(normalized.toLowerCase()))
+          .toSet()
+          .take(12)
+          .toList();
+    }
     try {
       final response = await _dio.get(
         '/cars/locations',
@@ -1569,11 +1560,16 @@ class ApiService {
       );
       final remote = (response.data['suggestions'] as List? ?? const [])
           .map((value) => value.toString());
-      return {...remote, ...localMatches}.take(12).toList();
+      return remote.take(12).toList();
     } on DioException catch (error) {
       debugPrint('Car location suggestions unavailable: ${error.message}');
-      final hotelLocations = await searchHotelLocations(normalized);
-      return {...hotelLocations, ...localMatches}.take(12).toList();
+      final partnerCars = (await _loadPartnerInventory('car'))
+          .map(CarModel.fromJson)
+          .map((car) => car.pickupLocation)
+          .where((location) =>
+              location.toLowerCase().contains(normalized.toLowerCase()))
+          .toSet();
+      return partnerCars.take(12).toList();
     }
   }
 
@@ -1620,10 +1616,7 @@ class ApiService {
       final partnerCars =
           (await _loadPartnerInventory('car')).map(CarModel.fromJson);
       return carsWithinRadius(
-        cars: filterType([
-          ...partnerCars,
-          ...MockDataService.cars(city: 'Tripoli'),
-        ]),
+        cars: filterType(partnerCars),
         latitude: lat,
         longitude: lng,
         radiusMeters: radiusMeters,
@@ -1657,28 +1650,8 @@ class ApiService {
                         transfer.pickupTime.month == date.month &&
                         transfer.pickupTime.day == date.day)))
             .toList();
-    try {
-      final res = await _dio.get(
-        '/transfers/search',
-        queryParameters: {
-          'from': from,
-          'to': to,
-          if (date != null) 'date': _formatDate(date),
-          'passengers': passengers,
-        },
-      );
-      final results = (res.data['transfers'] as List)
-          .map((t) => TransferModel.fromJson(t as Map<String, dynamic>))
-          .toList();
-      final allResults = [...partnerTransfers, ...results];
-      allResults.sort((a, b) => a.priceUSD.compareTo(b.priceUSD));
-      return allResults;
-    } catch (_) {
-      final results = MockDataService.transfers();
-      final allResults = [...partnerTransfers, ...results];
-      allResults.sort((a, b) => a.priceUSD.compareTo(b.priceUSD));
-      return allResults;
-    }
+    partnerTransfers.sort((a, b) => a.priceUSD.compareTo(b.priceUSD));
+    return partnerTransfers;
   }
 
   /// Fetches verified landmark categories from the destination provider.

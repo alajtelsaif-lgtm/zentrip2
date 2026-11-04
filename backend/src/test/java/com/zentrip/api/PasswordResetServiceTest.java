@@ -69,6 +69,8 @@ class PasswordResetServiceTest {
         resetRow.put("attempts", 0);
         when(jdbc.queryForList(contains("SELECT code_hash"), eq(EMAIL)))
                 .thenReturn(List.of(resetRow));
+        when(jdbc.queryForObject(contains("SELECT id FROM users"), eq(Long.class), eq(EMAIL)))
+                .thenReturn(1L);
         when(jdbc.update(contains("UPDATE users SET password"), anyString(), eq(EMAIL)))
                 .thenReturn(1);
 

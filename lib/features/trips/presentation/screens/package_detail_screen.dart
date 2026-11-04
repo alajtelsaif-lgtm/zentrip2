@@ -378,6 +378,7 @@ class _DestinationInfoRow extends StatefulWidget {
 class _DestinationInfoRowState extends State<_DestinationInfoRow> {
   WeatherInfo? _weather;
   VisaInfo? _visa;
+  bool _loading = true;
 
   @override
   void initState() {
@@ -386,14 +387,27 @@ class _DestinationInfoRowState extends State<_DestinationInfoRow> {
   }
 
   Future<void> _load() async {
-    final weatherResult =
-        await ApiService.instance.getDestinationWeather(widget.city);
-    final visaResult = await ApiService.instance.getVisaInfo(widget.country);
-    if (!mounted) return;
-    setState(() {
-      _weather = weatherResult.data;
-      _visa = visaResult.data;
-    });
+    try {
+      final weatherRequest =
+          ApiService.instance.getDestinationWeather(widget.city);
+      final visaRequest = ApiService.instance.getVisaInfo(widget.country);
+      final weatherResult = await weatherRequest;
+      final visaResult = await visaRequest;
+      if (!mounted) return;
+      setState(() {
+        _weather = weatherResult.data;
+        _visa = visaResult.data;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _weather = null;
+          _visa = null;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   String _visaLabel(AppLocalizations l10n, String requirement) =>
@@ -408,48 +422,90 @@ class _DestinationInfoRowState extends State<_DestinationInfoRow> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (_weather == null && _visa == null) return const SizedBox.shrink();
+    if (_loading) return const SizedBox.shrink();
+    if (_weather == null && _visa == null) {
+      return Text(
+        l10n.destinationInfoUnavailable,
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+      );
+    }
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        if (_weather != null)
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.darkSurfaceSecondary
-                      : AppColors.surfaceSecondary,
-                  borderRadius: BorderRadius.circular(14)),
-              child: Row(children: [
-                const Icon(Icons.wb_sunny_rounded,
-                    color: AppColors.accentOrange, size: 20),
-                const SizedBox(width: 8),
-                Text('${_weather!.tempCelsius.toStringAsFixed(0)}°C',
-                    style: const TextStyle(fontWeight: FontWeight.w800)),
-              ]),
-            ),
-          ),
-        if (_weather != null && _visa != null) const SizedBox(width: 10),
-        if (_visa != null)
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.darkSurfaceSecondary
-                      : AppColors.surfaceSecondary,
-                  borderRadius: BorderRadius.circular(14)),
-              child: Row(children: [
-                const Icon(Icons.badge_outlined,
-                    color: AppColors.primary, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: Text(_visaLabel(l10n, _visa!.requirement),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 12),
-                        overflow: TextOverflow.ellipsis)),
-              ]),
+        Row(
+          children: [
+            if (_weather != null)
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.darkSurfaceSecondary
+                          : AppColors.surfaceSecondary,
+                      borderRadius: BorderRadius.circular(14)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(children: [
+                        const Icon(Icons.wb_sunny_rounded,
+                            color: AppColors.accentOrange, size: 20),
+                        const SizedBox(width: 8),
+                        Text('${_weather!.tempCelsius.toStringAsFixed(0)}°C',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w800)),
+                      ]),
+                      if (_weather!.isSample)
+                        Text(l10n.sampleDataLabel,
+                            style: const TextStyle(
+                                color: AppColors.textSecondary, fontSize: 10)),
+                    ],
+                  ),
+                ),
+              ),
+            if (_weather != null && _visa != null) const SizedBox(width: 10),
+            if (_visa != null)
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.darkSurfaceSecondary
+                          : AppColors.surfaceSecondary,
+                      borderRadius: BorderRadius.circular(14)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(children: [
+                        const Icon(Icons.badge_outlined,
+                            color: AppColors.primary, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: Text(_visaLabel(l10n, _visa!.requirement),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 12),
+                                overflow: TextOverflow.ellipsis)),
+                      ]),
+                      if (_visa!.isSample)
+                        Text(l10n.sampleDataLabel,
+                            style: const TextStyle(
+                                color: AppColors.textSecondary, fontSize: 10)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+        if (_weather == null || _visa == null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              l10n.destinationInfoPartial,
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
           ),
       ],

@@ -1155,6 +1155,24 @@ abstract class AppLocalizations {
   /// **'تأشيرة مطلوبة'**
   String get visaRequired;
 
+  /// No description provided for @sampleDataLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'بيانات تجريبية'**
+  String get sampleDataLabel;
+
+  /// No description provided for @destinationInfoUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'معلومات الطقس والتأشيرة غير متاحة حاليًا.'**
+  String get destinationInfoUnavailable;
+
+  /// No description provided for @destinationInfoPartial.
+  ///
+  /// In ar, this message translates to:
+  /// **'بعض معلومات الوجهة غير متاحة.'**
+  String get destinationInfoPartial;
+
   /// No description provided for @offlineBannerText.
   ///
   /// In ar, this message translates to:
@@ -2304,7 +2322,7 @@ abstract class AppLocalizations {
   /// No description provided for @carNoResults.
   ///
   /// In ar, this message translates to:
-  /// **'لا توجد سيارات متاحة'**
+  /// **'لا توجد سيارات من الشركاء تطابق الموقع والتواريخ المحددة.'**
   String get carNoResults;
 
   /// No description provided for @carSeatsCount.
@@ -2538,7 +2556,7 @@ abstract class AppLocalizations {
   /// No description provided for @transferNoSuitableRides.
   ///
   /// In ar, this message translates to:
-  /// **'لا توجد سيارة تناسب عدد الركاب. جرّب تقليل العدد.'**
+  /// **'لا توجد خدمات نقل من الشركاء تطابق المواقع وعدد الركاب.'**
   String get transferNoSuitableRides;
 
   /// No description provided for @transferLocationRequired.

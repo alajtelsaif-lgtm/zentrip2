@@ -110,6 +110,7 @@ public class ApiController {
         if (name.isBlank() || !email.contains("@") || password.length() < 8 || !password.equals(confirmation)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid registration details");
         }
+        setLocalRlsSetting("app.auth_email", email.trim().toLowerCase(Locale.ROOT));
         if (jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE email = ?", Integer.class, email) > 0) {
             return ResponseEntity.unprocessableEntity().body(validationError(
                     "email", "The email has already been taken."));
@@ -125,6 +126,7 @@ public class ApiController {
     public ResponseEntity<?> login(@RequestBody Map<String, Object> body, HttpServletRequest request) {
         String email = text(body.get("email")).trim();
         String password = text(body.get("password"));
+        setLocalRlsSetting("app.auth_email", email.toLowerCase(Locale.ROOT));
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT id, password FROM users WHERE email = ?", email);
         if (rows.isEmpty()) {
@@ -202,6 +204,43 @@ public class ApiController {
     public Map<String, Object> me(HttpServletRequest request) {
         long userId = requireUserId(request);
         return Map.of("user", userPayload(userId, request));
+    }
+
+    @PostMapping("/users/fcm-token")
+    public ResponseEntity<?> registerFcmToken(
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        requireUserId(request);
+        String token = text(body.get("token")).trim();
+        String platform = text(body.get("platform")).trim().toLowerCase(Locale.ROOT);
+        if (token.isBlank() || token.length() > 4096
+                || !Set.of("android", "ios", "web").contains(platform)) {
+            return ResponseEntity.badRequest().body(validationError(
+                    "token", "A valid FCM token and platform are required."));
+        }
+        Boolean registered = jdbc.queryForObject(
+                "SELECT public.zentrip_register_user_push_token(?, ?)",
+                Boolean.class, token, platform);
+        if (!Boolean.TRUE.equals(registered)) {
+            return ResponseEntity.unprocessableEntity().body(validationError(
+                    "token", "The FCM token could not be registered."));
+        }
+        return ResponseEntity.ok(Map.of("message", "Notification token registered."));
+    }
+
+    @DeleteMapping("/users/fcm-token")
+    public ResponseEntity<Void> removeFcmToken(
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        long userId = requireUserId(request);
+        String token = text(body.get("token")).trim();
+        if (token.isBlank() || token.length() > 4096) {
+            return ResponseEntity.badRequest().build();
+        }
+        jdbc.update(
+                "DELETE FROM public.user_push_tokens WHERE user_id = ? AND token = ?",
+                userId, token);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/profile")
@@ -1456,13 +1495,19 @@ public class ApiController {
     }
 
     private Map<String, Object> flightListing(long flightId, boolean lock) {
+        if (lock) {
+            jdbc.queryForObject(
+                    "SELECT public.zentrip_lock_flight_listing(?)",
+                    Boolean.class,
+                    flightId);
+        }
         String sql = """
                 SELECT l.id, l.partner_id, l.title, l.city, l.price, l.attributes,
                        p.name AS partner_name
                 FROM partner_listings l
                 JOIN partners p ON p.id = l.partner_id AND p.status = 'active'
                 WHERE l.id = ? AND l.type = 'flight' AND l.active = TRUE
-                """ + (lock ? " FOR UPDATE" : "");
+                """;
         List<Map<String, Object>> rows = jdbc.queryForList(sql, flightId);
         if (rows.isEmpty()) {
             throw new ResponseStatusException(
@@ -2182,10 +2227,28 @@ public class ApiController {
     }
 
     private Map<String, Object> authPayload(long userId, HttpServletRequest request) {
+        setLocalRlsSetting("app.user_id", Long.toString(userId));
+        Map<String, Object> identity = jdbc.queryForMap(
+                "SELECT role, partner_id FROM users WHERE id = ?", userId);
+        String role = text(identity.get("role")).trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("admin", "partner", "customer").contains(role)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unsupported account role");
+        }
+        setLocalRlsSetting("app.auth_role", role);
+        Object rawPartnerId = identity.get("partner_id");
+        String partnerId = rawPartnerId instanceof Number number && number.longValue() > 0
+                ? Long.toString(number.longValue())
+                : "";
+        setLocalRlsSetting("app.partner_id", partnerId);
+
         String token = UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
         jdbc.update("INSERT INTO api_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
                 userId, TokenAuthFilter.sha256(token), Timestamp.from(Instant.now().plusSeconds(60L * 60 * 24 * 30)));
         return Map.of("user", userPayload(userId, request), "token", token);
+    }
+
+    private void setLocalRlsSetting(String name, String value) {
+        jdbc.queryForObject("SELECT set_config(?, ?, TRUE)", String.class, name, value);
     }
 
     private Map<String, Object> userPayload(long userId, HttpServletRequest request) {
@@ -2320,19 +2383,7 @@ public class ApiController {
             Long partnerId, Long listingId, BigDecimal price) {}
 
     private void reserveHotelRooms(Long listingId, int roomCount) {
-        int updated = jdbc.update("""
-                UPDATE partner_listings
-                SET attributes = jsonb_set(
-                        COALESCE(attributes, '{}'::jsonb),
-                        '{available_rooms}',
-                        to_jsonb(COALESCE((available_rooms)::integer, 0) - ?),
-                        TRUE),
-                    available_rooms = available_rooms - ?,
-                    updated_at = NOW()
-                WHERE id = ? AND type = 'hotel' AND active = TRUE
-                  AND available_rooms >= ?
-                """, roomCount, roomCount, listingId, roomCount);
-        if (updated != 1) {
+        if (!adjustListingInventory(listingId, "hotel_rooms", roomCount, false)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "HOTEL_SOLD_OUT");
         }
@@ -2340,68 +2391,28 @@ public class ApiController {
 
     private void restoreHotelRooms(Object rawListingId, int roomCount) {
         if (rawListingId == null || roomCount < 1) return;
-        int updated = jdbc.update("""
-                UPDATE partner_listings
-                SET attributes = jsonb_set(
-                        COALESCE(attributes, '{}'::jsonb),
-                        '{available_rooms}',
-                        to_jsonb(COALESCE((available_rooms)::integer, 0) + ?),
-                        TRUE),
-                    available_rooms = available_rooms + ?,
-                    updated_at = NOW()
-                WHERE id = ? AND type = 'hotel'
-                """, roomCount, roomCount, number(rawListingId));
-        if (updated != 1) {
+        if (!adjustListingInventory(number(rawListingId), "hotel_rooms", roomCount, true)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Could not restore hotel room inventory");
         }
     }
 
     private void reserveCar(Long listingId) {
-        int updated = jdbc.update("""
-                UPDATE partner_listings
-                SET attributes = jsonb_set(
-                        COALESCE(attributes, '{}'::jsonb),
-                        '{available_vehicles}',
-                        to_jsonb(COALESCE((attributes ->> 'available_vehicles')::integer, 1) - 1),
-                        TRUE),
-                    updated_at = NOW()
-                WHERE id = ? AND type = 'car' AND active = TRUE
-                  AND COALESCE((attributes ->> 'available_vehicles')::integer, 1) > 0
-                """, listingId);
-        if (updated != 1) {
+        if (!adjustListingInventory(listingId, "car_vehicles", 1, false)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "CAR_SOLD_OUT");
         }
     }
 
     private void restoreCar(Object rawListingId) {
-        jdbc.update("""
-                UPDATE partner_listings
-                SET attributes = jsonb_set(
-                        COALESCE(attributes, '{}'::jsonb),
-                        '{available_vehicles}',
-                        to_jsonb(COALESCE((attributes ->> 'available_vehicles')::integer, 0) + 1),
-                        TRUE),
-                    updated_at = NOW()
-                WHERE id = ? AND type = 'car'
-                """, number(rawListingId));
+        if (rawListingId != null) {
+            adjustListingInventory(number(rawListingId), "car_vehicles", 1, true);
+        }
     }
 
     private void reserveFlightSeats(Long listingId, int passengerCount) {
         if (listingId == null) return;
-        int updated = jdbc.update("""
-                UPDATE partner_listings
-                SET attributes = jsonb_set(
-                        COALESCE(attributes, '{}'::jsonb),
-                        '{seats_available}',
-                        to_jsonb(COALESCE((attributes ->> 'seats_available')::integer, 0) - ?),
-                        TRUE),
-                    updated_at = NOW()
-                WHERE id = ? AND type = 'flight' AND active = TRUE
-                  AND COALESCE((attributes ->> 'seats_available')::integer, 0) >= ?
-                """, passengerCount, listingId, passengerCount);
-        if (updated != 1) {
+        if (!adjustListingInventory(listingId, "flight_seats", passengerCount, false)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Insufficient available flight seats");
         }
@@ -2410,20 +2421,23 @@ public class ApiController {
     private void restoreFlightSeats(Object rawListingId, int passengerCount) {
         if (rawListingId == null || text(rawListingId).isBlank()) return;
         long listingId = number(rawListingId);
-        int updated = jdbc.update("""
-                UPDATE partner_listings
-                SET attributes = jsonb_set(
-                        COALESCE(attributes, '{}'::jsonb),
-                        '{seats_available}',
-                        to_jsonb(COALESCE((attributes ->> 'seats_available')::integer, 0) + ?),
-                        TRUE),
-                    updated_at = NOW()
-                WHERE id = ? AND type = 'flight'
-                """, passengerCount, listingId);
-        if (updated != 1) {
+        if (!adjustListingInventory(listingId, "flight_seats", passengerCount, true)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Could not restore flight inventory");
         }
+    }
+
+    private boolean adjustListingInventory(
+            Long listingId, String inventoryKind, int amount, boolean restore) {
+        if (listingId == null || amount < 1) return false;
+        Boolean updated = jdbc.queryForObject(
+                "SELECT public.zentrip_adjust_listing_inventory(?, ?, ?, ?)",
+                Boolean.class,
+                listingId,
+                inventoryKind,
+                amount,
+                restore);
+        return Boolean.TRUE.equals(updated);
     }
 
     private long requireUserId(HttpServletRequest request) {

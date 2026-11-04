@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/services/api_service.dart';
 import '../../../../routes/app_routes.dart';
 import '../../logic/auth_controller.dart';
 import '../models/country_phone_option.dart';
@@ -396,30 +397,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
           AuthButton(
               label: 'Create Account', loading: _loading, onTap: _submit),
-          const SizedBox(height: 16),
-
-          const OrDivider(),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: SocialButton(
-                  label: 'Google',
-                  icon: const GoogleG(),
-                  onTap: () => _socialLogin(withApple: false),
+          if (ApiService.socialAuthConfigured) ...[
+            const SizedBox(height: 16),
+            const OrDivider(),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: SocialButton(
+                    label: 'Google',
+                    icon: const GoogleG(),
+                    onTap: () => _socialLogin(withApple: false),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SocialButton(
-                  label: 'Apple',
-                  icon: const Icon(Icons.apple, size: 22, color: Colors.black),
-                  onTap: () => _socialLogin(withApple: true),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SocialButton(
+                    label: 'Apple',
+                    icon:
+                        const Icon(Icons.apple, size: 22, color: Colors.black),
+                    onTap: () => _socialLogin(withApple: true),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
+              ],
+            ),
+            const SizedBox(height: 14),
+          ],
 
           AuthFooterLink(
             text: 'Already have an account?',

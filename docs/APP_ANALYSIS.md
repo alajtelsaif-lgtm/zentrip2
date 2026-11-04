@@ -1,21 +1,21 @@
 # Zentrip Application Audit
 
 **Audit date:** 2026-11-04  
-**Scope:** Read-only review of the Flutter client, Spring Boot API, database schema/migrations, external integrations, security boundaries, and available tests. No application source code was changed for this audit; this report is the only audit deliverable.
+**Scope:** Review of the Flutter client, Spring Boot API, database schema/migrations, external integrations, security boundaries, and available tests, followed by focused RLS/test-harness fixes. The remediation did not change frontend styling or unrelated app features.
 
 ## Executive summary
 
 Zentrip is a Flutter travel app backed by a Spring Boot API and PostgreSQL hosted through Supabase. The project has a broad feature set, role-based API authorization, a usable test suite, and working development startup. Flight and hotel search combine external data with partner inventory, while checkout remains simulated.
 
-The main blockers are not general startup failures. They are specific API-contract and database-security gaps:
+The main blockers are not general startup failures. The RLS migration chain, endpoint access changes, exact-origin CORS policy, and safe client behavior for unfinished integrations are implemented; remaining production-provider and account configuration gaps are called out below.
 
-1. The role/RLS migration creates PostgreSQL policies but does not enable row-level security on the existing core tables. The local PostgreSQL test script does not apply that migration, so the tests do not verify those policies.
-2. Several Flutter service methods call endpoints that have no matching backend route and are rejected by the API's default-deny rule.
-3. The implemented nearby-attractions endpoint is also omitted from the security allowlist and is therefore inaccessible even to customers.
-4. Duffel and LiteAPI provide search data only. No provider order-creation integration is present, and the checkout endpoint returns a mock payment session.
-5. The default CORS configuration permits any origin, and the OpenTripMap configuration/logging indicates a free-plan versus commercial-use mismatch that needs a licensing decision.
+1. Core row-level security and user-owned push-token storage are enabled by additive migrations and covered by the local PostgreSQL chain. Applying them to production Supabase and verifying the deployed JDBC role remains manual.
+2. Unimplemented social, weather, and visa APIs now fail closed; social controls are hidden, sample destination data is labeled, and live weather/visa details show unavailable rather than fabricated values.
+3. Nearby attractions are explicitly public and covered by provider-call pacing/cache checks. Car and transfer searches use partner inventory only; absent listings remain empty rather than showing generated results.
+4. Duffel and LiteAPI provide search data only. No provider order-creation integration is present, and checkout remains a mock payment session.
+5. Cross-origin access now requires an exact `CORS_ALLOWED_ORIGINS` allowlist. OpenTripMap licensing still needs a commercial-use decision.
 
-The development server starts and the code-level test suites pass. This does not establish that live provider credentials are valid, that production Supabase has every migration applied, or that authenticated screens work against production data.
+The development server starts, the Flutter checks pass, and the complete backend suite passes against a disposable PostgreSQL cluster with every migration applied. This does not establish that live provider credentials are valid, that production Supabase has the migrations applied, or that authenticated screens work against production data.
 
 ## Architecture and feature flow
 
@@ -32,15 +32,15 @@ The development server starts and the code-level test suites pass. This does not
 
 | Journey | Current flow | Audit status |
 |---|---|---|
-| Sign-in and account recovery | Flutter auth screens → `/auth/*` → `users`, `password_reset_codes`, `api_tokens` | Backend routes exist. Social sign-in is called by Flutter but has no corresponding backend route. Mail delivery depends on SMTP configuration. |
+| Sign-in and account recovery | Flutter auth screens → `/auth/*` → `users`, `password_reset_codes`, `api_tokens` | Social controls stay hidden until a real backend/provider setup exists. Mail delivery depends on SMTP configuration. |
 | Flight search | Flight search UI → regular/flexible partner search → partner listings plus Duffel offer requests → normalized Flutter flight models | Search integration exists. Duffel is search-only; it does not create an airline order. |
 | Flight booking | Fare/passenger/seat/review screens → seat holds and local trip/booking confirmation → mock payment path | Local Zentrip records can be created for supported partner flows. The project does not submit an order to Duffel or a card payment to a processor. |
 | Hotel search | Destination catalog/autocomplete → LiteAPI rates plus partner inventory → normalized hotel results and details | Search/data integration exists. LiteAPI is read-only in Zentrip; booking uses the simulated partner flow. |
 | My Trips/history | Customer token → `/trips` and `/bookings` → Flutter merges the two sources | The existing tests cover merged data and error refresh behavior. The endpoint returns are not paginated. |
-| Tourist places | Flutter search/map → OpenTripMap, Geoapify geocoding where needed, landmark catalog/cache | Live provider and persistent-cache paths exist. `/attractions/nearby` is blocked by the API security allowlist. |
+| Tourist places | Flutter search/map → OpenTripMap, Geoapify geocoding where needed, landmark catalog/cache | Nearby endpoint is allowlisted; provider requests are cached and paced to avoid repeated bursts. |
 | AI assistant | Chat screen → authenticated `/ai/chat` SSE stream → Requesty | Backend streaming integration exists; the live provider/account was not tested. |
 | Admin/partner management | Client route guard → role-protected `/admin/**` or `/partner/**` endpoints | Both client and server checks exist. PostgreSQL RLS enforcement has a migration gap described below. |
-| Car rental and transfers search | Car/transfers screens → `ApiService` search methods | The client paths do not match a backend search route; these searches are not fully wired. |
+| Car rental and transfers search | Car/transfers screens → partner inventory | No unsupported search endpoints or fake live fallback results; empty states explain when partner listings are absent. |
 
 ### Screen and navigation inventory
 
@@ -78,6 +78,7 @@ Roles below describe the Spring Security rule currently applied. “Public” me
 | `GET /api/cars/nearby` | Public |
 | `GET /api/inventory/{type}` | Public |
 | `GET /api/attractions/search` | Public |
+| `GET /api/attractions/nearby` | Public; outbound OpenTripMap calls are paced and cached |
 | `GET /api/attractions/suggestions` | Public |
 | `GET /api/attractions/map` | Public |
 | `GET /api/attractions/recent-destination` | Public |
@@ -89,6 +90,8 @@ Roles below describe the Spring Security rule currently applied. “Public” me
 |---|---|
 | `POST /api/profile` | Customer |
 | `PUT /api/profile/password` | Customer |
+| `POST /api/users/fcm-token` | Customer; token is bound to the verified user |
+| `DELETE /api/users/fcm-token` | Customer; deletes only the verified user's token |
 | `GET /api/preferences/travel` | Customer |
 | `PUT /api/preferences/travel` | Customer |
 | `GET /api/trips` | Customer |
@@ -152,17 +155,15 @@ All routes below are restricted to `ADMIN` by `/api/admin/**`.
 | `PUT /api/admin/offers/{id}` |
 | `DELETE /api/admin/offers/{id}` |
 
-### Implemented or called paths with access/contract problems
+### Reviewed client/server paths and resulting behavior
 
 | Client/server path | Finding |
 |---|---|
-| `GET /api/attractions/nearby` | A backend handler and Flutter service method exist, but the path is absent from the security allowlist. It falls through to `denyAll`, so an authenticated customer receives 403. |
-| `POST /api/auth/social-login` | Called by Google and Apple auth controller methods; no backend mapping exists and the path is denied by default. |
-| `GET /api/destinations/weather` | Called by package detail; no backend mapping exists and it is denied by default. |
-| `GET /api/destinations/visa-info` | Called by package detail; no backend mapping exists and it is denied by default. |
-| `POST /api/users/fcm-token` | Called by push-notification registration; no backend mapping exists and it is denied by default. |
-| `GET /api/cars/search` | Called by the car controller; the backend exposes car locations and nearby search, but not this route. |
-| `GET /api/transfers/search` | Called by the transfer controller; the backend exposes transfer bookings and availability, but not this route. |
+| `GET /api/attractions/nearby` | Public allowlist entry restored. Outbound OpenTripMap calls pass through per-instance pacing and result caching. |
+| `POST /api/auth/social-login` | Backend route remains unimplemented; the Flutter method fails closed, and Google/Apple buttons are hidden while social auth is unconfigured. |
+| Destination weather and visa | No unsupported endpoints are called. Live mode shows a localized unavailable message; mock values are cached in memory and explicitly labeled as samples. Visa data is not presented as traveler-specific advice. |
+| `POST` / `DELETE /api/users/fcm-token` | Authenticated routes use the verified user ID; token rows have owner-scoped RLS. Flutter remains disabled until Firebase client/server configuration is supplied. |
+| Car and transfer search | No calls to missing `/cars/search` or `/transfers/search` routes. Live results come only from partner inventory, with honest empty states when no listing matches. |
 
 The client call paths above are confirmed in source. The actual user-visible error depends on whether a particular action is invoked; those flows were not all exercised in a signed-in preview session.
 
@@ -184,7 +185,7 @@ All provider credentials are referenced as backend configuration/secrets. Their 
 | Anthropic | Optional duplicate-landmark verifier at `https://api.anthropic.com/v1/messages` | Configured through `ANTHROPIC_API_KEY`; failures leave candidates for review. The README states no Anthropic credential is currently available. |
 | OurAirports | Airport CSV import/synchronization at `https://ourairports.com/data` | Import script selects complete scheduled-service airport records and imports them additively into PostgreSQL. It is a data import, not a live per-search API. |
 | OpenStreetMap tiles | Map imagery requested by the Flutter map client | Uses public tile URLs; verify required attribution and tile usage policy for production scale. |
-| Firebase Cloud Messaging | Push notification client packages and token registration | Flutter attempts to register the token at the missing `/api/users/fcm-token` route, so server-side token persistence is not connected. |
+| Firebase Cloud Messaging | Push notification client packages and token registration | Authenticated token registration/removal and per-user persistence are implemented. Push delivery still requires Firebase client and Admin SDK configuration and remains disabled. |
 
 No active Hotelbeds, RapidAPI, or Amadeus service implementation was found in backend or app source. Xotelo appears only in localized display text. No direct provider credentials are present in Flutter API code.
 
@@ -198,9 +199,9 @@ No active Hotelbeds, RapidAPI, or Amadeus service implementation was found in ba
 
 ## Database and data integrity
 
-The schema contains **26 distinct application tables**:
+The base schema and current migrations contain **27 distinct application tables**:
 
-`partners`, `users`, `password_reset_codes`, `partner_listings`, `airports`, `user_reviews`, `user_profiles`, `ai_chat_messages`, `travel_preferences`, `tourist_monuments`, `landmark_places`, `landmark_place_aliases`, `landmark_search_areas`, `landmark_merge_candidates`, `legacy_attraction_partner_reviews`, `attraction_visit_counts`, `attraction_visit_dedup`, `offers`, `offer_catalog_metadata`, `trips`, `flight_seat_holds`, `bookings`, `transfers`, `transfer_schedules`, `api_tokens`, and `hotel_destinations`.
+`partners`, `users`, `password_reset_codes`, `partner_listings`, `airports`, `user_reviews`, `user_profiles`, `ai_chat_messages`, `travel_preferences`, `tourist_monuments`, `landmark_places`, `landmark_place_aliases`, `landmark_search_areas`, `landmark_merge_candidates`, `legacy_attraction_partner_reviews`, `attraction_visit_counts`, `attraction_visit_dedup`, `offers`, `offer_catalog_metadata`, `trips`, `flight_seat_holds`, `bookings`, `transfers`, `transfer_schedules`, `api_tokens`, `hotel_destinations`, and `user_push_tokens`.
 
 Important relationships include users-to-partners, listings-to-partners, bookings/trips/transfers-to-users, bookings-to-partner-listings, seat holds-to-listings/users/trips, and transfer schedules-to-transfers. The current schema declares a foreign key for booking `user_id` and `partner_listing_id`, but partner/trip association fields do not have the same declared referential protection. Review those relationships before relying on them for deletes or reconciliation.
 
@@ -208,9 +209,9 @@ The recent booking-history implementation returns customer-scoped booking/trip d
 
 ### RLS finding
 
-`20261101_role_access_rls.sql` defines policies for users, bookings, trips, transfers, listings, tokens, preferences, and related tables. However, neither `schema.sql` nor that role migration enables row-level security for those core tables. In PostgreSQL, policies are inert unless RLS is enabled on the table. The landmark and hotel-destination migrations do explicitly enable RLS on their own new tables, but that does not enable it on bookings, trips, users, or listings.
+`20261104_core_data_rls.sql` enables RLS for the core application tables and adds narrowly scoped inventory functions. `20261105_user_push_tokens.sql` creates the user-owned token table and policies. The local migration harness applies the complete ordered chain, repeats both new migrations, and tests customer, partner, admin, and push-token isolation.
 
-`RlsContextFilter` correctly opens a transaction, sets a non-login runtime role, and applies transaction-local user/role/partner settings. This is useful only if the target tables have RLS enabled and the migration is applied. The test harness currently does not apply the role migration, so passing local tests does not prove the core policies are active.
+`RlsContextFilter` opens a transaction, switches to the non-login runtime role, and applies transaction-local verified user/role/partner settings. The production database still needs the documented migrations and role/grant checks; local tests do not apply any changes to Supabase.
 
 ## Security and privacy review
 
@@ -226,12 +227,12 @@ The recent booking-history implementation returns customer-scoped booking/trip d
 
 ### Risks and gaps
 
-1. Core RLS policies are not enabled by the checked-in schema/migration, as described above.
-2. The default CORS setting is `*` through `app.cors.allowed-origins`. Production should specify exact deployed web origins.
+1. Production Supabase may not yet have the new RLS and push-token migrations; verify after backup before rollout.
+2. Cross-origin browser requests are blocked unless exact origins are configured through `CORS_ALLOWED_ORIGINS`; production web deployments must set that allowlist.
 3. The Flutter bearer token is persisted with `SharedPreferences`, not a platform secure-storage plugin. Consider secure storage for production mobile builds and define backup behavior.
 4. SerpAPI, Geoapify, and OpenTripMap use query-string API keys. Keep full URLs out of logs, exceptions, analytics, and request tracing. Duffel, LiteAPI, Requesty, Google Places, and Anthropic use headers.
 5. The code enables OpenTripMap's free-plan mode while `app.commercial-use` defaults to true. Startup warns that the free plan is non-commercial. Confirm licensing or switch to an appropriate plan before commercial operation.
-6. `app.cors.allowed-origins` has a permissive default; upload URLs are also exposed as static resources. Confirm upload access/content-type policy before accepting arbitrary public uploads.
+6. CORS is exact-origin by default; upload URLs are also exposed as static resources. Confirm upload access/content-type policy before accepting arbitrary public uploads.
 7. Password reset delivery depends on mail configuration (`MAIL_ENABLED` defaults false). Production recovery must be tested with actual SMTP configuration; the API returning success alone does not prove the user received a code.
 
 ## Code quality, performance, localization, and tests
@@ -242,45 +243,45 @@ The recent booking-history implementation returns customer-scoped booking/trip d
 - Shimmer is used in one file; several async feature loading states still use ordinary progress/loading placeholders. No `Hero` usages were found.
 - English and Arabic localization assets exist. The backend/provider limitations mean some OpenTripMap place text may remain English during Arabic search. Arabic visual verification was not completed in this audit.
 - `flutter pub outdated` completed. It reports newer versions for a number of dependencies; this is maintenance information, not evidence of a vulnerability. The dependency vulnerability audit reported zero findings.
-- Flutter test suite: **167 tests passed**; `flutter analyze`: **no issues**.
-- `bash scripts/test-backend.sh`: **212 passing**, with PostgreSQL-dependent tests skipped by design.
-- `bash scripts/test-postgres.sh`: **213 tests passed, zero failures/errors, zero skipped** against a disposable local PostgreSQL instance.
-- Important limitation: that PostgreSQL harness applies `schema.sql` and the landmark catalog migration, but not the role/RLS, airport, or hotel-destination migrations. It therefore does not test the full production migration set or prove core RLS enforcement.
-- The configured Start Zentrip workflow starts and the backend connects to PostgreSQL in the development environment. A screenshot browser was unauthenticated and showed the public onboarding flow; the signed-in admin, partner, booking, and hotel-detail screens were not visually verified.
+- Flutter test suite: **168 tests passed**; `flutter analyze`: **no issues**.
+- `bash scripts/test-backend.sh`: **224 tests run, zero failures/errors, 29 PostgreSQL integration tests skipped by design**; the 4-test Flutter/Spring source-contract check passes.
+- `bash scripts/test-postgres.sh`: **224 tests passed, zero failures/errors/skips** against a disposable local PostgreSQL instance. The chain includes both new migrations and reapplies them to verify idempotency.
+- The core RLS tests prove customer/partner/admin isolation, including user-owned push-token reads/deletes; HTTP tests cover FCM authentication, nearby-attraction public access, and exact CORS preflight behavior. Production Supabase has not been modified.
+- The configured Start Zentrip workflow rebuilds the Flutter web bundle and backend JAR and starts successfully against the development database. Preview screenshots confirmed onboarding and the login screen; authenticated admin/partner/booking/hotel-detail screens were not visually verified.
 - Maven `dependency:analyze` could not inspect compiled output: its analyzer rejected Java 25 class-file version 69. This is a tooling compatibility limitation, not a demonstrated application compile failure. The project-wide dependency vulnerability scanner reported zero vulnerabilities.
-- SAST reported two medium generic-PostgreSQL-string findings in `scripts/test_run_replit.py`. They are in a test helper and point to an example host; the embedded user-info is intentionally omitted here. Confirm those fixture values are not valid credentials. HoundDog reported zero findings.
+- The two generic PostgreSQL URL fixtures in `scripts/test_run_replit.py` now assemble URLs from synthetic components; the static SAST scan was not rerun after that edit. HoundDog reported zero findings in the prior scan.
 
 ## Prioritized findings (top 10)
 
-| Priority | Finding | User/business impact | Recommended next action |
-|---|---|---|---|
-| P0 — High | RLS policies for core tables are created but RLS is not enabled in the checked-in base schema or role migration; the PostgreSQL test harness skips that migration. | The intended database-level isolation is not guaranteed; the app currently relies mainly on API query scoping. | Enable RLS for the intended tables, validate grants/policies against the runtime role, and add a test that applies the full role migration and proves customer/partner/admin isolation. |
-| P1 — High | Six client API contracts have no matching backend route: social login, destination weather, visa info, FCM token registration, car search, and transfer search. | These actions fail when invoked (default-deny or missing route) even though corresponding client methods/screens exist. | Decide whether to implement or remove each flow; add contract tests for all client-called paths. |
-| P1 — High | `/api/attractions/nearby` is mapped but absent from Spring Security matchers. | Nearby attraction calls are denied for valid customers. | Add the intended customer/public matcher and test anonymous/customer access explicitly. |
-| P1 — High | Payments return a mock checkout session, and no Duffel/LiteAPI order-creation endpoint exists. | A user could mistake a simulated confirmation/local booking for a real provider booking or payment. | Keep the simulator clearly labeled until a provider order and payment lifecycle, idempotency, reconciliation, cancellation, and refunds exist. |
-| P1 — High | OpenTripMap free-plan mode is enabled alongside commercial-use configuration. | Potential provider-terms/licensing noncompliance if the app is used commercially. | Confirm licensing with the provider and configure a compatible plan or disable the source for commercial traffic. |
-| P2 — Medium | Default CORS allows `*`. | Any web origin can make browser requests; bearer auth still limits protected data, but broad origin policy increases exposure. | Set production `CORS_ALLOWED_ORIGINS` to exact trusted domains and verify preflight behavior. |
-| P2 — Medium | SerpAPI/Geoapify/OpenTripMap credentials are embedded in query parameters. | Proxy/access logs can retain keys if full URLs are logged. | Ensure URL redaction in server, proxy, tracing, and error logs; rotate any key found in logs. |
-| P2 — Medium | Flutter stores bearer tokens in `SharedPreferences`. | Tokens are not protected with a platform secure-storage mechanism. | Move auth tokens to secure storage, preserving logout/refresh semantics and testing backup behavior. |
-| P2 — Medium | Hotel/place/profile image caching is inconsistent; shared image helper uses `Image.network`. | Repeat downloads and slower scrolling can increase data use and image decode churn. | Reuse cached-network image handling and define bounded cache/error/placeholder behavior. |
-| P2 — Medium | Booking/history APIs return unpaged collections; integration tests do not apply every migration. | Response cost can grow with account history; regressions in migration/RLS behavior can pass current tests. | Add stable pagination and broaden the disposable PostgreSQL suite to apply/verify the full migration chain. |
+| Priority | Finding | User/business impact | Recommended next action | Status |
+|---|---|---|---|---|
+| P0 — High | Core tables had policies without RLS being enabled, and the test harness omitted the RLS migration. | The intended database-level isolation was not guaranteed. | Apply the documented migration to production only after backup; verify the deployed login and runtime roles. | **Partial** — local migration and isolation tests pass; production Supabase remains pending. |
+| P1 — High | Several unfinished client integrations had no matching backend route. | Calls failed or silently displayed generated data. | Use safe defaults, add authenticated FCM token persistence, and add an endpoint-contract test. | **Partial / safe** — social remains hidden, weather/visa unavailable in live mode, car/transfers partner-only; FCM storage is implemented but delivery is disabled pending Firebase setup. |
+| P1 — High | `/api/attractions/nearby` was mapped but absent from Spring Security matchers. | Nearby attraction calls were denied for valid customers. | Allow the intended public read and pace/cache external calls. | **Fixed locally** — allowlist and contract checks added; provider pacing/cache is per app instance. |
+| P1 — High | Payments return a mock checkout session, and no Duffel/LiteAPI order-creation endpoint exists. | Users could mistake a simulated confirmation/local booking for a real provider booking or payment. | Keep the simulator clearly labeled until a provider order and payment lifecycle are implemented. | **Open** |
+| P1 — High | OpenTripMap free-plan mode is enabled alongside commercial-use configuration. | Potential provider-terms/licensing noncompliance if the app is used commercially. | Confirm licensing with the provider and configure a compatible plan or disable the source for commercial traffic. | **Open** |
+| P2 — Medium | Default CORS previously allowed `*`. | Any web origin could make browser requests. | Use an exact configured origin list and verify preflight behavior. | **Fixed in code** — defaults to no cross-origin origins; production must configure trusted web domains. |
+| P2 — Medium | SerpAPI/Geoapify/OpenTripMap credentials are embedded in query parameters. | Proxy/access logs can retain keys if full URLs are logged. | Ensure URL redaction in server, proxy, tracing, and error logs; rotate any key found in logs. | **Open** |
+| P2 — Medium | Flutter stores bearer tokens in `SharedPreferences`. | Tokens are not protected with a platform secure-storage mechanism. | Move auth tokens to secure storage, preserving logout/refresh semantics and testing backup behavior. | **Open** |
+| P2 — Medium | Hotel/place/profile image caching is inconsistent; shared image helper uses `Image.network`. | Repeat downloads and slower scrolling can increase data use and image decode churn. | Reuse cached-network image handling and define bounded cache/error/placeholder behavior. | **Open** |
+| P2 — Medium | Booking/history APIs return unpaged collections; historical test runs omitted migrations. | Response cost can grow with account history. | Add stable pagination and keep the complete migration-chain job in CI. | **Partial** — CI/local migration chain is covered; pagination remains open. |
 
 ## Stakeholder presentation points
 
 - Zentrip is a Flutter client with a Spring Boot API and a Supabase-hosted PostgreSQL database; keys stay on the backend.
 - The app currently combines partner inventory with Duffel flight offers and LiteAPI hotel prices, but checkout is simulated and does not place an external provider order.
 - The backend derives roles from stored user records, restricts admin/partner APIs, and applies customer ownership filters.
-- The most important security follow-up is enabling and testing PostgreSQL RLS on the core tables; policies alone do not enforce access.
-- Several visible client features have no matching backend endpoint, so API contract coverage should be fixed before describing those features as operational.
-- Current Flutter and backend tests pass, but the database test harness does not yet exercise the full production migration/RLS chain.
+- Core PostgreSQL RLS is enabled and tested locally; applying the migration and verifying grants on production Supabase remain manual.
+- Unconfigured client integrations now fail closed or use partner inventory only; social login and push delivery still require provider/server setup before being enabled.
+- Current Flutter and backend tests pass, and the disposable PostgreSQL harness exercises the full migration chain; production Supabase is not touched by that harness.
 
 ## Manual verification still required
 
-1. Apply/inspect the complete migration chain on a disposable database first, then verify RLS is enabled on every intended table and test customer, partner, and admin isolation.
-2. Confirm the production Supabase database has the expected migrations and runtime role/grants; this audit did not inspect production rows or change production data.
+1. After backup, apply the documented migration chain in Supabase SQL Editor; confirm RLS is enabled on the core tables and the runtime role can be assumed.
+2. Check the production JDBC login's `rolsuper`/`rolbypassrls` attributes and grant `zentrip_api_runtime` membership if the login is not `postgres`. This work did not inspect production role flags or change production data.
 3. Validate the live Duffel, LiteAPI, OpenTripMap, Geoapify, Requesty, and SerpAPI credentials with safe provider requests. Secret values were not accessed.
-4. Verify outbound email/password-reset delivery, Google/Apple sign-in, and FCM registration; the server-side endpoints/configuration are incomplete or environment-dependent.
-5. Test the affected routes in a signed-in browser/device session, including admin, partner, flight checkout, hotel detail, Arabic RTL, nearby attractions, cars, and transfers.
+4. Verify outbound email/password-reset delivery. Keep Google/Apple sign-in disabled until the missing server route and provider configuration are implemented. Configure Firebase client/Admin SDK before enabling push delivery.
+5. Test affected flows in a signed-in browser/device session, including admin, partner, flight checkout, hotel detail, Arabic RTL, nearby attractions, partner-only cars/transfers, and destination-info unavailable/sample states.
 6. Do not accept real payment or promise a confirmed external airline/hotel reservation until provider booking and payment integrations are implemented and reconciled.
 
 ## Audit execution and file count
