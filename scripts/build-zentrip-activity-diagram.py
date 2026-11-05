@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "generated-artifacts"
-WORD_PATH = OUT / "ZenTrip-Activity-Diagram-Integrated.docx"
+WORD_PATH = OUT / "ZenTrip-Activity-Diagram-Updated.docx"
 
 COLORS = {
     "ink": "#263a33",
@@ -976,7 +976,7 @@ __MERMAID_BUNDLE__
 <div class="controls">
 <button id="zoom-out" type="button" aria-label="Zoom out">−</button><button id="zoom-in" type="button" aria-label="Zoom in">+</button><button id="fit" type="button">Fit</button>
 <button id="download-svg" type="button">Download SVG</button><button id="download-png" type="button">Download PNG</button>
-<a id="download-docx" href="ZenTrip-Activity-Diagram-Integrated.docx" download>Download as Word (.docx)</a>
+ <a id="download-docx" href="ZenTrip-Activity-Diagram-Updated.docx" download>Download as Word (.docx)</a>
 </div></header>
 <nav class="pages" aria-label="Diagram pages">__PAGE_BUTTONS__</nav>
 <main class="frame" id="frame" aria-label="Activity diagram preview"><div id="diagram"></div></main>
