@@ -16,6 +16,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
   int _currentPage = 0;
+  bool _finishing = false;
 
   List<_Page> get _pages => [
         _Page(
@@ -39,12 +40,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ];
 
   Future<void> _finish() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(OnboardingScreen.seenKey, true);
+    if (_finishing) return;
+    _finishing = true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 2));
+      await prefs
+          .setBool(OnboardingScreen.seenKey, true)
+          .timeout(const Duration(seconds: 2));
+    } catch (error) {
+      // Browser storage can be unavailable (for example, in a restricted
+      // browser context). It must not keep the user trapped in onboarding.
+      debugPrint('Could not persist onboarding completion: $error');
+    }
+
     if (mounted) Navigator.pushReplacementNamed(context, AppRoutes.auth);
   }
 
   void _next() {
+    if (_finishing) return;
     if (_currentPage < _pages.length - 1) {
       _controller.nextPage(duration: const Duration(milliseconds: 650), curve: Curves.easeOutCubic);
     } else {

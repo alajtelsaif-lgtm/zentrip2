@@ -38,4 +38,28 @@ void main() {
 
     expect(find.text('/auth'), findsOneWidget);
   });
+
+  testWidgets('onboarding Skip navigates to sign-in', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const OnboardingScreen(),
+      onGenerateRoute: (settings) => MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => Scaffold(
+          body: Text(settings.name ?? 'missing route'),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('/auth'), findsOneWidget);
+  });
 }
