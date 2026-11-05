@@ -123,7 +123,7 @@ function diagramPage(diagram, index) {
   const imagePath = path.join(outputDir, `zentrip-activity-${id}-word.png`);
   if (!fs.existsSync(imagePath)) throw new Error(`Missing high-resolution diagram: ${imagePath}`);
   const imageData = fs.readFileSync(imagePath);
-  const width = 1450;
+  const width = 1000;
   const height = Math.round(width * 1120 / 2200);
   const content = [];
   if (index === 0) {

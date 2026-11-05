@@ -702,6 +702,11 @@ def mermaid_source(p):
 
 
 def build_html(pages):
+    mermaid_bundle_path = ROOT / "node_modules" / "mermaid" / "dist" / "mermaid.min.js"
+    if not mermaid_bundle_path.exists():
+        raise RuntimeError("Install the Mermaid package before generating the standalone HTML viewer.")
+    mermaid_bundle = mermaid_bundle_path.read_text(encoding="utf-8")
+    mermaid_bundle = mermaid_bundle.replace("</script", "<\\/script").replace("</SCRIPT", "<\\/SCRIPT")
     page_payload = json.dumps([
         {
             "title": p["title"],
@@ -716,7 +721,7 @@ def build_html(pages):
         f'<button type="button" data-page="{i}" aria-label="Open diagram page {i+1}">{i+1}. {html.escape(p["title"].split("·",1)[-1].strip())}</button>'
         for i, p in enumerate(pages)
     )
-    return """<!doctype html>
+    template = """<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ZenTrip – Activity Diagram</title>
@@ -740,7 +745,7 @@ textarea{width:100%;min-height:250px;resize:vertical;font:13px/1.5 ui-monospace,
 @media(max-width:700px){body{padding:10px}.frame{height:54vh;min-height:320px}.source-layout{grid-template-columns:1fr}header{align-items:flex-start}.controls{width:100%}}
 @media print{.controls,.pages,.source-panel{display:none}.frame{height:auto;max-height:none;border:0}.notes{break-before:page}}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@12.3.0/dist/mermaid.min.js"></script>
+__MERMAID_BUNDLE__
 </head><body>
 <header><div><h1>ZenTrip – Activity Diagram</h1><p class="lede">Verified against the Flutter app and Spring Boot backend. Select a page, zoom or drag to inspect it.</p></div>
 <div class="controls">
@@ -767,7 +772,7 @@ textarea{width:100%;min-height:250px;resize:vertical;font:13px/1.5 ui-monospace,
 <section class="notes"><h2>Deviations / assumptions</h2><ul>
 <li>The actual project is Flutter + Spring Boot, not Node/Express; this is a separate diagram viewer and does not replace the app stack.</li>
 <li>Flight, hotel, car, and attraction checkout uses Zentrip's simulated payment. The diagram does not claim supplier ticketing or payment.</li>
-<li>HotelLiteAPI is data-only. The hotel schedule check is not a provider room-availability recheck.</li>
+<li>LiteAPI is hotel search data only. The hotel schedule check is not a provider room-availability recheck.</li>
 <li>Flight, hotel, car, attraction, and package records use existing endpoints. Transfers are stored separately.</li>
 <li>The code does not implement a multi-item itinerary with parallel flight/hotel/activity booking, booking email/notification, or a server-side transfer-cancellation endpoint.</li>
 <li>No separate app-wide admin settings endpoint was found. Admin controls shown are the routes present in the current backend.</li>
@@ -778,8 +783,8 @@ const frame=document.getElementById('frame'),diagram=document.getElementById('di
 const statusEl=document.getElementById('status');let active=0,scale=1,x=0,y=0,drag=false,sx=0,sy=0,renderId=0,debounce;
 if(typeof mermaid!=='undefined')mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:'base',themeVariables:{fontFamily:'Arial, sans-serif',primaryColor:'#f9fcf9',primaryTextColor:'#263a33',primaryBorderColor:'#8eac99',lineColor:'#839d8e',secondaryColor:'#fbfaff',tertiaryColor:'#eef4f9'}});
 function apply(){diagram.style.transform=`translate(${x}px,${y}px) scale(${scale})`}
-function fit(){const svg=diagram.querySelector('svg');if(!svg)return;const vb=svg.viewBox.baseVal;const r=frame.getBoundingClientRect();scale=Math.min((r.width-24)/vb.width,(r.height-24)/vb.height);x=(r.width-vb.width*scale)/2;y=(r.height-vb.height*scale)/2;apply()}
-async function renderSource(){statusEl.textContent='Rendering diagram…';try{if(typeof mermaid==='undefined')throw new Error('Mermaid could not load. Connect to the internet and reload.');const id=`zentrip-flow-${++renderId}`;const result=await mermaid.render(id,editor.value);diagram.innerHTML=result.svg;if(result.bindFunctions)result.bindFunctions(diagram);statusEl.textContent='Diagram rendered.';fit()}catch(error){statusEl.textContent=`Diagram error: ${error.message}`}}
+function fit(){const svg=diagram.querySelector('svg');if(!svg)return;const vb=svg.viewBox.baseVal;const bounds=svg.getBBox();const w=Math.max(vb.width,bounds.width),h=Math.max(vb.height,bounds.height);const r=frame.getBoundingClientRect();scale=Math.min((r.width-24)/w,(r.height-24)/h);x=(r.width-w*scale)/2-bounds.x*scale;y=(r.height-h*scale)/2-bounds.y*scale;apply()}
+async function renderSource(){statusEl.textContent='Rendering diagram…';try{if(typeof mermaid==='undefined')throw new Error('Mermaid could not load. Connect to the internet and reload.');const id=`zentrip-flow-${++renderId}`;const result=await mermaid.render(id,editor.value);diagram.innerHTML=result.svg;const svg=diagram.querySelector('svg');const vb=svg.viewBox.baseVal;svg.setAttribute('width',vb.width);svg.setAttribute('height',vb.height);svg.style.width=`${vb.width}px`;svg.style.height=`${vb.height}px`;if(result.bindFunctions)result.bindFunctions(diagram);statusEl.textContent='Diagram rendered.';fit()}catch(error){statusEl.textContent=`Diagram error: ${error.message}`}}
 function showPage(i){active=i;editor.value=pages[i].source;document.getElementById('page-note').textContent=pages[i].subtitle+' '+pages[i].note;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',Number(b.dataset.page)===i));clearTimeout(debounce);renderSource()}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>showPage(Number(b.dataset.page)));
 editor.addEventListener('input',()=>{clearTimeout(debounce);debounce=setTimeout(renderSource,450)});
@@ -794,12 +799,13 @@ const stop=()=>{drag=false;frame.classList.remove('dragging')};frame.addEventLis
 function currentSvg(){return diagram.querySelector('svg')}
 document.getElementById('download-svg').onclick=()=>{const svg=currentSvg();if(!svg)return;const blob=new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`zentrip-${pages[active].title.toLowerCase().replace(/[^a-z0-9]+/g,'-')}.svg`;a.click();URL.revokeObjectURL(a.href)};
 document.getElementById('download-png').onclick=()=>{const svg=currentSvg();if(!svg)return;const clone=svg.cloneNode(true),vb=svg.viewBox.baseVal,w=Math.ceil(vb.width*3),h=Math.ceil(vb.height*3);clone.setAttribute('width',w);clone.setAttribute('height',h);const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);canvas.toBlob(png=>{const a=document.createElement('a');a.href=URL.createObjectURL(png);a.download=`zentrip-page-${active+1}.png`;a.click();URL.revokeObjectURL(a.href);URL.revokeObjectURL(url)},'image/png')};img.onerror=()=>{statusEl.textContent='PNG export failed for this diagram.';URL.revokeObjectURL(url)};img.src=url};
-showPage(0);
+ const requestedPage=Number(new URLSearchParams(location.search).get('page')??0);showPage(Number.isInteger(requestedPage)&&requestedPage>=0&&requestedPage<pages.length?requestedPage:0);
 </script></body></html>"""
     return (
         template
         .replace("__PAGE_BUTTONS__", page_buttons)
         .replace("__PAGE_DATA__", page_payload)
+        .replace("__MERMAID_BUNDLE__", f"<script>{mermaid_bundle}</script>")
     )
 
 
