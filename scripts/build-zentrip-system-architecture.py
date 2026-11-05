@@ -144,7 +144,7 @@ def make_svg() -> str:
     arrow("M1115 188V734", color="#7a93a5")
     for center_y in [188, 266, 344, 422, 500, 578, 656, 734]:
         arrow(f"M1115 {center_y}H1168", bidirectional=True)
-    arrow("M880 550V682", bidirectional=True, color="#477b78")
+    arrow("M880 550V662", bidirectional=True, color="#477b78")
     arrow("M465 560V665", dashed=True, color="#738b9b")
     arrow("M605 560V665", dashed=True, color="#738b9b")
 
@@ -213,20 +213,21 @@ def make_svg() -> str:
         ("SerpAPI", "nearby and map search", "S", None),
         ("Requesty", "Zen AI response stream", "R", None),
         ("Frankfurter", "exchange-rate lookup", "F", None),
-        ("Optional / import", "Google Places sync · OurAirports import", "+", "OPTIONAL"),
+        ("Optional / import", "Google Places (not configured) · OurAirports import", "+", "OPTIONAL"),
     ]
     for index, item in enumerate(providers):
         provider(164 + index * 78, *item)
 
     # Supabase PostgreSQL is backend-only. Use a cylinder, with the main API above it.
-    emit('<ellipse cx="880" cy="700" rx="180" ry="18" fill="#edf7f6" stroke="#588986" stroke-width="2"/>')
-    emit('<path d="M700 700v124c0 11 81 20 180 20s180-9 180-20V700" fill="#edf7f6" stroke="#588986" stroke-width="2"/>')
+    emit('<ellipse cx="880" cy="680" rx="180" ry="18" fill="#edf7f6" stroke="#588986" stroke-width="2"/>')
+    emit('<path d="M700 680v144c0 11 81 20 180 20s180-9 180-20V680" fill="#edf7f6" stroke="#588986" stroke-width="2"/>')
     emit('<ellipse cx="880" cy="824" rx="180" ry="20" fill="#edf7f6" stroke="#588986" stroke-width="2"/>')
-    label(880, 728, "Supabase PostgreSQL", 17, 700, "#285553", "middle")
-    label(880, 751, "users · api_tokens · partners · partner_listings · offers", 10, 400, "#426c6a", "middle")
-    label(880, 770, "trips · bookings · transfers · flight_seat_holds · payment_attempts", 10, 400, "#426c6a", "middle")
-    label(880, 789, "tourist_monuments · landmark_places · attraction_visit_counts", 10, 400, "#426c6a", "middle")
-    label(880, 808, "ai_chat_messages · travel_preferences · user profile records", 10, 400, "#426c6a", "middle")
+    label(880, 708, "Supabase PostgreSQL", 17, 700, "#285553", "middle")
+    label(880, 731, "users · api_tokens · partners · partner_listings", 11, 400, "#426c6a", "middle")
+    label(880, 749, "trips · bookings · transfers · flight_seat_holds", 11, 400, "#426c6a", "middle")
+    label(880, 767, "payment_attempts · offers · tourist_monuments", 11, 400, "#426c6a", "middle")
+    label(880, 785, "landmark_places · attraction_visit_counts · ai_chat_messages", 10, 400, "#426c6a", "middle")
+    label(880, 803, "travel_preferences · user_profiles · reviews", 11, 400, "#426c6a", "middle")
 
     # Scope and trust boundaries, deliberately placed in the figure footer.
     box(70, 852, 1660, 35, "#f8fafb", "#dce4e8", 7, 1)
