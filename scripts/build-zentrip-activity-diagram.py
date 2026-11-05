@@ -1,67 +1,47 @@
 #!/usr/bin/env python3
-"""Build the current Zentrip activity diagram, HTML viewer, and Word document.
-
-The diagram is intentionally generated from the flow data below so its SVG,
-HTML, and DOCX versions cannot drift apart.
-"""
+"""Generate the verified Zentrip flow diagrams, HTML viewer, and Word document."""
 
 from __future__ import annotations
 
 import html
+import json
 import shutil
 import subprocess
 import zipfile
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "generated-artifacts"
-SVG_PATH = OUT / "zentrip-activity-diagram.svg"
-HTML_PATH = OUT / "zentrip-activity-diagram.html"
-DOCX_PATH = OUT / "ZenTrip-Activity-Diagram-Integrated.docx"
-PNG_PATH = OUT / "zentrip-activity-diagram.png"
-
-WIDTH = 3500
-HEIGHT = 2380
+WIDTH = 2200
+HEIGHT = 1120
+WORD_PATH = OUT / "ZenTrip-Activity-Diagram-Integrated.docx"
 
 COLORS = {
     "ink": "#263a33",
     "muted": "#62756d",
-    "lane-stroke": "#d9e4dd",
-    "lane-entry": "#eef4ef",
-    "lane-flight": "#f3f1f9",
-    "lane-hotel": "#f3f1f9",
-    "lane-places": "#eef4f9",
-    "lane-trips": "#eef4f9",
-    "user-fill": "#f9fcf9",
-    "user-stroke": "#8eac99",
-    "system-fill": "#fbfaff",
-    "system-stroke": "#a89cbe",
-    "api-fill": "#f9fcff",
-    "api-stroke": "#91acc0",
-    "success-fill": "#edf5fa",
-    "success-stroke": "#668ba5",
-    "error-fill": "#fff9f6",
-    "error-stroke": "#d49a88",
+    "lane": "#eef4ef",
+    "lane2": "#f3f1f9",
+    "lane3": "#eef4f9",
+    "user_fill": "#f9fcf9",
+    "user_stroke": "#8eac99",
+    "system_fill": "#fbfaff",
+    "system_stroke": "#a89cbe",
+    "api_fill": "#f9fcff",
+    "api_stroke": "#91acc0",
+    "success_fill": "#edf5fa",
+    "success_stroke": "#668ba5",
+    "error_fill": "#fff9f6",
+    "error_stroke": "#d49a88",
     "line": "#839d8e",
-    "api-line": "#456984",
-    "error-line": "#c17d68",
-    "start-fill": "#d9eee3",
-    "start-stroke": "#75a48b",
+    "api_line": "#456984",
+    "error_line": "#c17d68",
+    "start_fill": "#d9eee3",
+    "start_stroke": "#75a48b",
     "white": "#ffffff",
 }
 
 
-def node(
-    ident: str,
-    x: int,
-    y: int,
-    w: int,
-    h: int,
-    label: str,
-    kind: str = "system",
-    shape: str = "box",
-) -> dict:
+def node(ident, x, y, w, h, label, kind="system", shape="box", font=20):
     return {
         "id": ident,
         "x": x,
@@ -71,96 +51,14 @@ def node(
         "label": label.split("\n"),
         "kind": kind,
         "shape": shape,
+        "font": font,
     }
 
 
-NODES = [
-    node("start", 90, 270, 68, 68, "Start", "start", "start"),
-    node("restore", 330, 270, 220, 86, "Restore saved session\nor continue onboarding", "user"),
-    node("session", 650, 270, 160, 122, "Session\navailable?", "decision", "diamond"),
-    node("signin", 650, 420, 230, 82, "Sign in or\ncreate account", "user"),
-    node("role", 990, 270, 190, 132, "Verified\nrole?", "decision", "diamond"),
-    node("customer-app", 1340, 270, 300, 92, "Customer AppShell\nExplore · Nearby · Zen AI", "user"),
-    node("admin-dashboard", 1280, 445, 260, 82, "Admin dashboard\nstaff-only access", "system"),
-    node("partner-dashboard", 1630, 445, 260, 82, "Partner dashboard\nown-partner scope", "system"),
-    node("module-select", 2130, 270, 440, 92, "Choose area\nFlights · Hotels · Places · Zen AI · My Trips", "user"),
-    node("logout", 2700, 270, 84, 84, "Log out", "end", "end"),
-
-    # Flights: three provider branches visibly converge before normalization.
-    node("flight-input", 470, 850, 240, 106, "Search route, dates /\nflexible months,\npassengers and cabin", "user"),
-    node("flight-endpoint", 760, 850, 230, 106, "GET /flights/search\nor /flights/search/flexible", "system"),
-    node("flight-airports", 1040, 770, 190, 62, "Airport directory", "api"),
-    node("flight-partner", 1040, 850, 190, 62, "Partner offers", "api"),
-    node("flight-duffel", 1040, 930, 190, 62, "Duffel offers", "api"),
-    node("flight-merge", 1290, 850, 88, 88, "M", "system", "merge"),
-    node("flight-normalize", 1510, 850, 230, 106, "Merge / normalize;\nwarn, sort and filter", "system"),
-    node("flight-available", 1780, 850, 170, 132, "Any flight\noffers?", "decision", "diamond"),
-    node("flight-review", 2030, 850, 220, 106, "Review results\nand select a flight", "user"),
-    node("flight-details", 2300, 850, 250, 106, "Fare, passenger details,\nseats and extras", "user"),
-    node("flight-checkout", 2590, 850, 220, 106, "Zentrip simulated\npayment", "system"),
-    node("flight-payment", 2860, 850, 170, 132, "Payment\nsuccessful?", "decision", "diamond"),
-    node("flight-save", 3160, 850, 260, 106, "Save trip and show\nconfirmation; no ticket", "success"),
-    node("flight-provider-warning", 1500, 1010, 270, 76, "Provider issue:\npartial or empty results", "error"),
-    node("flight-empty", 1780, 1010, 260, 76, "No offers: show empty\nstate and retry", "error"),
-    node("flight-payment-failed", 2860, 1010, 260, 76, "Failed attempt only;\nrelease seat hold", "error"),
-    node("flight-cancelled", 3260, 1010, 84, 84, "Cancelled", "end", "end"),
-
-    # Hotels use partner inventory and LiteAPI data, with the same simulated
-    # payment boundary and no supplier reservation.
-    node("hotel-input", 470, 1270, 240, 106, "Choose destination,\nstay dates, rooms\nand guests", "user"),
-    node("hotel-endpoint", 760, 1270, 230, 106, "GET /hotels/search", "system"),
-    node("hotel-partner", 1040, 1190, 190, 62, "Partner listings", "api"),
-    node("hotel-liteapi", 1040, 1270, 190, 62, "LiteAPI hotel data", "api"),
-    node("hotel-merge", 1290, 1270, 88, 88, "M", "system", "merge"),
-    node("hotel-normalize", 1510, 1270, 230, 106, "Merge / normalize;\nshow provider warnings", "system"),
-    node("hotel-available", 1780, 1270, 170, 132, "Any stays\navailable?", "decision", "diamond"),
-    node("hotel-review", 2030, 1270, 220, 106, "Review hotel results\nand details", "user"),
-    node("hotel-room", 2300, 1270, 250, 106, "Check selected stay /\nroom availability", "system"),
-    node("hotel-checkout", 2590, 1270, 220, 106, "Zentrip simulated\npayment", "system"),
-    node("hotel-payment", 2860, 1270, 170, 132, "Payment\nsuccessful?", "decision", "diamond"),
-    node("hotel-save", 3160, 1270, 260, 106, "POST /bookings and\nshow confirmation", "success"),
-    node("hotel-provider-warning", 1500, 1450, 270, 76, "Provider issue:\npartial or empty results", "error"),
-    node("hotel-empty", 1780, 1450, 260, 76, "No stays: show empty\nstate and retry", "error"),
-    node("hotel-payment-failed", 2860, 1450, 260, 76, "Failed attempt;\nno booking created", "error"),
-    node("hotel-cancelled", 3260, 1450, 84, 84, "Cancelled", "end", "end"),
-
-    # Places and AI are distinct, non-booking paths from the AppShell.
-    node("places-input", 470, 1645, 240, 88, "Search nearby or\nby destination", "user"),
-    node("places-coordinates", 770, 1645, 150, 116, "Coordinates\nknown?", "decision", "diamond"),
-    node("places-geocode", 770, 1760, 230, 76, "Geoapify geocoding\nonly if needed", "api"),
-    node("places-opentripmap", 1100, 1645, 250, 88, "OpenTripMap\nplaces search", "api"),
-    node("places-results", 1450, 1645, 270, 88, "View place details;\nvisit counter only", "user"),
-    node("places-return", 1810, 1645, 230, 88, "Return to AppShell", "user"),
-    node("places-error", 1450, 1760, 270, 76, "Empty / error state;\nretry search", "error"),
-    node("ai-input", 470, 1830, 240, 72, "Enter a Zen AI\nchat prompt", "user"),
-    node("ai-endpoint", 850, 1830, 280, 72, "POST /api/ai/chat\nRequesty provider", "api"),
-    node("ai-response", 1230, 1830, 280, 72, "Read streamed reply;\nsave chat locally", "system"),
-    node("ai-return", 1600, 1830, 230, 72, "Return to AppShell", "user"),
-
-    # My Trips reads the current user's saved trip, booking, and transfer
-    # records. Flight and hotel success connect into this shared persistence.
-    node("trips-open", 470, 2110, 240, 92, "Open My Trips", "user"),
-    node("trips-fetch", 800, 2110, 270, 92, "GET /trips,\n/bookings and /transfers", "system"),
-    node("trips-db", 1200, 2110, 300, 110, "Supabase PostgreSQL\ncurrent-user records", "success"),
-    node("trips-display", 1570, 2110, 260, 92, "Display trips, bookings\nand transfers", "user"),
-    node("trips-cancel-choice", 1900, 2110, 170, 132, "Cancel a\nbooking?", "decision", "diamond"),
-    node("trips-return", 2240, 2060, 240, 82, "Return to AppShell", "user"),
-    node("trips-cancel-status", 2240, 2220, 280, 72, "Show cancellation\nstatus; provider terms vary", "system"),
-    node("trips-cancelled", 2660, 2220, 84, 84, "Cancelled", "end", "end"),
-    node("trips-complete", 3070, 2070, 84, 84, "Trip complete", "end", "end"),
-]
-
-
-def edge(
-    ident: str,
-    points: list[tuple[int, int]],
-    kind: str = "main",
-    label: str | None = None,
-    label_at: tuple[int, int] | None = None,
-) -> dict:
+def edge(ident, points, kind="main", label="", label_at=None):
     for (x1, y1), (x2, y2) in zip(points, points[1:]):
         if x1 != x2 and y1 != y2:
-            raise ValueError(f"Edge {ident} is not orthogonal: {(x1, y1)} -> {(x2, y2)}")
+            raise ValueError(f"Non-orthogonal connector {ident}: {(x1, y1)} -> {(x2, y2)}")
     return {
         "id": ident,
         "points": points,
@@ -170,272 +68,493 @@ def edge(
     }
 
 
-EDGES = [
-    edge("start-restore", [(124, 270), (220, 270)]),
-    edge("restore-session", [(440, 270), (570, 270)]),
-    edge("session-yes-role", [(730, 270), (895, 270)], label="Yes · continue", label_at=(805, 252)),
-    edge("session-no-signin", [(650, 331), (650, 378)], label="No", label_at=(672, 360)),
-    edge("signin-role", [(765, 420), (830, 420), (830, 270), (895, 270)], label="Signed in", label_at=(845, 395)),
-    edge("role-customer", [(1085, 270), (1190, 270)], label="Customer", label_at=(1135, 250)),
-    edge("role-admin", [(990, 336), (990, 445), (1150, 445)], label="Admin", label_at=(1010, 395)),
-    edge("role-partner", [(1080, 270), (1120, 270), (1120, 485), (1500, 485)], label="Partner", label_at=(1150, 465)),
-    edge("app-modules", [(1490, 270), (1910, 270)]),
-    edge("modules-logout", [(2350, 270), (2658, 270)], label="Sign out", label_at=(2500, 250)),
+def page(ident, title, subtitle, lanes, nodes, edges, note):
+    return {
+        "id": ident,
+        "title": title,
+        "subtitle": subtitle,
+        "lanes": lanes,
+        "nodes": nodes,
+        "edges": edges,
+        "note": note,
+    }
 
-    # Shared AppShell module dispatcher: each path is orthogonal and reaches
-    # its own feature entry without relying on an implicit default city.
-    edge("dispatch-flight", [(1970, 316), (1970, 520), (200, 520), (200, 850), (350, 850)], "api", "Flights", (390, 505)),
-    edge("dispatch-hotel", [(2030, 316), (2030, 550), (240, 550), (240, 1270), (350, 1270)], "api", "Hotels", (390, 537)),
-    edge("dispatch-places", [(2090, 316), (2090, 580), (280, 580), (280, 1645), (350, 1645)], "api", "Places", (390, 567)),
-    edge("dispatch-ai", [(2150, 316), (2150, 610), (320, 610), (320, 1830), (350, 1830)], "api", "Zen AI", (390, 597)),
-    edge("dispatch-trips", [(2210, 316), (2210, 640), (360, 640), (360, 2110), (350, 2110)], "api", "My Trips", (390, 627)),
 
-    edge("flight-input-api", [(590, 850), (645, 850)]),
-    edge("flight-api-airports", [(875, 850), (920, 850), (920, 770), (945, 770)], "api"),
-    edge("flight-api-partner", [(875, 850), (945, 850)], "api"),
-    edge("flight-api-duffel", [(875, 850), (920, 850), (920, 930), (945, 930)], "api"),
-    edge("flight-airports-merge", [(1135, 770), (1180, 770), (1180, 850), (1246, 850)], "api"),
-    edge("flight-partner-merge", [(1135, 850), (1246, 850)], "api"),
-    edge("flight-duffel-merge", [(1135, 930), (1180, 930), (1180, 850), (1246, 850)], "api"),
-    edge("flight-merge-normalize", [(1334, 850), (1395, 850)]),
-    edge("flight-normalize-available", [(1625, 850), (1695, 850)]),
-    edge("flight-available-review", [(1865, 850), (1920, 850)], "main", "Yes", (1890, 830)),
-    edge("flight-available-empty", [(1780, 916), (1780, 972)], "error", "No", (1800, 950)),
-    edge("flight-empty-retry", [(1780, 1048), (1780, 1080), (330, 1080), (330, 850), (350, 850)], "error", "Retry", (1080, 1065)),
-    edge("flight-merge-warning", [(1290, 894), (1290, 1010), (1365, 1010)], "error", "Provider failure", (1305, 962)),
-    edge("flight-warning-normalize", [(1500, 972), (1500, 903), (1510, 903)], "error", "Continue with available data", (1515, 940)),
-    edge("flight-review-details", [(2140, 850), (2175, 850)]),
-    edge("flight-details-checkout", [(2425, 850), (2480, 850)]),
-    edge("flight-checkout-payment", [(2700, 850), (2775, 850)]),
-    edge("flight-payment-save", [(2945, 850), (3030, 850)], "main", "Yes", (2985, 830)),
-    edge("flight-payment-fail", [(2860, 916), (2860, 972)], "error", "No", (2880, 950)),
-    edge("flight-fail-retry", [(2730, 1010), (2590, 1010), (2590, 903)], "error", "Retry", (2655, 990)),
-    edge("flight-fail-cancel", [(2990, 1010), (3218, 1010)], "error", "Cancel", (3090, 990)),
-    edge("flight-save-db", [(3290, 850), (3400, 850), (3400, 1910), (1210, 1910), (1210, 2055)], "api", "Persist successful flight trip", (2180, 1895)),
-
-    edge("hotel-input-api", [(590, 1270), (645, 1270)]),
-    edge("hotel-api-partner", [(875, 1270), (920, 1270), (920, 1190), (945, 1190)], "api"),
-    edge("hotel-api-liteapi", [(875, 1270), (945, 1270)], "api"),
-    edge("hotel-partner-merge", [(1135, 1190), (1180, 1190), (1180, 1270), (1246, 1270)], "api"),
-    edge("hotel-liteapi-merge", [(1135, 1270), (1246, 1270)], "api"),
-    edge("hotel-merge-normalize", [(1334, 1270), (1395, 1270)]),
-    edge("hotel-normalize-available", [(1625, 1270), (1695, 1270)]),
-    edge("hotel-available-review", [(1865, 1270), (1920, 1270)], "main", "Yes", (1890, 1250)),
-    edge("hotel-available-empty", [(1780, 1336), (1780, 1412)], "error", "No", (1800, 1380)),
-    edge("hotel-empty-retry", [(1780, 1488), (1780, 1520), (330, 1520), (330, 1270), (350, 1270)], "error", "Retry", (1080, 1505)),
-    edge("hotel-merge-warning", [(1290, 1314), (1290, 1450), (1365, 1450)], "error", "Provider failure", (1305, 1395)),
-    edge("hotel-warning-normalize", [(1500, 1412), (1500, 1323), (1510, 1323)], "error", "Continue with available data", (1515, 1370)),
-    edge("hotel-review-room", [(2140, 1270), (2175, 1270)]),
-    edge("hotel-room-checkout", [(2425, 1270), (2480, 1270)]),
-    edge("hotel-checkout-payment", [(2700, 1270), (2775, 1270)]),
-    edge("hotel-payment-save", [(2945, 1270), (3030, 1270)], "main", "Yes", (2985, 1250)),
-    edge("hotel-payment-fail", [(2860, 1336), (2860, 1412)], "error", "No", (2880, 1380)),
-    edge("hotel-fail-retry", [(2730, 1450), (2590, 1450), (2590, 1323)], "error", "Retry", (2655, 1430)),
-    edge("hotel-fail-cancel", [(2990, 1450), (3218, 1450)], "error", "Cancel", (3090, 1430)),
-    edge("hotel-save-db", [(3290, 1270), (3450, 1270), (3450, 1930), (1390, 1930), (1390, 2055)], "api", "Persist successful hotel booking", (2180, 1915)),
-
-    edge("places-search-coordinates", [(590, 1645), (695, 1645)]),
-    edge("places-known-otm", [(845, 1645), (975, 1645)], "main", "Yes", (900, 1626)),
-    edge("places-unknown-geocode", [(770, 1703), (770, 1722)], "api", "No", (790, 1715)),
-    edge("places-geocode-otm", [(885, 1760), (950, 1760), (950, 1645), (975, 1645)], "api"),
-    edge("places-otm-results", [(1225, 1645), (1315, 1645)], "api"),
-    edge("places-results-return", [(1585, 1645), (1695, 1645)]),
-    edge("places-otm-error", [(1100, 1689), (1100, 1760), (1315, 1760)], "error", "Provider failure", (1115, 1735)),
-    edge("places-error-retry", [(1315, 1760), (1315, 1850), (330, 1850), (330, 1645), (350, 1645)], "error", "Retry", (875, 1838)),
-    edge("ai-prompt-api", [(590, 1830), (710, 1830)], "api"),
-    edge("ai-api-reply", [(990, 1830), (1090, 1830)], "api"),
-    edge("ai-reply-return", [(1370, 1830), (1485, 1830)]),
-
-    edge("trips-open-fetch", [(590, 2110), (665, 2110)]),
-    edge("trips-fetch-db", [(935, 2110), (1050, 2110)], "api"),
-    edge("trips-db-display", [(1350, 2110), (1440, 2110)]),
-    edge("trips-display-cancel", [(1700, 2110), (1815, 2110)]),
-    edge("trips-no-cancel-return", [(1985, 2110), (2060, 2110), (2060, 2060), (2120, 2060)], "main", "No", (2035, 2093)),
-    edge("trips-return-complete", [(2360, 2060), (2490, 2060), (2490, 2070), (3028, 2070)], "main", "Travel period ends", (2740, 2045)),
-    edge("trips-yes-cancel-status", [(1900, 2176), (1900, 2220), (2100, 2220)], "error", "Yes", (1920, 2200)),
-    edge("trips-status-end", [(2380, 2220), (2618, 2220)], "error"),
+PAGES = [
+    page(
+        "01-access",
+        "1 · Entry, Roles & App Navigation",
+        "Roles come from the verified account; customers, admins, and partners enter separate app areas.",
+        [
+            (32, 125, 2136, 900, "lane", "ENTRY, ROLE ROUTING & CUSTOMER MODULES"),
+        ],
+        [
+            node("start", 100, 320, 68, 68, "Start", "start", "start"),
+            node("restore", 335, 320, 230, 88, "Restore saved session\nor continue onboarding", "user"),
+            node("session", 620, 320, 160, 126, "Session\navailable?", "decision", "diamond", 18),
+            node("signin", 620, 545, 230, 82, "Sign in or\ncreate account", "user"),
+            node("role", 915, 320, 170, 136, "Verified\nrole?", "decision", "diamond", 18),
+            node("customer", 1190, 225, 230, 90, "Customer AppShell", "user"),
+            node("admin", 1190, 520, 250, 90, "Admin dashboard", "system"),
+            node("partner", 1190, 790, 250, 90, "Partner dashboard", "system"),
+            node(
+                "modules",
+                1575,
+                225,
+                370,
+                160,
+                "Customer modules\nFlights p2–3 · Hotels p4\nPlaces p5 · Cars / transfers\nOffers · Zen AI · My Trips p6–7",
+                "user",
+                font=18,
+            ),
+            node(
+                "admin-capabilities",
+                1575,
+                520,
+                370,
+                145,
+                "Stats · partners · reservations\ncustomers · places · offers\nNo separate settings route found",
+                "system",
+                font=18,
+            ),
+            node(
+                "partner-capabilities",
+                1575,
+                790,
+                370,
+                145,
+                "Own listings CRUD\nOwn reservations / customers\nPartner-scoped dashboard",
+                "system",
+                font=18,
+            ),
+            node("logout", 2070, 520, 84, 84, "Logout", "end", "end"),
+        ],
+        [
+            edge("start-restore", [(134, 320), (220, 320)]),
+            edge("restore-session", [(450, 320), (540, 320)]),
+            edge("session-yes-role", [(700, 320), (830, 320)], label="Yes", label_at=(765, 300)),
+            edge("session-no-login", [(620, 383), (620, 504)], label="No", label_at=(640, 455)),
+            edge("login-role", [(735, 545), (800, 545), (800, 320), (830, 320)], label="Signed in", label_at=(820, 520)),
+            edge("role-customer", [(1000, 320), (1070, 320), (1070, 225), (1075, 225)], label="Customer", label_at=(1038, 300)),
+            edge("role-admin", [(915, 388), (915, 520), (1065, 520)], label="Admin", label_at=(938, 493)),
+            edge("role-partner", [(960, 380), (1020, 380), (1020, 790), (1065, 790)], label="Partner", label_at=(1040, 765)),
+            edge("customer-modules", [(1305, 225), (1390, 225)]),
+            edge("customer-logout", [(1760, 225), (1990, 225), (1990, 520), (2028, 520)], label="Sign out", label_at=(1870, 205)),
+            edge("admin-capabilities", [(1440, 520), (1390, 520), (1390, 520), (1390, 520)]),
+            edge("admin-logout", [(1760, 520), (2028, 520)]),
+            edge("partner-capabilities", [(1440, 790), (1510, 790), (1510, 790), (1510, 790)]),
+            edge("partner-logout", [(1760, 790), (1900, 790), (1900, 520), (2028, 520)]),
+        ],
+        "Admin routes cover dashboard, partners, reservations, customers, places, and offers. No app-wide settings endpoint is present in the current controller.",
+    ),
+    page(
+        "02-flight-search",
+        "2 · Flight Search & Results",
+        "Airport lookup selects the route; the flight search then merges only partner inventory and Duffel offers.",
+        [
+            (32, 125, 2136, 485, "lane", "AIRPORT SELECTION IS SEPARATE FROM FLIGHT INVENTORY"),
+        ],
+        [
+            node("airport-select", 210, 285, 260, 112, "Select origin and destination\nGET /api/airports/search", "user", font=18),
+            node("flight-criteria", 520, 285, 240, 112, "Dates or flexible months\npassengers · cabin", "user", font=18),
+            node("flight-search-api", 825, 285, 270, 112, "GET /api/flights/search\nor /search/flexible", "api", font=18),
+            node("partner-offers", 1130, 220, 220, 82, "Partner flight listings", "api", font=18),
+            node("duffel-offers", 1130, 365, 220, 82, "Duffel flight offers", "api", font=18),
+            node("flight-merge", 1390, 290, 86, 86, "M", "system", "merge", 18),
+            node("flight-normalize", 1580, 290, 250, 112, "Merge results\nwarnings · sort / filter", "system", font=18),
+            node("has-flights", 1870, 290, 160, 126, "Offers\navailable?", "decision", "diamond", 18),
+            node("flight-results", 2075, 290, 180, 112, "Review and select\na flight", "user", font=18),
+            node("flight-empty", 1870, 500, 270, 84, "Empty or unavailable\nstate; retry search", "error", font=18),
+        ],
+        [
+            edge("airport-criteria", [(340, 341), (400, 341)]),
+            edge("criteria-search", [(640, 341), (690, 341)]),
+            edge("search-partner", [(960, 285), (1015, 285), (1015, 220), (1020, 220)], "api"),
+            edge("search-duffel", [(960, 341), (1015, 341), (1015, 365), (1020, 365)], "api"),
+            edge("partner-merge", [(1240, 220), (1310, 220), (1310, 290), (1347, 290)], "api"),
+            edge("duffel-merge", [(1240, 365), (1310, 365), (1310, 290), (1347, 290)], "api"),
+            edge("merge-normalize", [(1433, 290), (1455, 290)]),
+            edge("normalize-available", [(1705, 290), (1790, 290)]),
+            edge("available-results", [(1950, 290), (1985, 290)], label="Yes", label_at=(1965, 270)),
+            edge("available-empty", [(1870, 353), (1870, 458)], "error", "No", (1890, 410)),
+            edge("empty-retry", [(1735, 500), (520, 500), (520, 341)], "error", "Retry", (1130, 480)),
+        ],
+        "The airport directory helps resolve airport names and codes before search. It does not return bookable flight offers. Provider warnings accompany partial results.",
+    ),
+    page(
+        "03-flight-checkout",
+        "3 · Flight Checkout (Provider-Specific)",
+        "The checkout is simulated. Partner flights use local seat holds; Duffel results are saved as simulated trips.",
+        [
+            (32, 125, 2136, 415, "lane", "PARTNER LISTING · LOCAL SEAT HOLD"),
+            (32, 555, 2136, 440, "lane3", "DUFFEL OFFER · NO BACKEND SEAT HOLD OR SUPPLIER TICKET"),
+        ],
+        [
+            node("partner-selected", 190, 290, 230, 96, "Selected partner\noffer", "user", font=18),
+            node("partner-hold", 485, 290, 240, 96, "Reserve selected seats\n15-minute hold", "system", font=18),
+            node("partner-payment", 785, 290, 230, 96, "Simulated\ncheckout", "system", font=18),
+            node("partner-paid", 1075, 290, 150, 120, "Payment\nsuccessful?", "decision", "diamond", 18),
+            node("partner-confirm", 1350, 290, 260, 96, "POST /api/bookings/confirm\nconfirm seats + save trip", "success", font=17),
+            node("partner-mytrips", 1785, 290, 260, 96, "Trip appears in\nMy Trips", "user", font=18),
+            node("partner-fail", 1075, 470, 330, 78, "Failure releases hold;\nreselect seats to retry", "error", font=17),
+            node("duffel-selected", 190, 735, 230, 96, "Selected Duffel\noffer", "user", font=18),
+            node("duffel-no-hold", 485, 735, 240, 96, "No backend\nseat hold", "system", font=18),
+            node("duffel-payment", 785, 735, 230, 96, "Simulated\ncheckout", "system", font=18),
+            node("duffel-paid", 1075, 735, 150, 120, "Payment\nsuccessful?", "decision", "diamond", 18),
+            node("duffel-create-trip", 1350, 735, 260, 96, "POST /api/trips\nis_simulated = true", "success", font=17),
+            node("duffel-mytrips", 1785, 735, 260, 96, "Trip appears in My Trips\nno supplier ticket issued", "user", font=17),
+            node("duffel-fail", 1075, 930, 330, 78, "No trip saved; no hold\nRetry or leave checkout", "error", font=17),
+        ],
+        [
+            edge("partner-select-hold", [(305, 290), (365, 290)]),
+            edge("partner-hold-payment", [(605, 290), (670, 290)]),
+            edge("partner-payment-decision", [(900, 290), (1000, 290)]),
+            edge("partner-paid-confirm", [(1150, 290), (1220, 290), (1220, 290), (1220, 290)], "main", "Yes", (1180, 270)),
+            edge("partner-confirm-trip", [(1480, 290), (1655, 290)]),
+            edge("partner-failed", [(1075, 350), (1075, 431)], "error", "No", (1095, 395)),
+            edge("partner-reselect", [(910, 470), (485, 470), (485, 338)], "error", "Reselect", (700, 450)),
+            edge("duffel-select-nohold", [(305, 735), (365, 735)]),
+            edge("duffel-nohold-payment", [(605, 735), (670, 735)]),
+            edge("duffel-payment-decision", [(900, 735), (1000, 735)]),
+            edge("duffel-paid-save", [(1150, 735), (1220, 735), (1220, 735), (1220, 735)], "main", "Yes", (1180, 715)),
+            edge("duffel-save-trip", [(1480, 735), (1655, 735)]),
+            edge("duffel-payment-failed", [(1075, 795), (1075, 890)], "error", "No", (1095, 845)),
+            edge("duffel-retry", [(910, 930), (785, 930), (785, 783)], "error", "Retry", (850, 910)),
+        ],
+        "Partner payment failure releases its temporary seat hold. Duffel checkout does not use that partner seat-hold endpoint; success stores a Zentrip trip only.",
+    ),
+    page(
+        "04-hotels",
+        "4 · Hotel Search & Simulated Booking",
+        "LiteAPI contributes hotel data; partner listings are also searched. Zentrip records the simulated booking.",
+        [
+            (32, 125, 2136, 420, "lane", "SEARCH AND MERGE HOTEL DATA"),
+            (32, 565, 2136, 450, "lane2", "BOOKING CHECKOUT AND PERSISTENCE"),
+        ],
+        [
+            node("hotel-search-input", 180, 280, 240, 96, "Destination, dates,\nrooms and guests", "user", font=18),
+            node("hotel-search-api", 490, 280, 250, 96, "GET /api/hotels/search", "api", font=18),
+            node("hotel-partner", 815, 220, 220, 78, "Partner hotel listings", "api", font=18),
+            node("hotel-liteapi", 815, 355, 220, 78, "LiteAPI hotel data", "api", font=18),
+            node("hotel-merge", 1080, 285, 82, 82, "M", "system", "merge", 18),
+            node("hotel-normalize", 1285, 285, 240, 96, "Merge, filter,\nshow provider warnings", "system", font=18),
+            node("hotel-results", 1580, 285, 250, 96, "Review hotel results\nand select a stay", "user", font=18),
+            node("hotel-empty", 1285, 470, 280, 72, "Partial / empty results:\nshow warning and retry", "error", font=16),
+            node("hotel-selected", 180, 785, 220, 92, "Selected hotel / room", "user", font=18),
+            node("hotel-schedule", 465, 785, 270, 92, "GET /api/bookings/availability\ncustomer schedule conflict", "system", font=16),
+            node("hotel-payment", 800, 785, 220, 92, "Simulated\ncheckout", "system", font=18),
+            node("hotel-paid", 1080, 785, 150, 120, "Payment\nsuccessful?", "decision", "diamond", 18),
+            node("hotel-save", 1370, 785, 280, 92, "POST /api/bookings\nZentrip booking record", "success", font=17),
+            node("hotel-recorded", 1740, 785, 300, 92, "Partner rooms reserved\nwhen a partner listing applies", "success", font=17),
+            node("hotel-failed", 1080, 965, 300, 72, "No booking created;\nretry or leave checkout", "error", font=17),
+        ],
+        [
+            edge("hotel-input-api", [(300, 280), (365, 280)]),
+            edge("hotel-api-partner", [(615, 280), (700, 280), (700, 220), (705, 220)], "api"),
+            edge("hotel-api-liteapi", [(615, 280), (700, 280), (700, 355), (705, 355)], "api"),
+            edge("hotel-partner-merge", [(925, 220), (1000, 220), (1000, 285), (1039, 285)], "api"),
+            edge("hotel-liteapi-merge", [(925, 355), (1000, 355), (1000, 285), (1039, 285)], "api"),
+            edge("hotel-merge-normalize", [(1121, 285), (1165, 285)]),
+            edge("hotel-normalize-results", [(1405, 285), (1455, 285)]),
+            edge("hotel-normalize-warning", [(1285, 333), (1285, 434)], "error", "Provider issue", (1305, 390)),
+            edge("hotel-warning-retry", [(1145, 470), (490, 470), (490, 328)], "error", "Retry search", (800, 450)),
+            edge("hotel-results-selection", [(1705, 333), (1705, 610), (180, 610), (180, 739)]),
+            edge("hotel-select-schedule", [(290, 785), (330, 785)]),
+            edge("hotel-schedule-payment", [(600, 785), (690, 785)]),
+            edge("hotel-payment-decision", [(910, 785), (1005, 785)]),
+            edge("hotel-paid-save", [(1155, 785), (1230, 785), (1230, 785), (1230, 785)], "main", "Yes", (1190, 765)),
+            edge("hotel-save-recorded", [(1510, 785), (1590, 785)]),
+            edge("hotel-failed", [(1080, 845), (1080, 929)], "error", "No", (1100, 890)),
+            edge("hotel-retry-payment", [(930, 965), (800, 965), (800, 831)], "error", "Retry", (870, 945)),
+        ],
+        "The availability endpoint checks the customer's schedule, not a fresh LiteAPI room quote. LiteAPI is search data only; no supplier reservation is created. Partner inventory is reserved only for linked partner listings.",
+    ),
+    page(
+        "05-attractions",
+        "5 · Places & Attraction Booking",
+        "Place discovery is OpenTripMap-backed; viewing a place and booking an attraction are separate actions.",
+        [
+            (32, 125, 2136, 330, "lane", "DISCOVER PLACES"),
+            (32, 475, 2136, 555, "lane3", "OPTIONAL ATTRACTION BOOKING"),
+        ],
+        [
+            node("place-query", 180, 285, 240, 96, "Search nearby or\nby destination", "user", font=18),
+            node("place-coordinates", 490, 285, 150, 116, "Coordinates\nknown?", "decision", "diamond", 17),
+            node("place-geocode", 760, 385, 250, 80, "Geoapify geocoding\nonly when needed", "api", font=17),
+            node("place-search", 1050, 285, 260, 96, "GET /api/attractions/search\nOpenTripMap places", "api", font=17),
+            node("place-detail", 1390, 285, 220, 96, "View place\ndetails", "user", font=18),
+            node("place-visit", 1790, 220, 300, 90, "POST /api/attractions/{id}/visits\ncount deduplicated visit", "system", font=16),
+            node("attraction-book", 1790, 470, 300, 84, "Choose Book attraction", "user", font=18),
+            node("attraction-schedule", 1790, 600, 300, 84, "GET /api/bookings/availability\nschedule conflict check", "system", font=16),
+            node("entry-fee", 1790, 740, 150, 116, "Entry fee\nabove zero?", "decision", "diamond", 17),
+            node("attraction-payment", 1430, 900, 260, 80, "Simulated payment\n(paid entry only)", "system", font=17),
+            node("attraction-paid", 1740, 900, 150, 116, "Payment\nsuccessful?", "decision", "diamond", 17),
+            node("attraction-save", 1990, 760, 280, 90, "POST /api/bookings\n(type = attraction)", "success", font=17),
+            node("attraction-fail", 1430, 1030, 280, 70, "No booking saved;\nretry or leave", "error", font=16),
+        ],
+        [
+            edge("place-query-coordinates", [(300, 285), (415, 285)]),
+            edge("coordinates-known-search", [(565, 285), (920, 285)], "main", "Yes", (745, 265)),
+            edge("coordinates-missing-geocode", [(490, 343), (490, 385), (635, 385)], "api", "No", (512, 365)),
+            edge("geocode-search", [(885, 385), (970, 385), (970, 285), (920, 285)], "api"),
+            edge("place-search-detail", [(1180, 285), (1280, 285)], "api"),
+            edge("detail-view-counter", [(1500, 237), (1610, 237), (1610, 220), (1640, 220)]),
+            edge("detail-book", [(1500, 333), (1570, 333), (1570, 470), (1640, 470)]),
+            edge("book-schedule", [(1790, 512), (1790, 558)]),
+            edge("schedule-fee", [(1790, 642), (1790, 682)]),
+            edge("free-save", [(1865, 740), (1930, 740), (1930, 760), (1850, 760)], "main", "No · free", (1910, 720)),
+            edge("paid-entry-payment", [(1715, 740), (1570, 740), (1570, 860), (1570, 860)], "main", "Yes · paid", (1595, 720)),
+            edge("payment-success-decision", [(1690, 900), (1665, 900)]),
+            edge("payment-success-save", [(1815, 900), (1915, 900), (1915, 805), (1850, 805)], "main", "Yes", (1850, 880)),
+            edge("payment-fail", [(1740, 958), (1740, 1030), (1570, 1030)], "error", "No", (1760, 995)),
+        ],
+        "A free attraction skips payment. Paid-entry attractions use the simulated checkout and then create a Zentrip booking; place viewing alone only records a privacy-preserving visit count.",
+    ),
+    page(
+        "06-other-bookings",
+        "6 · Packages, Cars & Transfers",
+        "These customer-facing services use the existing booking storage paths; transfers are stored separately.",
+        [
+            (32, 125, 2136, 255, "lane", "PACKAGES / OFFERS"),
+            (32, 405, 2136, 255, "lane2", "CAR RENTAL"),
+            (32, 685, 2136, 330, "lane3", "TRANSFERS"),
+        ],
+        [
+            node("packages-search", 190, 250, 230, 90, "GET /api/offers", "api", font=18),
+            node("packages-detail", 490, 250, 220, 90, "Select package", "user", font=18),
+            node("packages-schedule", 790, 250, 240, 90, "Check schedule\nconflicts", "system", font=18),
+            node("packages-payment", 1110, 250, 220, 90, "Simulated\npayment", "system", font=18),
+            node("packages-save", 1400, 250, 300, 90, "POST /api/bookings\n(type = package)", "success", font=17),
+            node("packages-trips", 1810, 250, 260, 90, "Display in\nMy Trips", "user", font=18),
+            node("cars-search", 190, 530, 230, 90, "GET /api/cars/nearby", "api", font=18),
+            node("cars-detail", 490, 530, 220, 90, "Select vehicle", "user", font=18),
+            node("cars-schedule", 790, 530, 240, 90, "Check schedule\nconflicts", "system", font=18),
+            node("cars-payment", 1110, 530, 220, 90, "Simulated\npayment", "system", font=18),
+            node("cars-save", 1400, 530, 300, 90, "POST /api/bookings\n(type = car)", "success", font=17),
+            node("cars-trips", 1810, 530, 260, 90, "Partner vehicle inventory\nreserved when linked", "user", font=16),
+            node("transfer-search", 190, 830, 230, 90, "Search / select transfer\nroute and pickup time", "user", font=17),
+            node("transfer-schedule", 490, 830, 260, 90, "GET /api/transfers/availability\nschedule conflict check", "system", font=16),
+            node("transfer-payment", 820, 830, 220, 90, "Simulated\npayment", "system", font=18),
+            node("transfer-save", 1110, 830, 260, 90, "POST /api/transfers", "success", font=18),
+            node("transfer-trips", 1480, 830, 260, 90, "Stored in transfers;\nshown in My Trips", "user", font=17),
+        ],
+        [
+            edge("packages-flow-1", [(305, 250), (380, 250)], "api"),
+            edge("packages-flow-2", [(600, 250), (670, 250)]),
+            edge("packages-flow-3", [(910, 250), (1000, 250)]),
+            edge("packages-flow-4", [(1220, 250), (1250, 250)]),
+            edge("packages-flow-5", [(1550, 250), (1680, 250)]),
+            edge("cars-flow-1", [(305, 530), (380, 530)], "api"),
+            edge("cars-flow-2", [(600, 530), (670, 530)]),
+            edge("cars-flow-3", [(910, 530), (1000, 530)]),
+            edge("cars-flow-4", [(1220, 530), (1250, 530)]),
+            edge("cars-flow-5", [(1550, 530), (1680, 530)]),
+            edge("transfer-flow-1", [(305, 830), (360, 830)]),
+            edge("transfer-flow-2", [(620, 830), (710, 830)]),
+            edge("transfer-flow-3", [(930, 830), (1000, 830)]),
+            edge("transfer-flow-4", [(1210, 830), (1350, 830)]),
+        ],
+        "The current backend has transfer create/list endpoints but no DELETE /api/transfers/{id} cancellation route. Transfer cancellation is therefore not shown as a working server flow.",
+    ),
+    page(
+        "07-ai-trips",
+        "7 · Zen AI, My Trips & Persistence",
+        "Chat history is saved locally and server-side; completed status is derived from travel dates.",
+        [
+            (32, 125, 2136, 335, "lane", "ZEN AI · CHAT, NOT A BOOKED ITINERARY"),
+            (32, 480, 2136, 535, "lane3", "MY TRIPS · CURRENT-USER RECORDS AND CANCELLATION"),
+        ],
+        [
+            node("ai-prompt", 180, 260, 230, 88, "Enter chat prompt", "user", font=18),
+            node("ai-endpoint", 490, 260, 260, 88, "POST /api/ai/chat\nstreaming response", "api", font=17),
+            node("ai-provider", 830, 260, 220, 88, "Requesty provider", "api", font=18),
+            node("ai-reply", 1120, 260, 230, 88, "Read streamed reply", "system", font=18),
+            node("ai-local", 1510, 205, 280, 88, "Flutter SharedPreferences\nlocal chat history", "success", font=17),
+            node("ai-server", 1510, 345, 280, 88, "Supabase ai_chat_messages\nserver-side history", "success", font=17),
+            node("trips-open", 180, 690, 230, 90, "Open My Trips", "user", font=18),
+            node("trips-fetch", 490, 690, 290, 90, "GET /api/trips\n/bookings · /transfers", "api", font=17),
+            node("trips-data", 860, 690, 280, 90, "Supabase records\nfiltered to current user", "success", font=17),
+            node("trips-display", 1220, 690, 230, 90, "Display items\nand statuses", "user", font=18),
+            node("cancel-kind", 1530, 690, 170, 128, "Cancel item\ntype?", "decision", "diamond", 17),
+            node("cancel-flight", 1820, 590, 300, 90, "DELETE /api/trips/{id}\nstatus cancelled", "system", font=17),
+            node("cancel-booking", 1820, 800, 300, 90, "DELETE /api/bookings/{id}\nstatus cancelled", "system", font=17),
+            node("date-status", 500, 900, 340, 70, "Completed status is derived\nwhen travel end date passes", "system", font=17),
+            node("refund-status", 1190, 900, 360, 70, "Flight cancellation records\nrefund pending airline review", "error", font=17),
+            node("transfer-cancel-gap", 1660, 970, 450, 70, "No server-side transfer cancellation\nendpoint currently found", "error", font=16),
+        ],
+        [
+            edge("ai-prompt-api", [(295, 260), (360, 260)]),
+            edge("ai-api-provider", [(620, 260), (720, 260)], "api"),
+            edge("ai-provider-reply", [(940, 260), (1005, 260)], "api"),
+            edge("ai-reply-local", [(1350, 260), (1420, 260), (1420, 205), (1370, 205)]),
+            edge("ai-reply-server", [(1350, 260), (1420, 260), (1420, 345), (1370, 345)], "api"),
+            edge("trips-open-fetch", [(295, 690), (345, 690)]),
+            edge("trips-fetch-data", [(635, 690), (720, 690)], "api"),
+            edge("trips-data-display", [(1000, 690), (1105, 690)]),
+            edge("trips-display-cancel", [(1335, 690), (1445, 690)]),
+            edge("cancel-flight-path", [(1615, 650), (1700, 650), (1700, 590), (1670, 590)], "main", "Flight", (1655, 630)),
+            edge("cancel-booking-path", [(1615, 730), (1700, 730), (1700, 800), (1670, 800)], "main", "Other booking", (1690, 765)),
+            edge("flight-refund-note", [(1820, 635), (1700, 635), (1700, 900), (1550, 900)], "error"),
+        ],
+        "The current Trips screen derives completed status from dates. Flight cancellation and other booking cancellation use separate endpoints. The flight refund state is pending review; the app does not call an airline to issue a refund.",
+    ),
 ]
 
 
-def render_node(item: dict) -> str:
+def render_node(item):
     x, y, w, h = item["x"], item["y"], item["w"], item["h"]
     kind, shape = item["kind"], item["shape"]
-    fill = COLORS["user-fill"]
-    stroke = COLORS["user-stroke"]
+    fill, stroke = COLORS["user_fill"], COLORS["user_stroke"]
     if kind in {"system", "decision"}:
-        fill, stroke = COLORS["system-fill"], COLORS["system-stroke"]
+        fill, stroke = COLORS["system_fill"], COLORS["system_stroke"]
     elif kind == "api":
-        fill, stroke = COLORS["api-fill"], COLORS["api-stroke"]
+        fill, stroke = COLORS["api_fill"], COLORS["api_stroke"]
     elif kind == "success":
-        fill, stroke = COLORS["success-fill"], COLORS["success-stroke"]
+        fill, stroke = COLORS["success_fill"], COLORS["success_stroke"]
     elif kind == "error":
-        fill, stroke = COLORS["error-fill"], COLORS["error-stroke"]
+        fill, stroke = COLORS["error_fill"], COLORS["error_stroke"]
     elif kind == "start":
-        fill, stroke = COLORS["start-fill"], COLORS["start-stroke"]
+        fill, stroke = COLORS["start_fill"], COLORS["start_stroke"]
     elif kind == "end":
-        fill, stroke = COLORS["white"], COLORS["start-stroke"]
+        fill, stroke = COLORS["white"], COLORS["start_stroke"]
 
     if shape == "start":
-        geometry = f'<circle class="node-shape" cx="{x}" cy="{y}" r="{w / 2}" fill="{COLORS["start-fill"]}" stroke="{stroke}"/>'
-        geometry += f'<circle cx="{x}" cy="{y}" r="11" fill="{stroke}"/>'
+        geometry = (
+            f'<circle cx="{x}" cy="{y}" r="{w / 2}" fill="{fill}" stroke="{stroke}"/>'
+            f'<circle cx="{x}" cy="{y}" r="10" fill="{stroke}"/>'
+        )
     elif shape == "end":
-        geometry = f'<circle class="node-shape" cx="{x}" cy="{y}" r="{w / 2}" fill="{fill}" stroke="{stroke}"/>'
-        geometry += f'<circle cx="{x}" cy="{y}" r="{w / 2 - 8}" fill="none" stroke="{stroke}" stroke-width="2"/>'
+        geometry = (
+            f'<circle cx="{x}" cy="{y}" r="{w / 2}" fill="{fill}" stroke="{stroke}"/>'
+            f'<circle cx="{x}" cy="{y}" r="{w / 2 - 8}" fill="none" stroke="{stroke}" stroke-width="2"/>'
+        )
     elif shape == "diamond":
-        points = f"{x},{y - h / 2} {x + w / 2},{y} {x},{y + h / 2} {x - w / 2},{y}"
-        geometry = f'<polygon class="node-shape" points="{points}" fill="{fill}" stroke="{stroke}"/>'
+        points = f"{x},{y-h/2} {x+w/2},{y} {x},{y+h/2} {x-w/2},{y}"
+        geometry = f'<polygon points="{points}" fill="{fill}" stroke="{stroke}"/>'
     elif shape == "merge":
-        geometry = f'<circle class="node-shape" cx="{x}" cy="{y}" r="{w / 2}" fill="{COLORS["white"]}" stroke="{stroke}"/>'
+        geometry = f'<circle cx="{x}" cy="{y}" r="{w/2}" fill="#fff" stroke="{stroke}"/>'
     else:
         geometry = (
-            f'<rect class="node-shape" x="{x - w / 2}" y="{y - h / 2}" '
-            f'width="{w}" height="{h}" rx="15" fill="{fill}" stroke="{stroke}"/>'
+            f'<rect x="{x-w/2}" y="{y-h/2}" width="{w}" height="{h}" rx="14" '
+            f'fill="{fill}" stroke="{stroke}"/>'
         )
 
-    label = item["label"]
-    size = 19 if shape in {"diamond", "merge"} else 21
-    line_height = 24
+    labels = item["label"]
+    size = item["font"]
+    line_height = size + 4
     if shape in {"start", "end"}:
-        label_y = y + w / 2 + 25
-        lines = "".join(
-            f'<text x="{x}" y="{label_y + index * line_height}" text-anchor="middle" '
-            f'font-size="17" font-weight="700" fill="{COLORS["ink"]}">{html.escape(line)}</text>'
-            for index, line in enumerate(label)
+        text = "".join(
+            f'<text x="{x}" y="{y+w/2+22+i*line_height}" text-anchor="middle" '
+            f'font-size="16" font-weight="700" fill="{COLORS["ink"]}">{html.escape(line)}</text>'
+            for i, line in enumerate(labels)
         )
     else:
-        start_y = y - (len(label) - 1) * line_height / 2 + 6
-        lines = "".join(
-            f'<text x="{x}" y="{start_y + index * line_height}" text-anchor="middle" '
+        start_y = y - (len(labels)-1)*line_height/2 + size/3
+        text = "".join(
+            f'<text x="{x}" y="{start_y+i*line_height}" text-anchor="middle" '
             f'font-size="{size}" font-weight="650" fill="{COLORS["ink"]}">{html.escape(line)}</text>'
-            for index, line in enumerate(label)
+            for i, line in enumerate(labels)
         )
-    aria = html.escape(f'{item["id"]}: {" ".join(label)}')
-    return (
-        f'<g id="{item["id"]}" class="node {kind}" role="img" aria-label="{aria}">'
-        f'<title>{html.escape(" ".join(label))}</title>{geometry}{lines}</g>'
-    )
+    aria = html.escape(f'{item["id"]}: {" ".join(labels)}')
+    return f'<g id="{item["id"]}" role="img" aria-label="{aria}"><title>{aria}</title>{geometry}{text}</g>'
 
 
-def render_edge(item: dict) -> str:
+def render_edge(item):
     color = COLORS["line"]
     dash = ""
     if item["kind"] == "api":
-        color = COLORS["api-line"]
+        color = COLORS["api_line"]
     elif item["kind"] == "error":
-        color, dash = COLORS["error-line"], ' stroke-dasharray="9 7"'
+        color, dash = COLORS["error_line"], ' stroke-dasharray="8 7"'
     d = "M " + " L ".join(f"{x} {y}" for x, y in item["points"])
     path = (
-        f'<path id="{item["id"]}" d="{d}" fill="none" stroke="{color}" '
-        f'stroke-width="3" stroke-linejoin="round" stroke-linecap="square" '
-        f'marker-end="url(#arrow-{item["kind"]})"{dash}/>'
+        f'<path id="{item["id"]}" d="{d}" fill="none" stroke="{color}" stroke-width="3" '
+        f'stroke-linejoin="round" stroke-linecap="square" marker-end="url(#arrow-{item["kind"]})"{dash}/>'
     )
     label = ""
     if item["label"] and item["label_at"]:
         lx, ly = item["label_at"]
         label = (
-            f'<text x="{lx}" y="{ly}" class="edge-label" text-anchor="middle" '
-            f'font-size="17" font-weight="700" fill="{color}">{html.escape(item["label"])}</text>'
+            f'<text x="{lx}" y="{ly}" text-anchor="middle" font-size="16" font-weight="700" '
+            f'fill="{color}" paint-order="stroke" stroke="#fff" stroke-width="6">'
+            f'{html.escape(item["label"])}</text>'
         )
     return path + label
 
 
-def build_svg() -> str:
-    lanes = [
-        (30, 90, 3440, 600, COLORS["lane-entry"], "ENTRY, VERIFIED ROLE ROUTING & APP SHELL"),
-        (30, 710, 3440, 410, COLORS["lane-flight"], "FLIGHTS · PROVIDER SEARCH → SIMULATED CHECKOUT"),
-        (30, 1130, 3440, 410, COLORS["lane-hotel"], "HOTELS · PROVIDER SEARCH → SIMULATED BOOKING"),
-        (30, 1550, 3440, 340, COLORS["lane-places"], "PLACES & ZEN AI · NON-BOOKING FLOWS"),
-        (30, 1960, 3440, 360, COLORS["lane-trips"], "MY TRIPS & SHARED PERSISTENCE"),
-    ]
-    lane_xml = "".join(
-        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="24" fill="{fill}" stroke="{COLORS["lane-stroke"]}" stroke-width="2"/>'
-        f'<text x="{x + 26}" y="{y + 34}" class="lane-title">{html.escape(title)}</text>'
-        for x, y, w, h, fill, title in lanes
+def build_svg(p):
+    lane_markup = "".join(
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="22" fill="{COLORS[fill]}" stroke="#d9e4dd" stroke-width="2"/>'
+        f'<text x="{x+20}" y="{y+30}" class="lane">{html.escape(title)}</text>'
+        for x, y, w, h, fill, title in p["lanes"]
     )
-    edge_xml = "".join(render_edge(item) for item in EDGES)
-    node_xml = "".join(render_node(item) for item in NODES)
-    footer = (
-        '<text x="70" y="2350" class="footer">'
-        'Duffel/LiteAPI supply search data only here. Zentrip checkout is simulated; no supplier ticket, hotel reservation, '
-        'or card charge is created. Payment attempts store status, not card data.'
-        '</text>'
-    )
+    edge_markup = "".join(render_edge(e) for e in p["edges"])
+    node_markup = "".join(render_node(n) for n in p["nodes"])
     return f'''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" role="img" aria-labelledby="title desc">
-<title id="title">Zentrip current end-to-end activity diagram</title>
-<desc id="desc">Connected Zentrip entry, role routing, app navigation, flight and hotel searches, simulated checkout, places and AI paths, and My Trips persistence. Failure branches are dashed and orthogonal.</desc>
+<title id="title">{html.escape(p["title"])}</title>
+<desc id="desc">{html.escape(p["subtitle"])} {html.escape(p["note"])}</desc>
 <defs>
-  <marker id="arrow-main" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="{COLORS["line"]}"/></marker>
-  <marker id="arrow-api" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="{COLORS["api-line"]}"/></marker>
-  <marker id="arrow-error" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="{COLORS["error-line"]}"/></marker>
-  <style>
-    text{{font-family:Arial,Helvetica,sans-serif}}
-    .heading{{font-size:33px;font-weight:700;fill:{COLORS["ink"]}}}
-    .subtitle{{font-size:19px;fill:{COLORS["muted"]}}}
-    .lane-title{{font-size:20px;font-weight:700;letter-spacing:.04em;fill:#456258}}
-    .edge-label{{paint-order:stroke;stroke:#fff;stroke-width:7px;stroke-linejoin:round}}
-    .footer{{font-size:17px;fill:{COLORS["muted"]}}}
-    .node-shape{{stroke-width:2.6}}
-  </style>
+ <marker id="arrow-main" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10Z" fill="{COLORS["line"]}"/></marker>
+ <marker id="arrow-api" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10Z" fill="{COLORS["api_line"]}"/></marker>
+ <marker id="arrow-error" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10Z" fill="{COLORS["error_line"]}"/></marker>
+ <style>text{{font-family:Arial,Helvetica,sans-serif}}.title{{font-size:30px;font-weight:700;fill:{COLORS["ink"]}}}.subtitle{{font-size:18px;fill:{COLORS["muted"]}}}.lane{{font-size:17px;font-weight:700;letter-spacing:.04em;fill:#456258}}.note{{font-size:16px;fill:{COLORS["muted"]}}}</style>
 </defs>
-<rect width="100%" height="100%" fill="#ffffff"/>
-<text x="55" y="44" class="heading">ZenTrip · Current App Activity</text>
-<text x="55" y="72" class="subtitle">Connected user paths, provider boundaries, failure recovery, simulated checkout, and saved trips</text>
-{lane_xml}
-<g id="edges">{edge_xml}</g>
-<g id="nodes">{node_xml}</g>
-{footer}
-</svg>
-'''
+<rect width="100%" height="100%" fill="#fff"/>
+<text x="42" y="44" class="title">{html.escape(p["title"])}</text>
+<text x="42" y="77" class="subtitle">{html.escape(p["subtitle"])}</text>
+{lane_markup}
+<g id="edges">{edge_markup}</g>
+<g id="nodes">{node_markup}</g>
+<text x="48" y="1085" class="note">{html.escape(p["note"])}</text>
+</svg>'''
 
 
-def build_html(svg: str) -> str:
+def build_html(pages, svgs):
+    payload = json.dumps(
+        [{"title": p["title"], "svg": svg} for p, svg in zip(pages, svgs)]
+    ).replace("</", "<\\/")
+    page_buttons = "".join(
+        f'<button type="button" data-page="{i}">{i+1}. {html.escape(p["title"].split("·",1)[-1].strip())}</button>'
+        for i, p in enumerate(pages)
+    )
     return f'''<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ZenTrip · Current Activity Diagram</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZenTrip · Verified Activity Flows</title>
 <style>
-  :root{{font-family:Arial,Helvetica,sans-serif;color:#263a33;background:#f5f8f5}}
-  *{{box-sizing:border-box}}body{{margin:0;padding:20px}}
-  header{{max-width:1600px;margin:0 auto 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}}
-  h1{{font-size:clamp(20px,3vw,30px);margin:0}}p{{margin:6px 0;color:#62756d}}
-  .controls{{display:flex;gap:8px;align-items:center}}
-  button,a{{font:inherit;border:1px solid #c9d8d0;border-radius:9px;background:#fff;color:#263a33;padding:8px 12px;text-decoration:none;cursor:pointer}}
-  button:hover,a:hover{{background:#eef4ef}}
-  .frame{{height:calc(100vh - 140px);min-height:420px;max-width:1600px;margin:auto;border:1px solid #d9e4dd;border-radius:14px;background:#fff;overflow:hidden;position:relative;touch-action:none;cursor:grab}}
-  .frame.dragging{{cursor:grabbing}}
-  #diagram{{position:absolute;left:0;top:0;width:{WIDTH}px;height:{HEIGHT}px;transform-origin:0 0;max-width:none;user-select:none;pointer-events:none}}
-  .notes{{max-width:1600px;margin:12px auto;font-size:13px}}
-</style>
-</head>
-<body>
-<header><div><h1>ZenTrip · Current Activity Diagram</h1><p>Real app flow with cross-phase links, explicit decisions, and orthogonal recovery routes.</p></div>
-<nav class="controls" aria-label="Diagram controls"><button id="out" type="button">−</button><button id="in" type="button">+</button><button id="fit" type="button">Fit</button><button id="reset" type="button">Reset</button><a href="zentrip-activity-diagram.svg" download>Download SVG</a></nav></header>
-<main class="frame" id="frame" aria-label="Interactive diagram pan and zoom viewport"><div id="diagram">{svg}</div></main>
-<p class="notes">Hover over a node for its label; use the mouse wheel, buttons, or drag to inspect the full flow. In Word, the SVG is embedded as a vector picture object; supported Word versions can convert it to editable shapes.</p>
+*{{box-sizing:border-box}}body{{margin:0;padding:18px;background:#f5f8f5;font-family:Arial,Helvetica,sans-serif;color:#263a33}}
+header,.pages,.frame,.note{{max-width:1500px;margin-left:auto;margin-right:auto}}header{{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}}
+h1{{font-size:25px;margin:0}}p{{color:#62756d}}.pages{{display:flex;gap:7px;overflow-x:auto;padding:10px 0}}
+button,a{{font:inherit;background:#fff;color:#263a33;border:1px solid #c9d8d0;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap}}
+button.active{{background:#e4eee7;border-color:#8eac99}}.controls{{display:flex;gap:7px}}
+.frame{{height:calc(100vh - 210px);min-height:450px;overflow:hidden;position:relative;background:#fff;border:1px solid #d9e4dd;border-radius:14px;touch-action:none;cursor:grab}}
+.frame.dragging{{cursor:grabbing}}#diagram{{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none}}
+#diagram svg{{display:block;max-width:none}}.note{{font-size:14px;margin-top:10px}}
+</style></head><body>
+<header><div><h1>ZenTrip · Verified Activity Flows</h1><p>Select a page, then zoom or drag to inspect it.</p></div>
+<div class="controls"><button id="out">−</button><button id="in">+</button><button id="fit">Fit</button><a id="download" download="zentrip-flow.svg">Download SVG</a></div></header>
+<nav class="pages" aria-label="Flow pages">{page_buttons}</nav>
+<main class="frame" id="frame"><div id="diagram"></div></main>
+<p class="note" id="page-note"></p>
 <script>
-(() => {{
- const frame=document.getElementById('frame'), image=document.getElementById('diagram');
- let scale=1, x=0, y=0, down=false, sx=0, sy=0;
- function apply(){{image.style.transform=`translate(${{x}}px,${{y}}px) scale(${{scale}})`}}
- function fit(){{const r=frame.getBoundingClientRect();scale=Math.min((r.width-24)/{WIDTH},(r.height-24)/{HEIGHT});x=(r.width-{WIDTH}*scale)/2;y=(r.height-{HEIGHT}*scale)/2;apply()}}
- document.getElementById('in').onclick=()=>{{scale=Math.min(2.5,scale*1.2);apply()}};
- document.getElementById('out').onclick=()=>{{scale=Math.max(.25,scale/1.2);apply()}};
- document.getElementById('fit').onclick=fit;
- document.getElementById('reset').onclick=()=>{{scale=1;x=0;y=0;apply()}};
- frame.addEventListener('wheel',e=>{{e.preventDefault();scale=Math.max(.25,Math.min(2.5,scale*(e.deltaY<0?1.12:1/1.12)));apply()}},{{passive:false}});
- frame.addEventListener('pointerdown',e=>{{down=true;sx=e.clientX-x;sy=e.clientY-y;frame.classList.add('dragging');frame.setPointerCapture(e.pointerId)}});
- frame.addEventListener('pointermove',e=>{{if(!down)return;x=e.clientX-sx;y=e.clientY-sy;apply()}});
- const stop=()=>{{down=false;frame.classList.remove('dragging')}};
- frame.addEventListener('pointerup',stop);frame.addEventListener('pointercancel',stop);
- window.addEventListener('resize',fit);fit();
-}})();
-</script>
-</body></html>'''
+const pages={payload};let active=0,scale=1,x=0,y=0,drag=false,sx=0,sy=0;
+const frame=document.getElementById('frame'),diagram=document.getElementById('diagram');
+function apply(){{diagram.style.transform=`translate(${{x}}px,${{y}}px) scale(${{scale}})`}}
+function fit(){{const svg=diagram.querySelector('svg');if(!svg)return;const r=frame.getBoundingClientRect();scale=Math.min((r.width-24)/{WIDTH},(r.height-24)/{HEIGHT});x=(r.width-{WIDTH}*scale)/2;y=(r.height-{HEIGHT}*scale)/2;apply()}}
+function showPage(i){{active=i;diagram.innerHTML=pages[i].svg;document.getElementById('page-note').textContent=pages[i].title;document.getElementById('download').href='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(pages[i].svg);document.querySelectorAll('[data-page]').forEach((b)=>b.classList.toggle('active',Number(b.dataset.page)===i));fit()}}
+document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>showPage(Number(b.dataset.page)));
+document.getElementById('in').onclick=()=>{{scale=Math.min(3,scale*1.2);apply()}};
+document.getElementById('out').onclick=()=>{{scale=Math.max(.3,scale/1.2);apply()}};
+document.getElementById('fit').onclick=fit;window.addEventListener('resize',fit);
+frame.addEventListener('wheel',e=>{{e.preventDefault();scale=Math.max(.3,Math.min(3,scale*(e.deltaY<0?1.1:1/1.1)));apply()}},{{passive:false}});
+frame.addEventListener('pointerdown',e=>{{drag=true;sx=e.clientX-x;sy=e.clientY-y;frame.classList.add('dragging');frame.setPointerCapture(e.pointerId)}});
+frame.addEventListener('pointermove',e=>{{if(drag){{x=e.clientX-sx;y=e.clientY-sy;apply()}}}});
+const stop=()=>{{drag=false;frame.classList.remove('dragging')}};frame.addEventListener('pointerup',stop);frame.addEventListener('pointercancel',stop);
+showPage(0);
+</script></body></html>'''
 
 
-def word_run(text: str, size: int = 24, bold: bool = False, color: str | None = None) -> str:
+def word_run(text, size=22, bold=False, color=None):
     props = f'<w:rPr><w:sz w:val="{size}"/><w:szCs w:val="{size}"/>'
     if bold:
         props += "<w:b/>"
@@ -445,151 +564,94 @@ def word_run(text: str, size: int = 24, bold: bool = False, color: str | None = 
     return f'<w:r>{props}<w:t xml:space="preserve">{html.escape(text)}</w:t></w:r>'
 
 
-def word_paragraph(text: str, style: str | None = None, size: int = 22, bold: bool = False) -> str:
+def word_p(text, style=None, size=22, bold=False, color=None):
     ppr = f'<w:pPr><w:pStyle w:val="{style}"/></w:pPr>' if style else ""
-    return f"<w:p>{ppr}{word_run(text, size=size, bold=bold)}</w:p>"
+    return f"<w:p>{ppr}{word_run(text, size, bold, color)}</w:p>"
 
 
-def build_docx(png: bytes | None, svg: bytes) -> None:
-    width_in = 14.7
-    height_in = width_in * HEIGHT / WIDTH
-    cx = round(width_in * 914400)
-    cy = round(height_in * 914400)
-    if png:
-        blip = '''<a:blip r:embed="rId2" cstate="print"><a:extLst>
-          <a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">
-            <asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId3"/>
-          </a:ext>
-        </a:extLst></a:blip>'''
-    else:
-        blip = '''<a:blip r:embed="rId2"><a:extLst>
-          <a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">
-            <asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId2"/>
-          </a:ext>
-        </a:extLst></a:blip>'''
-
-    notes = [
-        ("Entry and access", "A saved session is restored when available; otherwise the user signs in or creates an account. A verified role routes customers to the AppShell and staff to their own admin or partner dashboard."),
-        ("Flights", "The app searches the airport directory, partner offers, and Duffel offers, then merges and normalizes results. Search is live data; checkout is simulated. A successful flow saves a trip record without issuing a supplier ticket. Failed payment creates no trip and releases the seat hold."),
-        ("Hotels", "Partner listings and LiteAPI hotel data are combined for search. LiteAPI is data-only in this flow. Zentrip simulates payment and booking; successful checkout creates a Zentrip booking, not a supplier reservation."),
-        ("Places and Zen AI", "Geoapify is used for geocoding when needed and OpenTripMap supplies places. Place viewing only updates the visit counter. Zen AI is a chat request to Requesty; the reply is streamed and chat history is saved locally, not as a booked itinerary."),
-        ("My Trips and storage", "My Trips fetches the signed-in user's trips, bookings, and transfers from Supabase. Cancellation is shown as an in-app status path; provider cancellation and refund terms can vary. Trip completion is a lifecycle end state after the travel dates, not a separate booking action. Payment attempts store outcome/status only, never card details."),
-    ]
-    note_paragraphs = "".join(
-        word_paragraph(title, "Heading2", 26, True) + word_paragraph(body, size=21)
-        for title, body in notes
-    )
+def build_docx(pages, svgs, pngs):
+    image_width_in = 15.3
+    image_height_in = image_width_in * HEIGHT / WIDTH
+    cx, cy = round(image_width_in * 914400), round(image_height_in * 914400)
+    relationships = []
+    content = []
+    for i, (p, svg, png) in enumerate(zip(pages, svgs, pngs)):
+        png_id = f"rIdP{i+1}"
+        svg_id = f"rIdS{i+1}"
+        relationships += [
+            f'<Relationship Id="{png_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/diagram-{i+1}.png"/>',
+            f'<Relationship Id="{svg_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/diagram-{i+1}.svg"/>',
+        ]
+        content.append(word_p(p["title"], "Title", 32, True))
+        content.append(word_p(p["subtitle"], size=20, color="62756D"))
+        content.append(f'''<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">
+<wp:extent cx="{cx}" cy="{cy}"/><wp:effectExtent t="0" r="0" b="0" l="0"/>
+<wp:docPr id="{i+1}" name="{html.escape(p["title"])}" descr="SVG vector activity diagram."/>
+<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>
+<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>
+<pic:nvPicPr><pic:cNvPr id="0" name="{html.escape(p["id"])}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr>
+<pic:blipFill><a:blip r:embed="{png_id}"><a:extLst><a:ext uri="{{96DAC541-7B7A-43D3-8B79-37D633B846F1}}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="{svg_id}"/></a:ext></a:extLst></a:blip><a:srcRect/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+<pic:spPr bwMode="auto"><a:xfrm><a:off x="0" y="0"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>''')
+        content.append(word_p(p["note"], size=18, color="62756D"))
+        if i < len(pages)-1:
+            content.append('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
 
     document = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
- xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
- xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
- xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
- xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
- xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">
-<w:body>
-{word_paragraph("ZenTrip · Current Activity Diagram", "Title", 34, True)}
-<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="120"/></w:pPr>{word_run("Connected workflow based on the current app: role routing, provider search, simulated checkout, and persistence.", 20, False, "62756D")}</w:p>
-<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">
- <wp:extent cx="{cx}" cy="{cy}"/><wp:effectExtent t="0" r="0" b="0" l="0"/>
- <wp:docPr id="1" name="ZenTrip integrated activity diagram" descr="Vector activity diagram with orthogonal connectors, role branches, provider merges, checkout decisions, error recovery, and shared persistence." title="ZenTrip current app flow"/>
- <wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>
- <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-  <pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="ZenTrip flow diagram" descr="Editable SVG vector object; convert to shapes in supported Word versions."/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr>
-  <pic:blipFill>{blip}<a:srcRect/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
-  <pic:spPr bwMode="auto"><a:xfrm><a:off x="0" y="0"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
-  </pic:pic>
- </a:graphicData></a:graphic>
-</wp:inline></w:drawing></w:r></w:p>
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-{word_paragraph("Editable flow notes", "Heading1", 30, True)}
-{word_paragraph("The diagram is an embedded SVG vector picture object. In Word versions that support SVG shape conversion, use Convert to Shape to edit individual nodes.", size=20)}
-{note_paragraphs}
-<w:sectPr><w:pgSz w:w="23811" w:h="16838" w:orient="landscape"/><w:pgMar w:top="500" w:right="500" w:bottom="500" w:left="500" w:header="250" w:footer="250" w:gutter="0"/></w:sectPr>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><w:body>
+{"".join(content)}
+<w:sectPr><w:pgSz w:w="23811" w:h="16838" w:orient="landscape"/><w:pgMar w:top="400" w:right="400" w:bottom="400" w:left="400" w:header="200" w:footer="200" w:gutter="0"/></w:sectPr>
 </w:body></w:document>'''
-
-    content_types = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
- <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
- <Default Extension="xml" ContentType="application/xml"/>
- <Default Extension="svg" ContentType="image/svg+xml"/>
- <Default Extension="png" ContentType="image/png"/>
- <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
- <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
- <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
- <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
-</Types>'''
-    root_rels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
- <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
- <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
- <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
-</Relationships>'''
-    document_rels_with_png = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
- <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/diagram.png"/>
- <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/diagram.svg"/>
-</Relationships>'''
-    document_rels_svg_only = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
- <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/diagram.svg"/>
-</Relationships>'''
-    styles = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
- <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="22"/></w:rPr></w:style>
- <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:jc w:val="center"/><w:spacing w:after="90"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="263A33"/><w:b/><w:sz w:val="34"/></w:rPr></w:style>
- <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="456258"/><w:b/><w:sz w:val="30"/></w:rPr></w:style>
- <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="180" w:after="60"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="456258"/><w:b/><w:sz w:val="26"/></w:rPr></w:style>
-</w:styles>'''
-    core = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
- <dc:title>ZenTrip Current Activity Diagram</dc:title><dc:subject>Integrated end-to-end workflow and editable activity notes</dc:subject><dc:creator>ZenTrip</dc:creator>
-</cp:coreProperties>'''
-    app = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft Word</Application></Properties>'''
-
+    ctype_defaults = '''<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="svg" ContentType="image/svg+xml"/><Default Extension="png" ContentType="image/png"/>'''
+    types = f'''<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">{ctype_defaults}<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>'''
+    root_rels = '''<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>'''
+    rels = f'''<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">{"".join(relationships)}</Relationships>'''
+    styles = '''<?xml version="1.0" encoding="UTF-8"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="22"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:jc w:val="center"/><w:spacing w:after="90"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:color w:val="263A33"/><w:b/><w:sz w:val="32"/></w:rPr></w:style></w:styles>'''
+    core = '''<?xml version="1.0" encoding="UTF-8"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>ZenTrip Verified Activity Flows</dc:title><dc:subject>Role routing, travel bookings, AI, and persistence</dc:subject><dc:creator>ZenTrip</dc:creator></cp:coreProperties>'''
+    app = '''<?xml version="1.0" encoding="UTF-8"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft Word</Application></Properties>'''
     OUT.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(DOCX_PATH, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("[Content_Types].xml", content_types)
-        archive.writestr("_rels/.rels", root_rels)
-        archive.writestr("word/document.xml", document)
-        archive.writestr("word/_rels/document.xml.rels", document_rels_with_png if png else document_rels_svg_only)
-        archive.writestr("word/styles.xml", styles)
-        archive.writestr("docProps/core.xml", core)
-        archive.writestr("docProps/app.xml", app)
-        archive.writestr("word/media/diagram.svg", svg)
-        if png:
-            archive.writestr("word/media/diagram.png", png)
+    with zipfile.ZipFile(WORD_PATH, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", types)
+        zf.writestr("_rels/.rels", root_rels)
+        zf.writestr("word/document.xml", document)
+        zf.writestr("word/_rels/document.xml.rels", rels)
+        zf.writestr("word/styles.xml", styles)
+        zf.writestr("docProps/core.xml", core)
+        zf.writestr("docProps/app.xml", app)
+        for i, (svg, png) in enumerate(zip(svgs, pngs), 1):
+            zf.writestr(f"word/media/diagram-{i}.svg", svg.encode("utf-8"))
+            zf.writestr(f"word/media/diagram-{i}.png", png)
 
 
-def main() -> None:
+def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    svg = build_svg()
-    SVG_PATH.write_text(svg, encoding="utf-8")
-    HTML_PATH.write_text(build_html(svg), encoding="utf-8")
-
-    png_data = None
+    svgs = []
+    pngs = []
     magick = shutil.which("magick")
-    if magick:
-        try:
-            subprocess.run(
-                [magick, "-background", "white", "-density", "160", str(SVG_PATH), "-resize", f"{WIDTH}x{HEIGHT}!", str(PNG_PATH)],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                timeout=60,
-            )
-            png_data = PNG_PATH.read_bytes()
-        except (subprocess.CalledProcessError, OSError, subprocess.TimeoutExpired):
-            png_data = None
-
-    build_docx(png_data, svg.encode("utf-8"))
-    orthogonal_count = len(EDGES)
-    print(f"Generated {SVG_PATH.relative_to(ROOT)}")
-    print(f"Generated {HTML_PATH.relative_to(ROOT)}")
-    print(f"Generated {DOCX_PATH.relative_to(ROOT)}")
-    print(f"Edges validated as orthogonal: {orthogonal_count}")
-    print(f"Word PNG compatibility fallback: {'included' if png_data else 'not available; SVG only'}")
+    if not magick:
+        raise RuntimeError("ImageMagick is required to create the Word PNG fallbacks.")
+    for p in PAGES:
+        svg = build_svg(p)
+        svg_path = OUT / f"zentrip-activity-{p['id']}.svg"
+        png_path = OUT / f"zentrip-activity-{p['id']}.png"
+        svg_path.write_text(svg, encoding="utf-8")
+        subprocess.run(
+            [magick, "-background", "white", "-density", "120", str(svg_path),
+             "-resize", f"{WIDTH}x{HEIGHT}!", str(png_path)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            timeout=90,
+        )
+        svgs.append(svg)
+        pngs.append(png_path.read_bytes())
+        print(f"Generated {svg_path.relative_to(ROOT)}")
+    html_path = OUT / "zentrip-activity-diagram.html"
+    html_path.write_text(build_html(PAGES, svgs), encoding="utf-8")
+    build_docx(PAGES, svgs, pngs)
+    print(f"Generated {html_path.relative_to(ROOT)}")
+    print(f"Generated {WORD_PATH.relative_to(ROOT)}")
+    print(f"Pages: {len(PAGES)}; orthogonal connectors: {sum(len(p['edges']) for p in PAGES)}")
 
 
 if __name__ == "__main__":
