@@ -7,7 +7,7 @@ flowchart LR
         features["Feature modules<br/>Auth · Home · Flights · Hotels · Places<br/>Cars · Transfers · Trips · AI · Admin · Partner"]
         state["Feature controllers and models<br/>Normalize API data for screens"]
         api["Shared ApiService · Dio<br/>REST /api · bearer token"]
-        local[("Device-local state<br/>Session · favorites · preferences<br/>notifications · part of chat history")]
+        local[("Device-local state<br/>Session · favorites · price alerts<br/>locale/currency · chat cache")]
         flutter --> features --> state --> api
         state -.->|local-only data| local
     end
@@ -37,7 +37,7 @@ flowchart LR
         serp["SerpAPI<br/>Nearby / map search"]
         requesty["Requesty<br/>AI chat completion stream"]
         frank["Frankfurter<br/>Exchange-rate lookup"]
-        optional["Optional / operational<br/>Google Places rating sync · OurAirports import"]
+        optional["Optional / operational<br/>Google Places sync (not configured) · OurAirports import"]
     end
 
     services -->|search requests| duffel
@@ -51,8 +51,8 @@ flowchart LR
 
     subgraph DATA["Persistent Data"]
         direction TB
-        postgres[("Supabase PostgreSQL<br/>Accessed by backend only<br/>users · api_tokens · partner listings<br/>trips · bookings · transfers · offers<br/>places · chat messages · preferences")]
-        dataNote["Row-level security is a second layer.<br/>Flutter does not query Supabase directly."]
+        postgres[("Supabase PostgreSQL<br/>Accessed by backend only<br/>users · api_tokens · partners · partner_listings · offers<br/>trips · bookings · transfers · seat holds · payment_attempts<br/>tourist_monuments · landmark_places · visits<br/>ai_chat_messages · travel_preferences")]
+        dataNote["Flutter does not query Supabase directly.<br/>Verify production RLS migrations and role alignment."]
         postgres --- dataNote
     end
 
