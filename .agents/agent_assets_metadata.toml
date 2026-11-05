@@ -42,3 +42,17 @@ mtime_ms = 1793821296569
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/38be274a-75f3-49fe-9bc2-3b7294d4ef27/b8aac4ae-e01d-4c34-80b9-5f0d33f6a1df"
 storage_version_token = "1793821330309664"
 content_type = "image/png"
+
+[[outputs]]
+id = "9VXX4xRSz_raa_hF1BHgw"
+uri = "file://generated-artifacts/ZenTrip-Activity-Diagram-Integrated.docx"
+type = "word_document"
+title = "ZenTrip Activity Diagram — Word"
+description = "Landscape Word document with the integrated end-to-end flow as an embedded SVG vector object and an editable flow summary."
+logical_id = "80895dc6-c9a8-48ad-80f3-a9fbf898fe4d"
+content_hash = "sha256:0d908d5ebc63a3e5912bed02127a427c2bbfbdbe9023dc3e19b5b29fe77f0d1b"
+size = 3434524
+mtime_ms = 1793888107890
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/80895dc6-c9a8-48ad-80f3-a9fbf898fe4d/45fec4e6-3a30-4652-ab83-a2ba84857aa4"
+storage_version_token = "1793888183109497"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
