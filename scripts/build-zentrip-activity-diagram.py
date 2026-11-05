@@ -140,9 +140,9 @@ PAGES = [
             edge("role-partner", [(960, 380), (1020, 380), (1020, 790), (1065, 790)], label="Partner", label_at=(1040, 765)),
             edge("customer-modules", [(1305, 225), (1390, 225)]),
             edge("customer-logout", [(1760, 225), (1990, 225), (1990, 520), (2028, 520)], label="Sign out", label_at=(1870, 205)),
-            edge("admin-capabilities", [(1440, 520), (1390, 520), (1390, 520), (1390, 520)]),
+            edge("admin-capabilities", [(1315, 520), (1390, 520)]),
             edge("admin-logout", [(1760, 520), (2028, 520)]),
-            edge("partner-capabilities", [(1440, 790), (1510, 790), (1510, 790), (1510, 790)]),
+            edge("partner-capabilities", [(1315, 790), (1390, 790)]),
             edge("partner-logout", [(1760, 790), (1900, 790), (1900, 520), (2028, 520)]),
         ],
         "Admin routes cover dashboard, partners, reservations, customers, places, and offers. No app-wide settings endpoint is present in the current controller.",
@@ -209,14 +209,14 @@ PAGES = [
             edge("partner-select-hold", [(305, 290), (365, 290)]),
             edge("partner-hold-payment", [(605, 290), (670, 290)]),
             edge("partner-payment-decision", [(900, 290), (1000, 290)]),
-            edge("partner-paid-confirm", [(1150, 290), (1220, 290), (1220, 290), (1220, 290)], "main", "Yes", (1180, 270)),
+            edge("partner-paid-confirm", [(1150, 290), (1220, 290)], "main", "Yes", (1180, 270)),
             edge("partner-confirm-trip", [(1480, 290), (1655, 290)]),
             edge("partner-failed", [(1075, 350), (1075, 431)], "error", "No", (1095, 395)),
             edge("partner-reselect", [(910, 470), (485, 470), (485, 338)], "error", "Reselect", (700, 450)),
             edge("duffel-select-nohold", [(305, 735), (365, 735)]),
             edge("duffel-nohold-payment", [(605, 735), (670, 735)]),
             edge("duffel-payment-decision", [(900, 735), (1000, 735)]),
-            edge("duffel-paid-save", [(1150, 735), (1220, 735), (1220, 735), (1220, 735)], "main", "Yes", (1180, 715)),
+            edge("duffel-paid-save", [(1150, 735), (1220, 735)], "main", "Yes", (1180, 715)),
             edge("duffel-save-trip", [(1480, 735), (1655, 735)]),
             edge("duffel-payment-failed", [(1075, 795), (1075, 890)], "error", "No", (1095, 845)),
             edge("duffel-retry", [(910, 930), (785, 930), (785, 783)], "error", "Retry", (850, 910)),
@@ -262,7 +262,7 @@ PAGES = [
             edge("hotel-select-schedule", [(290, 785), (330, 785)]),
             edge("hotel-schedule-payment", [(600, 785), (690, 785)]),
             edge("hotel-payment-decision", [(910, 785), (1005, 785)]),
-            edge("hotel-paid-save", [(1155, 785), (1230, 785), (1230, 785), (1230, 785)], "main", "Yes", (1190, 765)),
+            edge("hotel-paid-save", [(1155, 785), (1230, 785)], "main", "Yes", (1190, 765)),
             edge("hotel-save-recorded", [(1510, 785), (1590, 785)]),
             edge("hotel-failed", [(1080, 845), (1080, 929)], "error", "No", (1100, 890)),
             edge("hotel-retry-payment", [(930, 965), (800, 965), (800, 831)], "error", "Retry", (870, 945)),
@@ -289,7 +289,7 @@ PAGES = [
             node("entry-fee", 1790, 740, 150, 116, "Entry fee\nabove zero?", "decision", "diamond", 17),
             node("attraction-payment", 1430, 900, 260, 80, "Simulated payment\n(paid entry only)", "system", font=17),
             node("attraction-paid", 1740, 900, 150, 116, "Payment\nsuccessful?", "decision", "diamond", 17),
-            node("attraction-save", 1990, 760, 280, 90, "POST /api/bookings\n(type = attraction)", "success", font=17),
+            node("attraction-save", 2050, 760, 260, 90, "POST /api/bookings\n(type = attraction)", "success", font=17),
             node("attraction-fail", 1430, 1030, 280, 70, "No booking saved;\nretry or leave", "error", font=16),
         ],
         [
@@ -302,10 +302,10 @@ PAGES = [
             edge("detail-book", [(1500, 333), (1570, 333), (1570, 470), (1640, 470)]),
             edge("book-schedule", [(1790, 512), (1790, 558)]),
             edge("schedule-fee", [(1790, 642), (1790, 682)]),
-            edge("free-save", [(1865, 740), (1930, 740), (1930, 760), (1850, 760)], "main", "No · free", (1910, 720)),
-            edge("paid-entry-payment", [(1715, 740), (1570, 740), (1570, 860), (1570, 860)], "main", "Yes · paid", (1595, 720)),
-            edge("payment-success-decision", [(1690, 900), (1665, 900)]),
-            edge("payment-success-save", [(1815, 900), (1915, 900), (1915, 805), (1850, 805)], "main", "Yes", (1850, 880)),
+            edge("free-save", [(1865, 740), (1890, 740), (1890, 760), (1920, 760)], "main", "No · free", (1880, 720)),
+            edge("paid-entry-payment", [(1715, 740), (1560, 740), (1560, 860)], "main", "Yes · paid", (1595, 720)),
+            edge("payment-success-decision", [(1560, 900), (1665, 900)]),
+            edge("payment-success-save", [(1815, 900), (1915, 900), (1915, 805), (1920, 805)], "main", "Yes", (1850, 880)),
             edge("payment-fail", [(1740, 958), (1740, 1030), (1570, 1030)], "error", "No", (1760, 995)),
         ],
         "A free attraction skips payment. Paid-entry attractions use the simulated checkout and then create a Zentrip booking; place viewing alone only records a privacy-preserving visit count.",
@@ -331,7 +331,7 @@ PAGES = [
             node("cars-schedule", 790, 530, 240, 90, "Check schedule\nconflicts", "system", font=18),
             node("cars-payment", 1110, 530, 220, 90, "Simulated\npayment", "system", font=18),
             node("cars-save", 1400, 530, 300, 90, "POST /api/bookings\n(type = car)", "success", font=17),
-            node("cars-trips", 1810, 530, 260, 90, "Partner vehicle inventory\nreserved when linked", "user", font=16),
+            node("cars-trips", 1810, 530, 260, 90, "Partner vehicle reserved\nwhen linked · shown in My Trips", "success", font=16),
             node("transfer-search", 190, 830, 230, 90, "Search / select transfer\nroute and pickup time", "user", font=17),
             node("transfer-schedule", 490, 830, 260, 90, "GET /api/transfers/availability\nschedule conflict check", "system", font=16),
             node("transfer-payment", 820, 830, 220, 90, "Simulated\npayment", "system", font=18),
@@ -372,7 +372,7 @@ PAGES = [
             node("ai-local", 1510, 205, 280, 88, "Flutter SharedPreferences\nlocal chat history", "success", font=17),
             node("ai-server", 1510, 345, 280, 88, "Supabase ai_chat_messages\nserver-side history", "success", font=17),
             node("trips-open", 180, 690, 230, 90, "Open My Trips", "user", font=18),
-            node("trips-fetch", 490, 690, 290, 90, "GET /api/trips\n/bookings · /transfers", "api", font=17),
+            node("trips-fetch", 490, 690, 290, 90, "GET /api/trips\nGET /api/bookings\nGET /api/transfers", "api", font=16),
             node("trips-data", 860, 690, 280, 90, "Supabase records\nfiltered to current user", "success", font=17),
             node("trips-display", 1220, 690, 230, 90, "Display items\nand statuses", "user", font=18),
             node("cancel-kind", 1530, 690, 170, 128, "Cancel item\ntype?", "decision", "diamond", 17),
@@ -386,19 +386,44 @@ PAGES = [
             edge("ai-prompt-api", [(295, 260), (360, 260)]),
             edge("ai-api-provider", [(620, 260), (720, 260)], "api"),
             edge("ai-provider-reply", [(940, 260), (1005, 260)], "api"),
-            edge("ai-reply-local", [(1350, 260), (1420, 260), (1420, 205), (1370, 205)]),
-            edge("ai-reply-server", [(1350, 260), (1420, 260), (1420, 345), (1370, 345)], "api"),
+            edge("ai-reply-local", [(1235, 260), (1300, 260), (1300, 205), (1370, 205)]),
+            edge("ai-reply-server", [(1235, 260), (1330, 260), (1330, 345), (1370, 345)], "api"),
             edge("trips-open-fetch", [(295, 690), (345, 690)]),
             edge("trips-fetch-data", [(635, 690), (720, 690)], "api"),
             edge("trips-data-display", [(1000, 690), (1105, 690)]),
             edge("trips-display-cancel", [(1335, 690), (1445, 690)]),
-            edge("cancel-flight-path", [(1615, 650), (1700, 650), (1700, 590), (1670, 590)], "main", "Flight", (1655, 630)),
-            edge("cancel-booking-path", [(1615, 730), (1700, 730), (1700, 800), (1670, 800)], "main", "Other booking", (1690, 765)),
-            edge("flight-refund-note", [(1820, 635), (1700, 635), (1700, 900), (1550, 900)], "error"),
+            edge("cancel-flight-path", [(1615, 690), (1700, 690), (1700, 590), (1670, 590)], "main", "Flight", (1655, 670)),
+            edge("cancel-booking-path", [(1530, 754), (1530, 800), (1670, 800)], "main", "Other booking", (1600, 780)),
+            edge("flight-refund-note", [(1820, 635), (1500, 635), (1500, 900), (1370, 900)], "error"),
         ],
         "The current Trips screen derives completed status from dates. Flight cancellation and other booking cancellation use separate endpoints. The flight refund state is pending review; the app does not call an airline to issue a refund.",
     ),
 ]
+
+
+def validate_pages():
+    for p in PAGES:
+        ids = [n["id"] for n in p["nodes"]]
+        if len(ids) != len(set(ids)):
+            raise ValueError(f"{p['id']}: duplicate node id")
+        for n in p["nodes"]:
+            half_w = n["w"] / 2
+            half_h = n["h"] / 2
+            if n["x"] - half_w < 0 or n["x"] + half_w > WIDTH:
+                raise ValueError(f"{p['id']}: node {n['id']} exceeds diagram width")
+            if n["y"] - half_h < 90 or n["y"] + half_h > HEIGHT - 45:
+                raise ValueError(f"{p['id']}: node {n['id']} exceeds diagram height")
+        for i, a in enumerate(p["nodes"]):
+            for b in p["nodes"][i+1:]:
+                gap = 2
+                if (
+                    abs(a["x"] - b["x"]) < (a["w"] + b["w"]) / 2 - gap
+                    and abs(a["y"] - b["y"]) < (a["h"] + b["h"]) / 2 - gap
+                ):
+                    raise ValueError(f"{p['id']}: nodes {a['id']} and {b['id']} overlap")
+        for e in p["edges"]:
+            if any(x < 0 or x > WIDTH or y < 0 or y > HEIGHT for x, y in e["points"]):
+                raise ValueError(f"{p['id']}: connector {e['id']} exceeds canvas bounds")
 
 
 def render_node(item):
@@ -624,6 +649,7 @@ def build_docx(pages, svgs, pngs):
 
 
 def main():
+    validate_pages()
     OUT.mkdir(parents=True, exist_ok=True)
     svgs = []
     pngs = []
