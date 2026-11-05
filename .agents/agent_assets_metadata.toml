@@ -84,3 +84,31 @@ mtime_ms = 1793898160894
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/0cbae7ae-4096-49b4-bf99-286bafe6f3a3/07d48543-fba3-443a-9de3-289a1d728170"
 storage_version_token = "1793898170312775"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "1mVcVjHHXslK5eiDPCxAV"
+uri = "file://generated-artifacts/ZenTrip-System-Architecture.html"
+type = "html"
+title = "ZenTrip System Architecture"
+description = "Standalone, responsive architecture diagram showing Flutter, Spring Boot security and services, external travel providers, simulated checkout, and Supabase persistence."
+logical_id = "52804f1c-6260-4c32-bb13-bd7b861490cc"
+content_hash = "sha256:08fd3fc9ae621736f1f9785edab6f2a1b012dbbd31e40783b86f90eb7318e555"
+size = 11439
+mtime_ms = 1793899671032
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/52804f1c-6260-4c32-bb13-bd7b861490cc/2720bbc4-b212-4ed8-ab20-36a4e94f4cfa"
+storage_version_token = "1793899706994492"
+content_type = "text/html"
+
+[[outputs]]
+id = "XRCJ1Dx1sEtk6RILxYsY3"
+uri = "file://generated-artifacts/ZenTrip-System-Architecture-preview.png"
+type = "image"
+title = "Architecture diagram preview"
+description = "Desktop preview of the architecture diagram."
+logical_id = "6d18e4b3-c6a5-495d-b855-87e3b59e788d"
+content_hash = "sha256:be1304dba4d346800e50a160bb4843935edb8beab7fd71841c8681589ceb2b32"
+size = 280927
+mtime_ms = 1793899645386
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/6d18e4b3-c6a5-495d-b855-87e3b59e788d/82d752ab-0b67-43dd-ba9b-50affe684228"
+storage_version_token = "1793899707575697"
+content_type = "image/png"

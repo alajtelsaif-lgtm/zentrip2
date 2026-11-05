@@ -1,0 +1,79 @@
+flowchart LR
+    traveler["Customer / Admin / Partner"] -->|uses| flutter
+
+    subgraph CLIENT["Flutter Client · Web and Mobile"]
+        direction TB
+        flutter["Flutter app<br/>Feature-based screens and navigation"]
+        features["Feature modules<br/>Auth · Home · Flights · Hotels · Places<br/>Cars · Transfers · Trips · AI · Admin · Partner"]
+        state["Feature controllers and models<br/>Normalize API data for screens"]
+        api["Shared ApiService · Dio<br/>REST /api · bearer token"]
+        local[("Device-local state<br/>Session · favorites · preferences<br/>notifications · part of chat history")]
+        flutter --> features --> state --> api
+        state -.->|local-only data| local
+    end
+
+    api -->|HTTPS / JSON<br/>SSE for AI chat| ingress
+
+    subgraph SERVER["Spring Boot Backend · Java 25"]
+        direction TB
+        ingress["Spring Boot API<br/>/api"]
+        security["Security filters<br/>Validate bearer token; resolve user and role<br/>Partner scope is server-derived"]
+        controllers["REST controllers<br/>Auth · API · Partner · Admin<br/>AI chat · Preferences · Exchange rates"]
+        services["Application services<br/>Inventory merge · airport/geocoding<br/>flight · hotel · attraction · maps · AI"]
+        payment["Payment simulator<br/>Creates mock checkout sessions<br/>No real card charge"]
+        persistence["Persistence and data access<br/>JDBC / JPA · transaction boundaries<br/>RLS runtime context"]
+        ingress --> security --> controllers --> services
+        controllers --> payment
+        services --> persistence
+        payment --> persistence
+    end
+
+    subgraph PROVIDERS["External Providers · Server-side credentials"]
+        direction TB
+        duffel["Duffel<br/>Flight offers only<br/>No airline order creation"]
+        liteapi["LiteAPI<br/>Hotel data / rates only<br/>No provider booking"]
+        otm["OpenTripMap<br/>Tourist places and details"]
+        geo["Geoapify<br/>Geocoding and airport lookup"]
+        serp["SerpAPI<br/>Nearby / map search"]
+        requesty["Requesty<br/>AI chat completion stream"]
+        frank["Frankfurter<br/>Exchange-rate lookup"]
+        optional["Optional / operational<br/>Google Places rating sync · OurAirports import"]
+    end
+
+    services -->|search requests| duffel
+    services -->|read-only rates| liteapi
+    services -->|place search / detail| otm
+    services -->|geocode / airport fallback| geo
+    services -->|map search| serp
+    services -->|chat stream| requesty
+    services -->|rates| frank
+    services -.-> optional
+
+    subgraph DATA["Persistent Data"]
+        direction TB
+        postgres[("Supabase PostgreSQL<br/>Accessed by backend only<br/>users · api_tokens · partner listings<br/>trips · bookings · transfers · offers<br/>places · chat messages · preferences")]
+        dataNote["Row-level security is a second layer.<br/>Flutter does not query Supabase directly."]
+        postgres --- dataNote
+    end
+
+    persistence -->|JDBC / JPA · scoped transactions| postgres
+    flutter -.->|Map tiles requested directly by client| osm["OpenStreetMap tile service"]
+
+    classDef actor fill:#f1f7f2,stroke:#71917a,color:#193426,stroke-width:1.5px
+    classDef client fill:#edf4ff,stroke:#6d8db5,color:#152b45,stroke-width:1.5px
+    classDef backend fill:#eff2fb,stroke:#7784b0,color:#20294b,stroke-width:1.5px
+    classDef provider fill:#fff8ec,stroke:#c19b54,color:#4b3916,stroke-width:1.5px
+    classDef data fill:#edf7f7,stroke:#5b9290,color:#173b3a,stroke-width:1.5px
+    classDef note fill:#fff4f0,stroke:#c8907d,color:#573329,stroke-width:1.2px
+
+    class traveler actor
+    class flutter,features,state,api,local client
+    class ingress,security,controllers,services,payment,persistence backend
+    class duffel,liteapi,otm,geo,serp,requesty,frank,optional,osm provider
+    class postgres data
+    class dataNote note
+
+    style CLIENT fill:#f7faff,stroke:#9bb2cc,stroke-width:1.5px
+    style SERVER fill:#f8f8fd,stroke:#a6a9c5,stroke-width:1.5px
+    style PROVIDERS fill:#fffdf8,stroke:#d2bd8d,stroke-width:1.5px
+    style DATA fill:#f6fbfb,stroke:#8bb5b2,stroke-width:1.5px
