@@ -79,21 +79,23 @@ def arrow(d: str, dashed: bool = False, bidirectional: bool = False, color: str 
 
 
 def actor(x: int, y: int, name: str, detail: str) -> None:
-    box(x, y, 210, 70, "#f5faf6", "#8ca995", 12)
-    emit(f'<circle cx="{x + 28}" cy="{y + 24}" r="8" fill="#486d58"/>')
+    box(x, y, 212, 76, "#ffffff", "#d7e2ef", 16, 1)
+    emit(f'<circle cx="{x + 36}" cy="{y + 38}" r="22" fill="#e8f1ff"/>')
+    emit(f'<circle cx="{x + 36}" cy="{y + 29}" r="7" fill="#3d70a6"/>')
     emit(
-        f'<path d="M{x + 13} {y + 56}c1-12 7-18 15-18s14 6 15 18" '
-        'fill="none" stroke="#486d58" stroke-width="4" stroke-linecap="round"/>'
+        f'<path d="M{x + 22} {y + 54}c1-10 6-15 14-15s13 5 14 15" '
+        'fill="none" stroke="#3d70a6" stroke-width="3.5" stroke-linecap="round"/>'
     )
-    label(x + 57, y + 29, name, 16, 700, "#294233")
-    label(x + 57, y + 51, detail, 12, 400, "#607669")
+    label(x + 72, y + 34, name, 16, 700, "#1c3049")
+    label(x + 72, y + 56, detail, 12, 400, "#62758b")
 
 
 def provider(y: int, title: str, detail: str, symbol: str, badge: str | None = None) -> None:
-    # Simple category pictograms, not provider logos.
-    cx, cy = 1192, y + 24
-    emit(f'<circle cx="{cx}" cy="{cy}" r="20" fill="#f0f5fa" stroke="#7190a5" stroke-width="2"/>')
-    color = "#315b77"
+    # Consistent category pictograms, not provider logos.
+    box(1145, y, 570, 56, "#ffffff", "#dce7ed", 14, 1)
+    cx, cy = 1175, y + 28
+    emit(f'<circle cx="{cx}" cy="{cy}" r="20" fill="#eaf2fb"/>')
+    color = "#346b9e"
     if symbol == "plane":
         emit(f'<path d="M{cx-15} {cy+2}l12-3 6-12 3 1-2 10 10-2 3-3 2 1-3 5-12 5-1 8-2 1-3-7-10 1z" fill="{color}"/>')
     elif symbol == "bed":
@@ -112,10 +114,10 @@ def provider(y: int, title: str, detail: str, symbol: str, badge: str | None = N
         label(cx, cy + 6, "$", 20, 700, color, "middle")
     else:
         emit(f'<path d="M{cx-8} {cy}h16M{cx} {cy-8}v16" stroke="{color}" stroke-width="2.6" stroke-linecap="round"/>')
-    label(1227, y + 22, title, 14, 700, "#263e50")
-    label(1227, y + 42, detail, 11, 400, "#5c7180")
+    label(1210, y + 24, title, 14, 700, "#1c3049")
+    label(1210, y + 43, detail, 11, 400, "#62758b")
     if badge:
-        label(1690, y + 22, badge, 9, 700, "#8c6d30", "end")
+        label(1693, y + 34, badge, 9, 700, "#55799c", "end")
 
 
 def gear_points(cx: int, cy: int, outer: int, inner: int, count: int = 32) -> str:
@@ -131,98 +133,102 @@ def make_svg() -> str:
     emit(f'<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 {WIDTH} {HEIGHT}">')
     emit(
         '<title id="title">Zentrip System Architecture</title>'
-        '<desc id="desc">Customer, admin, and partner roles use the Flutter app. '
-        'The Spring Boot API verifies access, reads provider data, and persists records in Supabase PostgreSQL.</desc>'
+        '<desc id="desc">A modern technical architecture diagram showing Zentrip users, Flutter client, '
+        'Spring Boot API, external data providers, and Supabase PostgreSQL.</desc>'
     )
     emit(
         """<defs>
           <marker id="arrowHead" viewBox="0 0 10 10" refX="8.5" refY="5"
             markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-            <path d="M0 0L10 5L0 10z" fill="#345c77"/>
+            <path d="M0 0L10 5L0 10z" fill="#607c9b"/>
           </marker>
           <style>text { font-family: Arial, Helvetica, sans-serif; }</style>
         </defs>"""
     )
-    box(0, 0, WIDTH, HEIGHT, "#ffffff", "#ffffff", 0)
-    label(68, 57, "4.6  System Architecture", 30, 700, "#20384a")
-    label(68, 83, "Zentrip", 14, 400, "#647989")
-    box(48, 108, 1704, 790, "#ffffff", "#738b9b", 2)
-    label(98, 145, "USERS", 12, 700, "#627b6b")
-    label(380, 145, "FLUTTER APP", 12, 700, "#557995")
-    label(780, 145, "SPRING BOOT API", 12, 700, "#585b88")
-    label(1140, 145, "PROVIDER DATA", 12, 700, "#8f7236")
+    box(0, 0, WIDTH, HEIGHT, "#f1f5fa", "#f1f5fa", 0)
+    emit('<rect x="0" y="0" width="1800" height="124" fill="#152b49"/>')
+    label(66, 58, "Zentrip System Architecture", 34, 700, "#ffffff")
+    label(68, 91, "Current implementation · Flutter · Spring Boot · Supabase", 15, 400, "#c8d7e9")
+    box(1538, 39, 194, 42, "#233d60", "#3b587e", 21, 1)
+    label(1635, 66, "TECHNICAL BLUEPRINT", 10, 700, "#d7e4f2", "middle")
 
-    # Main request and data flows are behind the component symbols.
-    arrow("M310 240H337V365H380")
-    arrow("M310 415H380")
-    arrow("M310 590H337V500H380")
-    arrow("M680 440H765", bidirectional=True)
-    arrow("M995 440H1115", bidirectional=True)
-    arrow("M1115 188V734", color="#7a93a5")
-    for center_y in [188, 266, 344, 422, 500, 578, 656, 734]:
-        arrow(f"M1115 {center_y}H1168", bidirectional=True)
-    arrow("M880 550V662", bidirectional=True, color="#477b78")
-    arrow("M465 560V665", dashed=True, color="#738b9b")
-    arrow("M605 560V665", dashed=True, color="#738b9b")
+    # Color-coded lanes form a modern, print-friendly architecture canvas.
+    box(42, 142, 1716, 706, "#ffffff", "#dce4ee", 22, 1)
+    box(60, 164, 250, 666, "#f4f8fe", "#e1eaf6", 18, 1)
+    box(326, 164, 390, 666, "#f6f9fd", "#e1eaf2", 18, 1)
+    box(732, 164, 360, 666, "#f7f6fe", "#e7e3f6", 18, 1)
+    box(1108, 164, 632, 666, "#f3f9fa", "#dcebed", 18, 1)
+    label(84, 202, "ACCESS", 12, 700, "#4777ad")
+    label(350, 202, "CLIENT", 12, 700, "#4777ad")
+    label(758, 202, "API CORE", 12, 700, "#725fc1")
+    label(1138, 202, "EXTERNAL DATA", 12, 700, "#318b91")
 
-    # User roles.
-    actor(100, 205, "Admin", "manages platform")
-    actor(100, 380, "Partner", "owns listings")
-    actor(100, 555, "Customer", "searches and books")
+    # Request, provider, and persistence paths sit beneath the component cards.
+    arrow("M292 298H315V370H350", color="#7189a6")
+    arrow("M292 463H350", color="#7189a6")
+    arrow("M292 628H315V490H350", color="#7189a6")
+    arrow("M700 420H760", bidirectional=True, color="#5d7da3")
+    arrow("M1065 420H1124", bidirectional=True, color="#5d7da3")
+    emit('<path d="M1124 248V752" fill="none" stroke="#89a0b6" stroke-width="2.5"/>')
+    for center_y in [248, 320, 392, 464, 536, 608, 680, 752]:
+        arrow(f"M1124 {center_y}H1145", color="#89a0b6")
+    arrow("M912 565V635", bidirectional=True, color="#5d9b96")
+    arrow("M465 565V625", dashed=True, color="#8399b0")
+    arrow("M610 565V625", dashed=True, color="#8399b0")
 
-    # Flutter application interface and client-owned state.
-    box(350, 170, 350, 390, "#f8fbfe", "#91abc0", 2)
-    # Phone/browser icon.
-    box(375, 258, 72, 126, "#ffffff", "#416c8d", 5)
-    emit('<rect x="383" y="272" width="56" height="91" rx="3" fill="#edf4f9" stroke="#8aa8bc" stroke-width="1"/>')
-    emit('<circle cx="411" cy="374" r="3" fill="#416c8d"/>')
-    label(465, 277, "Flutter", 19, 700, "#294c66")
-    label(465, 302, "Web + mobile", 13, 500, "#607687")
+    # Role cards.
+    actor(80, 260, "Admin", "Manages platform")
+    actor(80, 425, "Partner", "Owns listings")
+    actor(80, 590, "Customer", "Searches and books")
+
+    # Flutter client card and its device-owned data.
+    box(350, 245, 350, 320, "#ffffff", "#d7e3f0", 20, 1)
+    box(378, 275, 54, 82, "#eaf2ff", "#cbdcf0", 14, 1)
+    emit('<rect x="384" y="282" width="42" height="65" rx="6" fill="#ffffff" stroke="#9eb9d7" stroke-width="1.5"/>')
+    emit('<circle cx="405" cy="351" r="2" fill="#4777ad"/>')
+    label(452, 304, "Flutter", 20, 700, "#1e3552")
+    label(452, 328, "Web · mobile", 13, 500, "#62758b")
     lines(
-        465,
-        331,
-        [
-            "Search · book · My Trips",
-            "Admin / partner dashboards",
-            "Flights · hotels · places · AI",
-            "REST / JSON · AI stream",
-        ],
+        380,
+        395,
+        ["Search · book · My Trips", "Role-based dashboards", "Flights · hotels · places · AI", "REST API · AI stream"],
         13,
-        "#526979",
-        22,
+        "#4e637a",
+        25,
     )
 
-    # Local-only client storage and map tiles are separate from the backend.
-    box(350, 665, 162, 100, "#f4f8f5", "#9cb5a3", 12)
-    label(431, 697, "Local state", 14, 700, "#345845", "middle")
-    lines(431, 720, ["Session · favorites", "Alerts · locale · chat"], 11, "#607669", 16, 400, "middle")
-    box(528, 665, 172, 100, "#f6f9fb", "#a8bac7", 12)
-    label(614, 697, "Map tiles", 14, 700, "#3b586b", "middle")
-    lines(614, 720, ["OpenStreetMap", "client direct"], 11, "#637987", 16, 400, "middle")
-    # Spring Boot is the central hub, like the central processing node in the reference.
-    emit(f'<polygon points="{gear_points(880, 445, 116, 103)}" fill="#dbe8f0" stroke="#345f7c" stroke-width="3"/>')
-    emit('<circle cx="880" cy="445" r="86" fill="#ffffff" stroke="#345f7c" stroke-width="3"/>')
-    label(880, 420, "Spring Boot API", 19, 700, "#23445c", "middle")
+    box(350, 625, 165, 135, "#ffffff", "#dce6ee", 18, 1)
+    emit('<rect x="414" y="644" width="36" height="27" rx="5" fill="#eaf2ff" stroke="#7da0c4" stroke-width="2"/>')
+    emit('<path d="M414 652h36M414 661h36" stroke="#7da0c4" stroke-width="2"/>')
+    label(432, 700, "Local state", 14, 700, "#264563", "middle")
+    lines(432, 724, ["Session · favorites", "Alerts · chat cache"], 11, "#667b90", 16, 400, "middle")
+
+    box(530, 625, 170, 135, "#ffffff", "#dce6ee", 18, 1)
+    emit('<path d="M585 650l14-6 14 6 14-6v28l-14 6-14-6-14 6zM599 644v28M613 650v28" fill="none" stroke="#4777ad" stroke-width="2.2" stroke-linejoin="round"/>')
+    label(615, 700, "Map tiles", 14, 700, "#264563", "middle")
+    lines(615, 724, ["OpenStreetMap", "client direct"], 11, "#667b90", 16, 400, "middle")
+
+    # Central API card.
+    box(760, 280, 305, 285, "#ffffff", "#dcd7f2", 20, 1)
+    emit('<circle cx="912" cy="345" r="42" fill="#6d5bc7"/>')
+    emit(f'<polygon points="{gear_points(912, 345, 28, 23)}" fill="#ffffff"/>')
+    emit('<circle cx="912" cy="345" r="9" fill="#6d5bc7"/>')
+    label(912, 420, "Spring Boot API", 20, 700, "#2b2854", "middle")
     lines(
-        880,
-        444,
-        [
-            "Verified roles and ownership",
-            "Controllers and services",
-            "Partner / provider data",
-            "Mock checkout",
-        ],
-        12,
-        "#536b7b",
-        19,
+        912,
+        454,
+        ["Auth · roles · ownership", "Partner + provider data", "Simulated checkout"],
+        13,
+        "#615d7e",
+        23,
         400,
         "middle",
     )
 
-    # Provider labels and small circular icons.
+    # Provider cards use consistent semantic icons rather than initials or logos.
     providers = [
-        ("Duffel", "Flights · search only", "plane", "DATA"),
-        ("LiteAPI", "Hotels · rates only", "bed", "DATA"),
+        ("Duffel", "Flights · search only", "plane", None),
+        ("LiteAPI", "Hotels · rates only", "bed", None),
         ("OpenTripMap", "Tourist places", "landmark", None),
         ("Geoapify", "Geocoding · airports", "pin", None),
         ("SerpAPI", "Nearby · maps", "map", None),
@@ -231,32 +237,32 @@ def make_svg() -> str:
         ("Optional", "Google Places off · airport import", "plus", "OPTIONAL"),
     ]
     for index, item in enumerate(providers):
-        provider(164 + index * 78, *item)
+        provider(220 + index * 72, *item)
 
-    # Supabase PostgreSQL is backend-only. Use a cylinder, with the main API above it.
-    emit('<ellipse cx="880" cy="680" rx="180" ry="18" fill="#edf7f6" stroke="#588986" stroke-width="2"/>')
-    emit('<path d="M700 680v144c0 11 81 20 180 20s180-9 180-20V680" fill="#edf7f6" stroke="#588986" stroke-width="2"/>')
-    emit('<ellipse cx="880" cy="824" rx="180" ry="20" fill="#edf7f6" stroke="#588986" stroke-width="2"/>')
-    label(880, 708, "Supabase PostgreSQL", 17, 700, "#285553", "middle")
-    label(880, 731, "Users · partners · listings", 12, 400, "#426c6a", "middle")
-    label(880, 749, "Trips · bookings · transfers", 12, 400, "#426c6a", "middle")
-    label(880, 767, "Offers · seats · payments", 12, 400, "#426c6a", "middle")
-    label(880, 785, "Landmarks · visits · AI chat", 12, 400, "#426c6a", "middle")
-    label(880, 803, "Profiles · preferences · reviews", 12, 400, "#426c6a", "middle")
+    # Backend-only Supabase storage.
+    emit('<ellipse cx="912" cy="650" rx="152" ry="16" fill="#e8f6f4" stroke="#65aaa4" stroke-width="2"/>')
+    emit('<path d="M760 650v140c0 9 68 16 152 16s152-7 152-16V650" fill="#e8f6f4" stroke="#65aaa4" stroke-width="2"/>')
+    emit('<ellipse cx="912" cy="790" rx="152" ry="16" fill="#e8f6f4" stroke="#65aaa4" stroke-width="2"/>')
+    label(912, 678, "Supabase PostgreSQL", 17, 700, "#286e69", "middle")
+    label(912, 701, "Users · partners · listings", 12, 400, "#4e7774", "middle")
+    label(912, 719, "Trips · bookings · transfers", 12, 400, "#4e7774", "middle")
+    label(912, 737, "Offers · seats · payments", 12, 400, "#4e7774", "middle")
+    label(912, 755, "Landmarks · visits · AI chat", 12, 400, "#4e7774", "middle")
+    label(912, 773, "Profiles · preferences · reviews", 12, 400, "#4e7774", "middle")
 
-    # Scope and trust boundaries, deliberately placed in the figure footer.
-    box(70, 852, 1660, 35, "#f8fafb", "#dce4e8", 7, 1)
-    label(90, 874, "Flutter → API → database", 11, 600, "#4c6575")
-    label(565, 874, "Duffel / LiteAPI: data only", 11, 600, "#806631")
-    label(1010, 874, "Checkout: simulated", 11, 600, "#806631")
-    label(880, 951, "Figure 4.6: Zentrip System Architecture", 18, 600, "#405b6c", "middle")
+    # Short scope notes.
+    box(62, 866, 1676, 46, "#ffffff", "#dce4ee", 14, 1)
+    label(96, 895, "Flutter → API → DB", 12, 700, "#3e658d")
+    label(630, 895, "Duffel / LiteAPI: data only", 12, 700, "#3b8a88")
+    label(1202, 895, "Checkout: simulated", 12, 700, "#6d5bc7")
+    label(912, 952, "Zentrip System Architecture", 18, 700, "#263c58", "middle")
     label(
-        880,
+        912,
         975,
         "Live APIs unverified · production RLS needs verification · push disabled",
         11,
         400,
-        "#6d7f8b",
+        "#6b7d91",
         "middle",
     )
     emit("</svg>")
@@ -272,9 +278,9 @@ def make_html(svg: str) -> str:
   <title>Zentrip System Architecture</title>
   <style>
     * {{ box-sizing: border-box; }}
-    body {{ margin: 0; padding: 18px; background: #eef2f4; font-family: Arial, Helvetica, sans-serif; }}
+    body {{ margin: 0; padding: 18px; background: #f1f5fa; font-family: Arial, Helvetica, sans-serif; }}
     main {{ max-width: 1800px; margin: auto; }}
-    .figure {{ overflow: auto; background: white; border: 1px solid #d8e0e5; border-radius: 10px; }}
+    .figure {{ overflow: auto; background: #f1f5fa; border: 1px solid #dce4ee; border-radius: 16px; }}
     svg {{ display: block; width: 100%; height: auto; min-width: 1200px; }}
     @media (max-width: 760px) {{ body {{ padding: 6px; }} svg {{ min-width: 1500px; }} }}
     @media print {{ body {{ padding: 0; background: white; }} .figure {{ overflow: visible; border: 0; }} svg {{ min-width: 0; width: 100%; }} }}
