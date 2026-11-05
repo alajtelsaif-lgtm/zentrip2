@@ -5,15 +5,17 @@ from __future__ import annotations
 
 import html
 import json
+import re
 import shutil
 import subprocess
+import tempfile
+import urllib.parse
 import zipfile
+from shutil import copyfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "generated-artifacts"
-WIDTH = 2200
-HEIGHT = 1120
 WORD_PATH = OUT / "ZenTrip-Activity-Diagram-Integrated.docx"
 
 COLORS = {
@@ -80,7 +82,7 @@ def page(ident, title, subtitle, lanes, nodes, edges, note):
     }
 
 
-PAGES = [
+LEGACY_PAGES = [
     page(
         "01-access",
         "1 · Entry, Roles & App Navigation",
@@ -403,30 +405,111 @@ PAGES = [
     ),
 ]
 
+from zentrip_activity_diagram_model import DEVIATIONS, FLOW_STEPS, PAGES
+
 
 def validate_pages():
+    page_ids = [p["id"] for p in PAGES]
+    if len(page_ids) != len(set(page_ids)):
+        raise ValueError("Diagram page IDs must be unique.")
+
+    connector_occurrences = {}
+    nodes_by_key = {}
+    local_edges = []
+    starts = []
+    ends = []
+
     for p in PAGES:
-        ids = [n["id"] for n in p["nodes"]]
-        if len(ids) != len(set(ids)):
-            raise ValueError(f"{p['id']}: duplicate node id")
-        for n in p["nodes"]:
-            half_w = n["w"] / 2
-            half_h = n["h"] / 2
-            if n["x"] - half_w < 0 or n["x"] + half_w > WIDTH:
-                raise ValueError(f"{p['id']}: node {n['id']} exceeds diagram width")
-            if n["y"] - half_h < 90 or n["y"] + half_h > HEIGHT - 45:
-                raise ValueError(f"{p['id']}: node {n['id']} exceeds diagram height")
-        for i, a in enumerate(p["nodes"]):
-            for b in p["nodes"][i+1:]:
-                gap = 2
-                if (
-                    abs(a["x"] - b["x"]) < (a["w"] + b["w"]) / 2 - gap
-                    and abs(a["y"] - b["y"]) < (a["h"] + b["h"]) / 2 - gap
-                ):
-                    raise ValueError(f"{p['id']}: nodes {a['id']} and {b['id']} overlap")
-        for e in p["edges"]:
-            if any(x < 0 or x > WIDTH or y < 0 or y > HEIGHT for x, y in e["points"]):
-                raise ValueError(f"{p['id']}: connector {e['id']} exceeds canvas bounds")
+        node_ids = [item["id"] for item in p["nodes"]]
+        if len(node_ids) != len(set(node_ids)):
+            raise ValueError(f"{p['id']}: duplicate node ID")
+        known = set(node_ids)
+        for item in p["nodes"]:
+            key = f"{p['id']}:{item['id']}"
+            nodes_by_key[key] = (p, item)
+            if item["shape"] == "start":
+                starts.append(key)
+            elif item["shape"] == "end":
+                ends.append(key)
+            if item["shape"] == "connector":
+                connector_occurrences.setdefault(item["connector"], []).append(
+                    (p["id"], item["id"], item["connector_role"])
+                )
+        for link in p["edges"]:
+            if link["from"] not in known or link["to"] not in known:
+                raise ValueError(
+                    f"{p['id']}: edge {link['from']} → {link['to']} references a missing node"
+                )
+            local_edges.append(
+                (f"{p['id']}:{link['from']}", f"{p['id']}:{link['to']}", link)
+            )
+        for item in p["nodes"]:
+            if item["shape"] == "decision":
+                labels = {
+                    link["label"]
+                    for link in p["edges"]
+                    if link["from"] == item["id"]
+                }
+                expected = set(item["branches"])
+                if labels != expected:
+                    raise ValueError(
+                        f"{p['id']}:{item['id']}: branches {sorted(labels)} "
+                        f"do not match {sorted(expected)}"
+                    )
+
+    if len(starts) != 1 or len(ends) != 1:
+        raise ValueError(
+            f"Expected exactly one Start and one End; found {len(starts)} and {len(ends)}."
+        )
+
+    virtual_edges = []
+    for label, occurrences in connector_occurrences.items():
+        if len(occurrences) != 2:
+            raise ValueError(
+                f"Connector {label} must appear on exactly two pages; found {occurrences}."
+            )
+        exits = [item for item in occurrences if item[2] == "exit"]
+        entries = [item for item in occurrences if item[2] == "entry"]
+        if len(exits) != 1 or len(entries) != 1:
+            raise ValueError(
+                f"Connector {label} must link one exit to one entry; found {occurrences}."
+            )
+        virtual_edges.append(
+            (
+                f"{exits[0][0]}:{exits[0][1]}",
+                f"{entries[0][0]}:{entries[0][1]}",
+                {"label": f"Off-page {label}", "kind": "connector"},
+            )
+        )
+
+    incoming = {key: 0 for key in nodes_by_key}
+    outgoing = {key: 0 for key in nodes_by_key}
+    adjacency = {key: [] for key in nodes_by_key}
+    for source, target, _ in local_edges + virtual_edges:
+        outgoing[source] += 1
+        incoming[target] += 1
+        adjacency[source].append(target)
+
+    end_key = ends[0]
+    for key, (_, item) in nodes_by_key.items():
+        if item["shape"] != "start" and incoming[key] == 0:
+            raise ValueError(f"Dead-start node: {key}")
+        if item["shape"] != "end" and outgoing[key] == 0:
+            raise ValueError(f"Dead-end node: {key}")
+
+    reachable = set()
+    pending = [starts[0]]
+    while pending:
+        key = pending.pop()
+        if key in reachable:
+            continue
+        reachable.add(key)
+        pending.extend(adjacency[key])
+    unreachable = sorted(set(nodes_by_key) - reachable)
+    if unreachable:
+        raise ValueError(f"Nodes are not reachable from Start: {unreachable}")
+    if end_key not in reachable:
+        raise ValueError("The single End node is not reachable from Start.")
 
 
 def render_node(item):
@@ -511,31 +594,105 @@ def render_edge(item):
 
 
 def build_svg(p):
-    lane_markup = "".join(
-        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="22" fill="{COLORS[fill]}" stroke="#d9e4dd" stroke-width="2"/>'
-        f'<text x="{x+20}" y="{y+30}" class="lane">{html.escape(title)}</text>'
-        for x, y, w, h, fill, title in p["lanes"]
-    )
-    edge_markup = "".join(render_edge(e) for e in p["edges"])
-    node_markup = "".join(render_node(n) for n in p["nodes"])
-    return f'''<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" role="img" aria-labelledby="title desc">
-<title id="title">{html.escape(p["title"])}</title>
-<desc id="desc">{html.escape(p["subtitle"])} {html.escape(p["note"])}</desc>
-<defs>
- <marker id="arrow-main" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10Z" fill="{COLORS["line"]}"/></marker>
- <marker id="arrow-api" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10Z" fill="{COLORS["api_line"]}"/></marker>
- <marker id="arrow-error" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10Z" fill="{COLORS["error_line"]}"/></marker>
- <style>text{{font-family:Arial,Helvetica,sans-serif}}.title{{font-size:30px;font-weight:700;fill:{COLORS["ink"]}}}.subtitle{{font-size:18px;fill:{COLORS["muted"]}}}.lane{{font-size:17px;font-weight:700;letter-spacing:.04em;fill:#456258}}.note{{font-size:16px;fill:{COLORS["muted"]}}}</style>
-</defs>
-<rect width="100%" height="100%" fill="#fff"/>
-<text x="42" y="44" class="title">{html.escape(p["title"])}</text>
-<text x="42" y="77" class="subtitle">{html.escape(p["subtitle"])}</text>
-{lane_markup}
-<g id="edges">{edge_markup}</g>
-<g id="nodes">{node_markup}</g>
-<text x="48" y="1085" class="note">{html.escape(p["note"])}</text>
-</svg>'''
+    chromium = shutil.which("chromium") or "/repl/tools/bin/chromium"
+    if not Path(chromium).exists():
+        raise RuntimeError("Chromium is required to render the activity diagrams.")
+    bundle_path = ROOT / "node_modules" / "mermaid" / "dist" / "mermaid.min.js"
+    bundle = bundle_path.read_text(encoding="utf-8")
+    source = json.dumps(mermaid_source(p))
+    document = f"""<!doctype html><html><head><meta charset="utf-8"></head><body>
+<div id="diagram"></div><script>{bundle}</script><script>
+(async()=>{{
+  mermaid.initialize({{startOnLoad:false,securityLevel:'strict',theme:'base',
+    flowchart:{{htmlLabels:false,nodeSpacing:42,rankSpacing:58,curve:'linear'}},
+    themeVariables:{{fontFamily:'Arial,Helvetica,sans-serif',fontSize:'18px',
+      primaryColor:'#f9fcf9',primaryTextColor:'#263a33',primaryBorderColor:'#8eac99',
+      lineColor:'#839d8e',secondaryColor:'#fbfaff',tertiaryColor:'#eef4f9'}}}});
+  const result=await mermaid.render('diagram-render', {source});
+  document.documentElement.setAttribute('data-zentrip-svg', encodeURIComponent(result.svg));
+}})();
+</script></body></html>"""
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".html", encoding="utf-8", delete=False
+        ) as temp_file:
+            temp_file.write(document)
+            temp_path = Path(temp_file.name)
+        result = subprocess.run(
+            [
+                chromium,
+                "--headless",
+                "--no-sandbox",
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--virtual-time-budget=10000",
+                "--dump-dom",
+                temp_path.as_uri(),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=True,
+        )
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+    match = re.search(r'data-zentrip-svg="([^"]+)"', result.stdout)
+    if not match:
+        raise RuntimeError(
+            f"Mermaid did not render {p['id']}: {result.stderr[-2000:]}"
+        )
+    svg = urllib.parse.unquote(match.group(1))
+    root_match = re.search(r"<svg\b[^>]*>", svg, flags=re.DOTALL)
+    if not root_match:
+        raise RuntimeError(f"Mermaid returned invalid SVG for {p['id']}.")
+    view_box = re.search(r'\bviewBox="([^"]+)"', root_match.group(0))
+    if not view_box:
+        raise RuntimeError(f"Rendered SVG for {p['id']} has no viewBox.")
+    _, _, width, height = map(float, view_box.group(1).replace(",", " ").split())
+    root_tag = re.sub(r'\s(?:width|height)="[^"]*"', "", root_match.group(0))
+    root_tag = root_tag[:-1] + f' width="{width:g}" height="{height:g}">'
+    svg = svg[:root_match.start()] + root_tag + svg[root_match.end():]
+    p["render_width"] = width
+    p["render_height"] = height
+    return svg
+
+
+def render_png(svg, output_path, width, height, scale=2):
+    chromium = shutil.which("chromium") or "/repl/tools/bin/chromium"
+    page = f"""<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{{margin:0;padding:0;width:{width}px;height:{height}px;overflow:hidden;background:#fff}}
+svg{{display:block;width:{width}px;height:{height}px;max-width:none}}
+</style></head><body>{svg}</body></html>"""
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".html", encoding="utf-8", delete=False
+        ) as temp_file:
+            temp_file.write(page)
+            temp_path = Path(temp_file.name)
+        subprocess.run(
+            [
+                chromium,
+                "--headless",
+                "--no-sandbox",
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--hide-scrollbars",
+                "--force-device-scale-factor=" + str(scale),
+                f"--window-size={width},{height}",
+                f"--screenshot={output_path}",
+                temp_path.as_uri(),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=True,
+        )
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def mermaid_source(p):
@@ -701,6 +858,72 @@ def mermaid_source(p):
     return "\n".join(lines)
 
 
+def mermaid_source(p):
+    lines = [
+        "flowchart " + p.get("direction", "LR"),
+        f"%% {p['title']}",
+    ]
+    ids = {
+        item["id"]: ("flowEnd" if item["id"] == "end" else item["id"])
+        for item in p["nodes"]
+    }
+    class_groups = {}
+    for item in p["nodes"]:
+        ident = ids[item["id"]]
+        label = item["label"].replace('"', "&quot;").replace("\n", "<br/>")
+        shape = item["shape"]
+        if shape == "start":
+            declaration = f'{ident}(("{label}"))'
+        elif shape == "end":
+            declaration = f'{ident}((("{label}")))'
+        elif shape == "decision":
+            declaration = f'{ident}{{"{label}"}}'
+        elif shape in {"merge", "connector"}:
+            declaration = f'{ident}(("{label}"))'
+        elif shape in {"fork", "join"}:
+            declaration = f'{ident}["┃"]'
+        else:
+            declaration = f'{ident}["{label}"]'
+        lines.append(f"  {declaration}")
+        group = (
+            "system" if item["kind"] == "decision"
+            else "finish" if item["shape"] == "end"
+            else item["kind"]
+        )
+        if group in {
+            "user", "system", "api", "success", "error", "start", "finish",
+            "connector", "fork", "join", "merge",
+        }:
+            class_groups.setdefault(group, []).append(ident)
+
+    for link in p["edges"]:
+        source, target, label = ids[link["from"]], ids[link["to"]], link["label"]
+        if link["kind"] == "api":
+            connector = f"{source} ==>|{label}| {target}" if label else f"{source} ==> {target}"
+        elif link["kind"] == "error":
+            connector = f"{source} -.->|{label}| {target}" if label else f"{source} -.-> {target}"
+        else:
+            connector = f"{source} -->|{label}| {target}" if label else f"{source} --> {target}"
+        lines.append(f"  {connector}")
+
+    lines.extend([
+        "  classDef user fill:#f9fcf9,stroke:#8eac99,color:#263a33,stroke-width:2px",
+        "  classDef system fill:#fbfaff,stroke:#a89cbe,color:#263a33,stroke-width:2px",
+        "  classDef api fill:#f9fcff,stroke:#91acc0,color:#263a33,stroke-width:2px",
+        "  classDef success fill:#edf5fa,stroke:#668ba5,color:#263a33,stroke-width:2px",
+        "  classDef error fill:#fff9f6,stroke:#d49a88,color:#263a33,stroke-width:2px",
+        "  classDef start fill:#d9eee3,stroke:#75a48b,color:#263a33,stroke-width:2px",
+        "  classDef finish fill:#ffffff,stroke:#75a48b,color:#263a33,stroke-width:3px",
+        "  classDef connector fill:#ffffff,stroke:#456984,color:#263a33,stroke-width:2px",
+        "  classDef fork fill:#456258,stroke:#456258,color:#ffffff,stroke-width:2px",
+        "  classDef join fill:#456258,stroke:#456258,color:#ffffff,stroke-width:2px",
+        "  classDef merge fill:#ffffff,stroke:#91acc0,color:#263a33,stroke-width:2px",
+    ])
+    for group, ids in class_groups.items():
+        lines.append(f"  class {','.join(ids)} {group}")
+    return "\n".join(lines)
+
+
 def build_html(pages):
     mermaid_bundle_path = ROOT / "node_modules" / "mermaid" / "dist" / "mermaid.min.js"
     if not mermaid_bundle_path.exists():
@@ -709,11 +932,13 @@ def build_html(pages):
     mermaid_bundle = mermaid_bundle.replace("</script", "<\\/script").replace("</SCRIPT", "<\\/SCRIPT")
     page_payload = json.dumps([
         {
+            "id": p["id"],
             "title": p["title"],
             "subtitle": p["subtitle"],
             "note": p["note"],
             "source": mermaid_source(p),
             "fallback": f"zentrip-activity-{p['id']}.svg",
+            "clickTargets": p.get("click_targets", {}),
         }
         for p in pages
     ]).replace("</", "<\\/")
@@ -759,32 +984,18 @@ __MERMAID_BUNDLE__
 <details class="source-panel"><summary>Editable Mermaid source</summary>
 <div class="source-layout"><textarea id="source" spellcheck="false" aria-label="Editable Mermaid diagram source"></textarea><div><button id="render" type="button">Render changes</button><p>Edits update the current preview as you type.</p></div></div>
 </details>
-<section class="notes"><h2>Verification checklist</h2><ol>
-<li>Session restore / sign-in / account creation and verified role routing.</li>
-<li>Search travel products and resolve airport or destination input.</li>
-<li>Fetch and normalize provider data; handle warnings, empty results, and retries.</li>
-<li>Select a flight, hotel, attraction, car, transfer, or package.</li>
-<li>Check schedule conflicts; partner flights additionally reserve seats.</li>
-<li>Run simulated checkout where the product has a fee; free attractions skip payment.</li>
-<li>Persist success through the existing trip, booking, or transfer endpoints.</li>
-<li>Show current-user items in My Trips; cancellation and completion follow existing rules.</li>
-</ol><div class="legend"><span>● Start</span><span>◎ End</span><span>Rounded box: action</span><span>◇ Decision</span><span>○ M: merge</span><span>Solid arrow: normal flow</span><span>Dashed arrow: failure or limitation</span></div></section>
-<section class="notes"><h2>Deviations / assumptions</h2><ul>
-<li>The actual project is Flutter + Spring Boot, not Node/Express; this is a separate diagram viewer and does not replace the app stack.</li>
-<li>Flight, hotel, car, and attraction checkout uses Zentrip's simulated payment. The diagram does not claim supplier ticketing or payment.</li>
-<li>LiteAPI is hotel search data only. The hotel schedule check is not a provider room-availability recheck.</li>
-<li>Flight, hotel, car, attraction, and package records use existing endpoints. Transfers are stored separately.</li>
-<li>The code does not implement a multi-item itinerary with parallel flight/hotel/activity booking, booking email/notification, or a server-side transfer-cancellation endpoint.</li>
-<li>No separate app-wide admin settings endpoint was found. Admin controls shown are the routes present in the current backend.</li>
-</ul><p id="page-note"></p></section>
+<section class="notes"><h2>Numbered flow description</h2><ol>__FLOW_STEPS__</ol>
+<h2>Legend</h2><div class="legend"><span>● Start</span><span>◎ End / sign out</span><span>Rounded box: action</span><span>◇ Decision with labeled branches</span><span>○ M: merge</span><span>┃ Fork / join bar: concurrent calls</span><span>Circle letter: paired off-page connector</span><span>Solid arrow: normal flow</span><span>Blue arrow: API</span><span>Dashed red arrow: failure / limitation</span></div></section>
+<section class="notes"><h2>Fixes applied</h2><ul>__FIXES__</ul></section>
+<section class="notes"><h2>Deviations / assumptions</h2><ul>__DEVIATIONS__</ul><p id="page-note"></p></section>
 <script>
 const pages=__PAGE_DATA__;
 const frame=document.getElementById('frame'),diagram=document.getElementById('diagram'),editor=document.getElementById('source');
 const statusEl=document.getElementById('status');let active=0,scale=1,x=0,y=0,drag=false,sx=0,sy=0,renderId=0,debounce;
-if(typeof mermaid!=='undefined')mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:'base',themeVariables:{fontFamily:'Arial, sans-serif',primaryColor:'#f9fcf9',primaryTextColor:'#263a33',primaryBorderColor:'#8eac99',lineColor:'#839d8e',secondaryColor:'#fbfaff',tertiaryColor:'#eef4f9'}});
+if(typeof mermaid!=='undefined')mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:'base',flowchart:{htmlLabels:false,nodeSpacing:42,rankSpacing:58,curve:'linear'},themeVariables:{fontFamily:'Arial, sans-serif',fontSize:'18px',primaryColor:'#f9fcf9',primaryTextColor:'#263a33',primaryBorderColor:'#8eac99',lineColor:'#839d8e',secondaryColor:'#fbfaff',tertiaryColor:'#eef4f9'}});
 function apply(){diagram.style.transform=`translate(${x}px,${y}px) scale(${scale})`}
 function fit(){const svg=diagram.querySelector('svg');if(!svg)return;const vb=svg.viewBox.baseVal;const bounds=svg.getBBox();const w=Math.max(vb.width,bounds.width),h=Math.max(vb.height,bounds.height);const r=frame.getBoundingClientRect();scale=Math.min((r.width-24)/w,(r.height-24)/h);x=(r.width-w*scale)/2-bounds.x*scale;y=(r.height-h*scale)/2-bounds.y*scale;apply()}
-async function renderSource(){statusEl.textContent='Rendering diagram…';try{if(typeof mermaid==='undefined')throw new Error('Mermaid could not load. Connect to the internet and reload.');const id=`zentrip-flow-${++renderId}`;const result=await mermaid.render(id,editor.value);diagram.innerHTML=result.svg;const svg=diagram.querySelector('svg');const vb=svg.viewBox.baseVal;svg.setAttribute('width',vb.width);svg.setAttribute('height',vb.height);svg.style.width=`${vb.width}px`;svg.style.height=`${vb.height}px`;if(result.bindFunctions)result.bindFunctions(diagram);statusEl.textContent='Diagram rendered.';fit()}catch(error){statusEl.textContent=`Diagram error: ${error.message}`}}
+async function renderSource(){statusEl.textContent='Rendering diagram…';try{if(typeof mermaid==='undefined')throw new Error('Mermaid could not load. Connect to the internet and reload.');const id=`zentrip-flow-${++renderId}`;const result=await mermaid.render(id,editor.value);diagram.innerHTML=result.svg;const svg=diagram.querySelector('svg');const vb=svg.viewBox.baseVal;svg.setAttribute('width',vb.width);svg.setAttribute('height',vb.height);svg.style.width=`${vb.width}px`;svg.style.height=`${vb.height}px`;if(result.bindFunctions)result.bindFunctions(diagram);const links=pages[active].clickTargets||{};for(const [nodeId,targetId] of Object.entries(links)){const target=pages.findIndex(page=>page.id===targetId);for(const el of svg.querySelectorAll(`[id^="flowchart-${nodeId}-"]`)){el.style.cursor='pointer';el.addEventListener('click',()=>{if(target>=0)showPage(target)})}}statusEl.textContent='Diagram rendered. Select a module block in the master overview to open its section.';fit()}catch(error){statusEl.textContent=`Diagram error: ${error.message}`}}
 function showPage(i){active=i;editor.value=pages[i].source;document.getElementById('page-note').textContent=pages[i].subtitle+' '+pages[i].note;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',Number(b.dataset.page)===i));clearTimeout(debounce);renderSource()}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>showPage(Number(b.dataset.page)));
 editor.addEventListener('input',()=>{clearTimeout(debounce);debounce=setTimeout(renderSource,450)});
@@ -801,10 +1012,28 @@ document.getElementById('download-svg').onclick=()=>{const svg=currentSvg();if(!
 document.getElementById('download-png').onclick=()=>{const svg=currentSvg();if(!svg)return;const clone=svg.cloneNode(true),vb=svg.viewBox.baseVal,w=Math.ceil(vb.width*3),h=Math.ceil(vb.height*3);clone.setAttribute('width',w);clone.setAttribute('height',h);const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);canvas.toBlob(png=>{const a=document.createElement('a');a.href=URL.createObjectURL(png);a.download=`zentrip-page-${active+1}.png`;a.click();URL.revokeObjectURL(a.href);URL.revokeObjectURL(url)},'image/png')};img.onerror=()=>{statusEl.textContent='PNG export failed for this diagram.';URL.revokeObjectURL(url)};img.src=url};
  const requestedPage=Number(new URLSearchParams(location.search).get('page')??0);showPage(Number.isInteger(requestedPage)&&requestedPage>=0&&requestedPage<pages.length?requestedPage:0);
 </script></body></html>"""
+    flow_steps = "".join(
+        f"<li>{html.escape(step)}</li>" for step in FLOW_STEPS
+    )
+    fixes = [
+        "Added the Section 0 master overview and one Start/End pair.",
+        "Linked all eight diagrams with validated, paired off-page connectors.",
+        "Added missing credential, provider, availability, booking, payment, retry, leave, and cancellation decisions.",
+        "Documented partner/Duffel and partner/LiteAPI concurrency, while preserving sequential AI history writes.",
+        "Used current API paths and preserved simulation, storage, and cancellation limitations.",
+        "Rendered each diagram to its own content-sized page and embedded the Word images inline.",
+    ]
+    fixes_html = "".join(f"<li>{html.escape(item)}</li>" for item in fixes)
+    deviations_html = "".join(
+        f"<li>{html.escape(item)}</li>" for item in DEVIATIONS
+    )
     return (
         template
         .replace("__PAGE_BUTTONS__", page_buttons)
         .replace("__PAGE_DATA__", page_payload)
+        .replace("__FLOW_STEPS__", flow_steps)
+        .replace("__FIXES__", fixes_html)
+        .replace("__DEVIATIONS__", deviations_html)
         .replace("__MERMAID_BUNDLE__", f"<script>{mermaid_bundle}</script>")
     )
 
@@ -881,32 +1110,46 @@ def build_docx_legacy(pages, svgs, pngs):
 def main():
     validate_pages()
     OUT.mkdir(parents=True, exist_ok=True)
-    magick = shutil.which("magick")
-    if not magick:
-        raise RuntimeError("ImageMagick is required to render the diagram PNG exports.")
+    manifest = []
     for p in PAGES:
         svg = build_svg(p)
         svg_path = OUT / f"zentrip-activity-{p['id']}.svg"
         png_path = OUT / f"zentrip-activity-{p['id']}.png"
         word_png_path = OUT / f"zentrip-activity-{p['id']}-word.png"
+        source_path = OUT / f"zentrip-activity-{p['id']}.mmd"
         svg_path.write_text(svg, encoding="utf-8")
-        subprocess.run(
-            [magick, "-background", "white", "-density", "120", str(svg_path),
-             "-resize", f"{WIDTH}x{HEIGHT}!", str(png_path)],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            timeout=90,
-        )
-        subprocess.run(
-            [magick, "-background", "white", "-density", "240", str(svg_path),
-             "-resize", f"{WIDTH*2}x{HEIGHT*2}!", str(word_png_path)],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            timeout=120,
-        )
+        source_path.write_text(mermaid_source(p), encoding="utf-8")
+        width = round(p["render_width"])
+        height = round(p["render_height"])
+        render_png(svg, word_png_path, width, height, scale=2)
+        copyfile(word_png_path, png_path)
+        manifest.append({
+            "id": p["id"],
+            "title": p["title"],
+            "subtitle": p["subtitle"],
+            "note": p["note"],
+            "width": width,
+            "height": height,
+            "image": word_png_path.name,
+        })
         print(f"Generated {svg_path.relative_to(ROOT)}")
+    manifest_path = OUT / "zentrip-activity-manifest.json"
+    manifest_data = {
+        "pages": manifest,
+        "flowSteps": FLOW_STEPS,
+        "deviations": DEVIATIONS,
+        "fixes": [
+            "Added the Section 0 master overview and one Start/End pair.",
+            "Linked all eight diagrams with validated, paired off-page connectors.",
+            "Added missing credential, provider, availability, booking, payment, retry, leave, and cancellation decisions.",
+            "Documented provider-search and My Trips concurrency without implying a parallel multi-product itinerary.",
+            "Preserved simulated payment, existing persistence endpoints, and documented cancellation limits.",
+            "Rendered content-sized diagrams and embedded the Word images inline at 2× resolution.",
+        ],
+    }
+    manifest_path.write_text(
+        json.dumps(manifest_data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     html_path = OUT / "zentrip-activity-diagram.html"
     html_path.write_text(build_html(PAGES), encoding="utf-8")
     subprocess.run(
@@ -916,7 +1159,13 @@ def main():
     )
     print(f"Generated {html_path.relative_to(ROOT)}")
     print(f"Generated {WORD_PATH.relative_to(ROOT)}")
-    print(f"Pages: {len(PAGES)}; orthogonal connectors: {sum(len(p['edges']) for p in PAGES)}")
+    connector_count = sum(
+        1 for p in PAGES for item in p["nodes"] if item["shape"] == "connector"
+    ) // 2
+    print(
+        f"Pages: {len(PAGES)}; paired off-page connectors: {connector_count}; "
+        f"diagram edges: {sum(len(p['edges']) for p in PAGES)}"
+    )
 
 
 if __name__ == "__main__":
