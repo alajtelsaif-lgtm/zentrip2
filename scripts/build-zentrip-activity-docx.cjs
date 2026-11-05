@@ -195,7 +195,9 @@ async function main() {
     sections: [{
       properties: {
         page: {
-          size: { width: 16838, height: 11906, orientation: PageOrientation.LANDSCAPE },
+          // docx applies the landscape rotation to the supplied dimensions,
+          // so provide portrait-order dimensions to produce landscape OOXML.
+          size: { width: 11906, height: 16838, orientation: PageOrientation.LANDSCAPE },
           margin: { top: 420, right: 520, bottom: 420, left: 520 },
         },
       },
