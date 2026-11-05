@@ -20,7 +20,7 @@ const {
 
 const root = path.resolve(__dirname, "..");
 const outputDir = path.join(root, "generated-artifacts");
-const outputPath = path.join(outputDir, "ZenTrip-Activity-Diagram-Integrated.docx");
+const outputPath = path.join(outputDir, "ZenTrip-Activity-Diagram-Updated.docx");
 const manifest = JSON.parse(
   fs.readFileSync(path.join(outputDir, "zentrip-activity-manifest.json"), "utf8"),
 );
