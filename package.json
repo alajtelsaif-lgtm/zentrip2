@@ -1,0 +1,14 @@
+{
+  "name": "zentrip-diagram-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build and export the Zentrip activity diagram.",
+  "scripts": {
+    "build:activity-diagram": "python3 scripts/build-zentrip-activity-diagram.py"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "docx": "^9.15.2",
+    "mermaid": "^12.3.0"
+  }
+}

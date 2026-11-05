@@ -196,14 +196,14 @@ PAGES = [
             node("partner-paid", 1075, 290, 150, 120, "Payment\nsuccessful?", "decision", "diamond", 18),
             node("partner-confirm", 1350, 290, 260, 96, "POST /api/bookings/confirm\nconfirm seats + save trip", "success", font=17),
             node("partner-mytrips", 1785, 290, 260, 96, "Trip appears in\nMy Trips", "user", font=18),
-            node("partner-fail", 1075, 470, 330, 78, "Failure releases hold;\nreselect seats to retry", "error", font=17),
+            node("partner-fail", 1075, 470, 330, 78, "Failure releases hold;\nreturn to seat selection", "error", font=17),
             node("duffel-selected", 190, 735, 230, 96, "Selected Duffel\noffer", "user", font=18),
             node("duffel-no-hold", 485, 735, 240, 96, "No backend\nseat hold", "system", font=18),
             node("duffel-payment", 785, 735, 230, 96, "Simulated\ncheckout", "system", font=18),
             node("duffel-paid", 1075, 735, 150, 120, "Payment\nsuccessful?", "decision", "diamond", 18),
             node("duffel-create-trip", 1350, 735, 260, 96, "POST /api/trips\nis_simulated = true", "success", font=17),
             node("duffel-mytrips", 1785, 735, 260, 96, "Trip appears in My Trips\nno supplier ticket issued", "user", font=17),
-            node("duffel-fail", 1075, 930, 330, 78, "No trip saved; no hold\nRetry or leave checkout", "error", font=17),
+            node("duffel-fail", 1075, 930, 330, 78, "No trip saved; no hold\nRetry checkout", "error", font=17),
         ],
         [
             edge("partner-select-hold", [(305, 290), (365, 290)]),
@@ -307,6 +307,7 @@ PAGES = [
             edge("payment-success-decision", [(1560, 900), (1665, 900)]),
             edge("payment-success-save", [(1815, 900), (1915, 900), (1915, 805), (1920, 805)], "main", "Yes", (1850, 880)),
             edge("payment-fail", [(1740, 958), (1740, 1030), (1570, 1030)], "error", "No", (1760, 995)),
+            edge("payment-retry", [(1430, 995), (1430, 940)], "error", "Retry", (1450, 980)),
         ],
         "A free attraction skips payment. Paid-entry attractions use the simulated checkout and then create a Zentrip booking; place viewing alone only records a privacy-preserving visit count.",
     ),
@@ -392,8 +393,10 @@ PAGES = [
             edge("trips-fetch-data", [(635, 690), (720, 690)], "api"),
             edge("trips-data-display", [(1000, 690), (1105, 690)]),
             edge("trips-display-cancel", [(1335, 690), (1445, 690)]),
+            edge("trips-status-date", [(1220, 735), (1220, 840), (670, 840), (670, 900)], "main", "Date status", (930, 820)),
             edge("cancel-flight-path", [(1615, 690), (1700, 690), (1700, 590), (1670, 590)], "main", "Flight", (1655, 670)),
             edge("cancel-booking-path", [(1530, 754), (1530, 800), (1670, 800)], "main", "Other booking", (1600, 780)),
+            edge("cancel-transfer-gap", [(1530, 626), (1400, 626), (1400, 970), (1435, 970)], "error", "Transfer", (1435, 610)),
             edge("flight-refund-note", [(1820, 635), (1500, 635), (1500, 900), (1370, 900)], "error"),
         ],
         "The current Trips screen derives completed status from dates. Flight cancellation and other booking cancellation use separate endpoints. The flight refund state is pending review; the app does not call an airline to issue a refund.",
@@ -535,48 +538,269 @@ def build_svg(p):
 </svg>'''
 
 
-def build_html(pages, svgs):
-    payload = json.dumps(
-        [{"title": p["title"], "svg": svg} for p, svg in zip(pages, svgs)]
-    ).replace("</", "<\\/")
+def mermaid_source(p):
+    nodes = p["nodes"]
+    by_id = {item["id"]: item for item in nodes}
+
+    def nearest(point):
+        px, py = point
+        def distance(item):
+            dx = max(abs(px-item["x"]) - item["w"]/2, 0)
+            dy = max(abs(py-item["y"]) - item["h"]/2, 0)
+            return dx*dx + dy*dy
+        return min(nodes, key=distance)["id"]
+
+    linked = []
+    incoming = {item["id"]: 0 for item in nodes}
+    outgoing = {item["id"]: 0 for item in nodes}
+    for item in p["edges"]:
+        source, target = nearest(item["points"][0]), nearest(item["points"][-1])
+        linked.append((source, target, item))
+        outgoing[source] += 1
+        incoming[target] += 1
+
+    existing_start = [item["id"] for item in nodes if item["shape"] == "start"]
+    existing_end = [item["id"] for item in nodes if item["shape"] == "end"]
+    roots = existing_start or [ident for ident, count in incoming.items() if count == 0]
+    sinks = existing_end or [ident for ident, count in outgoing.items() if count == 0]
+
+    # The date-status and transfer-cancellation boxes are findings, not entry
+    # actions. Keep them on the My Trips path rather than treating them as roots.
+    if p["id"] == "07-ai-trips":
+        roots = ["ai-prompt", "trips-open"]
+        sinks = ["ai-local", "ai-server", "cancel-booking", "date-status", "refund-status", "transfer-cancel-gap"]
+
+    root_titles = {
+        "partner-selected": "Partner flight",
+        "duffel-selected": "Duffel flight",
+        "packages-search": "Packages",
+        "cars-search": "Cars",
+        "transfer-search": "Transfers",
+        "ai-prompt": "Zen AI",
+        "trips-open": "My Trips",
+    }
+    synthetic = []
+    if not existing_start:
+        synthetic.append(("flowStart", "User", "start", "Start"))
+        if len(roots) > 1:
+            synthetic.append(("flowChoice", "User", "decision", "Choose a flow"))
+    if not existing_end:
+        synthetic.append(("flowEnd", "ZenTrip App / System", "end", "End"))
+
+    def lane_for(item):
+        ident, kind = item["id"], item["kind"]
+        if ident == "flowEnd":
+            return "ZenTrip App / System"
+        if ident == "admin" or ident.startswith("admin-"):
+            return "Admin"
+        if ident == "partner" or ident == "partner-capabilities":
+            return "Partner"
+        if kind == "user" or item["shape"] in {"start", "end"}:
+            return "User"
+        if "payment" in ident or ident.endswith("-paid"):
+            return "Payment Gateway"
+        if ident in {
+            "partner-offers", "duffel-offers", "hotel-partner", "hotel-liteapi",
+            "place-geocode", "place-search", "ai-provider",
+        }:
+            return "Travel Providers"
+        return "ZenTrip App / System"
+
+    def label_text(lines):
+        return "<br/>".join(html.escape(line, quote=False).replace('"', "&quot;") for line in lines)
+
+    def declaration(ident, shape, label):
+        safe = label.replace('"', "&quot;")
+        if shape == "start":
+            return f'{ident}(({safe}))'
+        if shape == "end":
+            return f'{ident}((({safe})))'
+        if shape == "diamond":
+            return f'{ident}{{"{safe}"}}'
+        if shape == "merge":
+            return f'{ident}(("{safe}"))'
+        return f'{ident}["{safe}"]'
+
+    all_items = list(nodes)
+    for ident, lane, shape, label in synthetic:
+        all_items.append({
+            "id": ident,
+            "kind": "user" if lane == "User" else "system",
+            "shape": shape,
+            "label": [label],
+        })
+    groups = {}
+    for item in all_items:
+        groups.setdefault(lane_for(item), []).append(item)
+
+    lane_ids = {
+        "User": "userLane",
+        "ZenTrip App / System": "systemLane",
+        "Payment Gateway": "paymentLane",
+        "Travel Providers": "providerLane",
+        "Admin": "adminLane",
+        "Partner": "partnerLane",
+    }
+    lines = ["flowchart LR", f'%% {p["title"]}']
+    for lane in ("User", "ZenTrip App / System", "Payment Gateway", "Travel Providers", "Admin", "Partner"):
+        if lane not in groups:
+            continue
+        lines.append(f'  subgraph {lane_ids[lane]}["{lane}"]')
+        for item in groups[lane]:
+            lines.append(f'    {declaration(item["id"], item["shape"], label_text(item["label"]))}')
+        lines.append("  end")
+
+    if not existing_start:
+        if len(roots) > 1:
+            lines.append("  flowStart --> flowChoice")
+            for root in roots:
+                lines.append(f'  flowChoice -->|{root_titles.get(root, root)}| {root}')
+        elif roots:
+            lines.append(f"  flowStart --> {roots[0]}")
+
+    for source, target, item in linked:
+        label = item["label"]
+        if item["kind"] == "error":
+            connector = f"{source} -.->|{label or 'Error'}| {target}"
+        elif item["kind"] == "api":
+            connector = f"{source} ==>|{label}| {target}" if label else f"{source} ==> {target}"
+        else:
+            connector = f"{source} -->|{label}| {target}" if label else f"{source} --> {target}"
+        lines.append(f"  {connector}")
+
+    if not existing_end:
+        for sink in sinks:
+            if sink != "flowEnd":
+                lines.append(f"  {sink} --> flowEnd")
+    lines += [
+        "  classDef user fill:#f9fcf9,stroke:#8eac99,color:#263a33,stroke-width:2px",
+        "  classDef system fill:#fbfaff,stroke:#a89cbe,color:#263a33,stroke-width:2px",
+        "  classDef api fill:#f9fcff,stroke:#91acc0,color:#263a33,stroke-width:2px",
+        "  classDef success fill:#edf5fa,stroke:#668ba5,color:#263a33,stroke-width:2px",
+        "  classDef error fill:#fff9f6,stroke:#d49a88,color:#263a33,stroke-width:2px",
+        "  classDef start fill:#d9eee3,stroke:#75a48b,color:#263a33,stroke-width:3px",
+        "  classDef finish fill:#ffffff,stroke:#75a48b,color:#263a33,stroke-width:4px",
+    ]
+    class_groups = {"user": [], "system": [], "api": [], "success": [], "error": [], "start": [], "finish": []}
+    for item in all_items:
+        shape, kind, ident = item["shape"], item["kind"], item["id"]
+        if shape == "start":
+            group = "start"
+        elif shape == "end":
+            group = "finish"
+        elif kind in class_groups:
+            group = kind
+        elif kind == "decision":
+            group = "system"
+        else:
+            group = "system"
+        class_groups[group].append(ident)
+    for group, ids in class_groups.items():
+        if ids:
+            lines.append(f"  class {','.join(ids)} {group}")
+    return "\n".join(lines)
+
+
+def build_html(pages):
+    page_payload = json.dumps([
+        {
+            "title": p["title"],
+            "subtitle": p["subtitle"],
+            "note": p["note"],
+            "source": mermaid_source(p),
+            "fallback": f"zentrip-activity-{p['id']}.svg",
+        }
+        for p in pages
+    ]).replace("</", "<\\/")
     page_buttons = "".join(
-        f'<button type="button" data-page="{i}">{i+1}. {html.escape(p["title"].split("·",1)[-1].strip())}</button>'
+        f'<button type="button" data-page="{i}" aria-label="Open diagram page {i+1}">{i+1}. {html.escape(p["title"].split("·",1)[-1].strip())}</button>'
         for i, p in enumerate(pages)
     )
-    return f'''<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ZenTrip · Verified Activity Flows</title>
+    return """<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZenTrip – Activity Diagram</title>
 <style>
-*{{box-sizing:border-box}}body{{margin:0;padding:18px;background:#f5f8f5;font-family:Arial,Helvetica,sans-serif;color:#263a33}}
-header,.pages,.frame,.note{{max-width:1500px;margin-left:auto;margin-right:auto}}header{{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}}
-h1{{font-size:25px;margin:0}}p{{color:#62756d}}.pages{{display:flex;gap:7px;overflow-x:auto;padding:10px 0}}
-button,a{{font:inherit;background:#fff;color:#263a33;border:1px solid #c9d8d0;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap}}
-button.active{{background:#e4eee7;border-color:#8eac99}}.controls{{display:flex;gap:7px}}
-.frame{{height:calc(100vh - 210px);min-height:450px;overflow:hidden;position:relative;background:#fff;border:1px solid #d9e4dd;border-radius:14px;touch-action:none;cursor:grab}}
-.frame.dragging{{cursor:grabbing}}#diagram{{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none}}
-#diagram svg{{display:block;max-width:none}}.note{{font-size:14px;margin-top:10px}}
-</style></head><body>
-<header><div><h1>ZenTrip · Verified Activity Flows</h1><p>Select a page, then zoom or drag to inspect it.</p></div>
-<div class="controls"><button id="out">−</button><button id="in">+</button><button id="fit">Fit</button><a id="download" download="zentrip-flow.svg">Download SVG</a></div></header>
-<nav class="pages" aria-label="Flow pages">{page_buttons}</nav>
-<main class="frame" id="frame"><div id="diagram"></div></main>
-<p class="note" id="page-note"></p>
+:root{color-scheme:light;--ink:#263a33;--muted:#62756d;--line:#d9e4dd;--surface:#fff;--page:#f5f8f5;--accent:#e4eee7}
+*{box-sizing:border-box}body{margin:0;padding:18px;background:var(--page);font-family:Arial,Helvetica,sans-serif;color:var(--ink)}
+header,.pages,.frame,.notes,.source-panel{max-width:1500px;margin-left:auto;margin-right:auto}
+header{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}
+h1{font-size:25px;margin:0}p{color:var(--muted)}.lede{margin:6px 0}
+.pages{display:flex;gap:7px;overflow-x:auto;padding:10px 0}
+button,a{font:inherit;background:#fff;color:var(--ink);border:1px solid #c9d8d0;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap;text-decoration:none}
+button:hover,a:hover{background:var(--accent)}button.active{background:var(--accent);border-color:#8eac99}
+.controls{display:flex;gap:7px;flex-wrap:wrap}
+.frame{height:calc(100vh - 325px);min-height:360px;max-height:850px;overflow:hidden;position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;touch-action:none;cursor:grab}
+.frame.dragging{cursor:grabbing}#diagram{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none}
+#diagram svg{display:block;max-width:none}#status{font-size:13px;min-height:20px;color:var(--muted)}
+.source-panel,.notes{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px}
+summary{font-weight:700;cursor:pointer}.source-layout{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;margin-top:10px}
+textarea{width:100%;min-height:250px;resize:vertical;font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;padding:12px;border:1px solid #c9d8d0;border-radius:8px;color:var(--ink)}
+.notes h2{font-size:18px;margin:4px 0}.notes ol,.notes ul{line-height:1.55}.legend{display:flex;gap:10px;flex-wrap:wrap}.legend span{background:#f7faf7;padding:6px 9px;border-radius:6px}
+@media(max-width:700px){body{padding:10px}.frame{height:54vh;min-height:320px}.source-layout{grid-template-columns:1fr}header{align-items:flex-start}.controls{width:100%}}
+@media print{.controls,.pages,.source-panel{display:none}.frame{height:auto;max-height:none;border:0}.notes{break-before:page}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@12.3.0/dist/mermaid.min.js"></script>
+</head><body>
+<header><div><h1>ZenTrip – Activity Diagram</h1><p class="lede">Verified against the Flutter app and Spring Boot backend. Select a page, zoom or drag to inspect it.</p></div>
+<div class="controls">
+<button id="zoom-out" type="button" aria-label="Zoom out">−</button><button id="zoom-in" type="button" aria-label="Zoom in">+</button><button id="fit" type="button">Fit</button>
+<button id="download-svg" type="button">Download SVG</button><button id="download-png" type="button">Download PNG</button>
+<a id="download-docx" href="ZenTrip-Activity-Diagram-Integrated.docx" download>Download as Word (.docx)</a>
+</div></header>
+<nav class="pages" aria-label="Diagram pages">__PAGE_BUTTONS__</nav>
+<main class="frame" id="frame" aria-label="Activity diagram preview"><div id="diagram"></div></main>
+<p id="status" role="status" aria-live="polite"></p>
+<details class="source-panel"><summary>Editable Mermaid source</summary>
+<div class="source-layout"><textarea id="source" spellcheck="false" aria-label="Editable Mermaid diagram source"></textarea><div><button id="render" type="button">Render changes</button><p>Edits update the current preview as you type.</p></div></div>
+</details>
+<section class="notes"><h2>Verification checklist</h2><ol>
+<li>Session restore / sign-in / account creation and verified role routing.</li>
+<li>Search travel products and resolve airport or destination input.</li>
+<li>Fetch and normalize provider data; handle warnings, empty results, and retries.</li>
+<li>Select a flight, hotel, attraction, car, transfer, or package.</li>
+<li>Check schedule conflicts; partner flights additionally reserve seats.</li>
+<li>Run simulated checkout where the product has a fee; free attractions skip payment.</li>
+<li>Persist success through the existing trip, booking, or transfer endpoints.</li>
+<li>Show current-user items in My Trips; cancellation and completion follow existing rules.</li>
+</ol><div class="legend"><span>● Start</span><span>◎ End</span><span>Rounded box: action</span><span>◇ Decision</span><span>○ M: merge</span><span>Solid arrow: normal flow</span><span>Dashed arrow: failure or limitation</span></div></section>
+<section class="notes"><h2>Deviations / assumptions</h2><ul>
+<li>The actual project is Flutter + Spring Boot, not Node/Express; this is a separate diagram viewer and does not replace the app stack.</li>
+<li>Flight, hotel, car, and attraction checkout uses Zentrip's simulated payment. The diagram does not claim supplier ticketing or payment.</li>
+<li>HotelLiteAPI is data-only. The hotel schedule check is not a provider room-availability recheck.</li>
+<li>Flight, hotel, car, attraction, and package records use existing endpoints. Transfers are stored separately.</li>
+<li>The code does not implement a multi-item itinerary with parallel flight/hotel/activity booking, booking email/notification, or a server-side transfer-cancellation endpoint.</li>
+<li>No separate app-wide admin settings endpoint was found. Admin controls shown are the routes present in the current backend.</li>
+</ul><p id="page-note"></p></section>
 <script>
-const pages={payload};let active=0,scale=1,x=0,y=0,drag=false,sx=0,sy=0;
-const frame=document.getElementById('frame'),diagram=document.getElementById('diagram');
-function apply(){{diagram.style.transform=`translate(${{x}}px,${{y}}px) scale(${{scale}})`}}
-function fit(){{const svg=diagram.querySelector('svg');if(!svg)return;const r=frame.getBoundingClientRect();scale=Math.min((r.width-24)/{WIDTH},(r.height-24)/{HEIGHT});x=(r.width-{WIDTH}*scale)/2;y=(r.height-{HEIGHT}*scale)/2;apply()}}
-function showPage(i){{active=i;diagram.innerHTML=pages[i].svg;document.getElementById('page-note').textContent=pages[i].title;document.getElementById('download').href='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(pages[i].svg);document.querySelectorAll('[data-page]').forEach((b)=>b.classList.toggle('active',Number(b.dataset.page)===i));fit()}}
+const pages=__PAGE_DATA__;
+const frame=document.getElementById('frame'),diagram=document.getElementById('diagram'),editor=document.getElementById('source');
+const statusEl=document.getElementById('status');let active=0,scale=1,x=0,y=0,drag=false,sx=0,sy=0,renderId=0,debounce;
+if(typeof mermaid!=='undefined')mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:'base',themeVariables:{fontFamily:'Arial, sans-serif',primaryColor:'#f9fcf9',primaryTextColor:'#263a33',primaryBorderColor:'#8eac99',lineColor:'#839d8e',secondaryColor:'#fbfaff',tertiaryColor:'#eef4f9'}});
+function apply(){diagram.style.transform=`translate(${x}px,${y}px) scale(${scale})`}
+function fit(){const svg=diagram.querySelector('svg');if(!svg)return;const vb=svg.viewBox.baseVal;const r=frame.getBoundingClientRect();scale=Math.min((r.width-24)/vb.width,(r.height-24)/vb.height);x=(r.width-vb.width*scale)/2;y=(r.height-vb.height*scale)/2;apply()}
+async function renderSource(){statusEl.textContent='Rendering diagram…';try{if(typeof mermaid==='undefined')throw new Error('Mermaid could not load. Connect to the internet and reload.');const id=`zentrip-flow-${++renderId}`;const result=await mermaid.render(id,editor.value);diagram.innerHTML=result.svg;if(result.bindFunctions)result.bindFunctions(diagram);statusEl.textContent='Diagram rendered.';fit()}catch(error){statusEl.textContent=`Diagram error: ${error.message}`}}
+function showPage(i){active=i;editor.value=pages[i].source;document.getElementById('page-note').textContent=pages[i].subtitle+' '+pages[i].note;document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',Number(b.dataset.page)===i));clearTimeout(debounce);renderSource()}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>showPage(Number(b.dataset.page)));
-document.getElementById('in').onclick=()=>{{scale=Math.min(3,scale*1.2);apply()}};
-document.getElementById('out').onclick=()=>{{scale=Math.max(.3,scale/1.2);apply()}};
+editor.addEventListener('input',()=>{clearTimeout(debounce);debounce=setTimeout(renderSource,450)});
+document.getElementById('render').onclick=renderSource;
+document.getElementById('zoom-in').onclick=()=>{scale=Math.min(3,scale*1.2);apply()};
+document.getElementById('zoom-out').onclick=()=>{scale=Math.max(.25,scale/1.2);apply()};
 document.getElementById('fit').onclick=fit;window.addEventListener('resize',fit);
-frame.addEventListener('wheel',e=>{{e.preventDefault();scale=Math.max(.3,Math.min(3,scale*(e.deltaY<0?1.1:1/1.1)));apply()}},{{passive:false}});
-frame.addEventListener('pointerdown',e=>{{drag=true;sx=e.clientX-x;sy=e.clientY-y;frame.classList.add('dragging');frame.setPointerCapture(e.pointerId)}});
-frame.addEventListener('pointermove',e=>{{if(drag){{x=e.clientX-sx;y=e.clientY-sy;apply()}}}});
-const stop=()=>{{drag=false;frame.classList.remove('dragging')}};frame.addEventListener('pointerup',stop);frame.addEventListener('pointercancel',stop);
+frame.addEventListener('wheel',e=>{e.preventDefault();scale=Math.max(.25,Math.min(3,scale*(e.deltaY<0?1.1:1/1.1)));apply()},{passive:false});
+frame.addEventListener('pointerdown',e=>{drag=true;sx=e.clientX-x;sy=e.clientY-y;frame.classList.add('dragging');frame.setPointerCapture(e.pointerId)});
+frame.addEventListener('pointermove',e=>{if(drag){x=e.clientX-sx;y=e.clientY-sy;apply()}});
+const stop=()=>{drag=false;frame.classList.remove('dragging')};frame.addEventListener('pointerup',stop);frame.addEventListener('pointercancel',stop);
+function currentSvg(){return diagram.querySelector('svg')}
+document.getElementById('download-svg').onclick=()=>{const svg=currentSvg();if(!svg)return;const blob=new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`zentrip-${pages[active].title.toLowerCase().replace(/[^a-z0-9]+/g,'-')}.svg`;a.click();URL.revokeObjectURL(a.href)};
+document.getElementById('download-png').onclick=()=>{const svg=currentSvg();if(!svg)return;const clone=svg.cloneNode(true),vb=svg.viewBox.baseVal,w=Math.ceil(vb.width*3),h=Math.ceil(vb.height*3);clone.setAttribute('width',w);clone.setAttribute('height',h);const blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);canvas.toBlob(png=>{const a=document.createElement('a');a.href=URL.createObjectURL(png);a.download=`zentrip-page-${active+1}.png`;a.click();URL.revokeObjectURL(a.href);URL.revokeObjectURL(url)},'image/png')};img.onerror=()=>{statusEl.textContent='PNG export failed for this diagram.';URL.revokeObjectURL(url)};img.src=url};
 showPage(0);
-</script></body></html>'''
+</script></body></html>"""
+    return (
+        template
+        .replace("__PAGE_BUTTONS__", page_buttons)
+        .replace("__PAGE_DATA__", page_payload)
+    )
 
 
 def word_run(text, size=22, bold=False, color=None):
@@ -594,7 +818,7 @@ def word_p(text, style=None, size=22, bold=False, color=None):
     return f"<w:p>{ppr}{word_run(text, size, bold, color)}</w:p>"
 
 
-def build_docx(pages, svgs, pngs):
+def build_docx_legacy(pages, svgs, pngs):
     image_width_in = 15.3
     image_height_in = image_width_in * HEIGHT / WIDTH
     cx, cy = round(image_width_in * 914400), round(image_height_in * 914400)
@@ -651,15 +875,14 @@ def build_docx(pages, svgs, pngs):
 def main():
     validate_pages()
     OUT.mkdir(parents=True, exist_ok=True)
-    svgs = []
-    pngs = []
     magick = shutil.which("magick")
     if not magick:
-        raise RuntimeError("ImageMagick is required to create the Word PNG fallbacks.")
+        raise RuntimeError("ImageMagick is required to render the diagram PNG exports.")
     for p in PAGES:
         svg = build_svg(p)
         svg_path = OUT / f"zentrip-activity-{p['id']}.svg"
         png_path = OUT / f"zentrip-activity-{p['id']}.png"
+        word_png_path = OUT / f"zentrip-activity-{p['id']}-word.png"
         svg_path.write_text(svg, encoding="utf-8")
         subprocess.run(
             [magick, "-background", "white", "-density", "120", str(svg_path),
@@ -669,12 +892,22 @@ def main():
             stderr=subprocess.PIPE,
             timeout=90,
         )
-        svgs.append(svg)
-        pngs.append(png_path.read_bytes())
+        subprocess.run(
+            [magick, "-background", "white", "-density", "240", str(svg_path),
+             "-resize", f"{WIDTH*2}x{HEIGHT*2}!", str(word_png_path)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            timeout=120,
+        )
         print(f"Generated {svg_path.relative_to(ROOT)}")
     html_path = OUT / "zentrip-activity-diagram.html"
-    html_path.write_text(build_html(PAGES, svgs), encoding="utf-8")
-    build_docx(PAGES, svgs, pngs)
+    html_path.write_text(build_html(PAGES), encoding="utf-8")
+    subprocess.run(
+        ["node", str(ROOT / "scripts" / "build-zentrip-activity-docx.cjs")],
+        cwd=ROOT,
+        check=True,
+    )
     print(f"Generated {html_path.relative_to(ROOT)}")
     print(f"Generated {WORD_PATH.relative_to(ROOT)}")
     print(f"Pages: {len(PAGES)}; orthogonal connectors: {sum(len(p['edges']) for p in PAGES)}")
