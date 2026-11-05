@@ -1,178 +1,379 @@
 #!/usr/bin/env python3
-"""Build a readable, standalone architecture overview from verified project facts."""
+"""Build the reference-style Zentrip system architecture diagram."""
 
 from __future__ import annotations
 
+from html import escape
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "docs" / "zentrip_system_architecture.mmd"
 OUTPUT = ROOT / "generated-artifacts"
+SVG_PATH = OUTPUT / "ZenTrip-System-Architecture.svg"
 HTML_PATH = OUTPUT / "ZenTrip-System-Architecture.html"
-STALE_SVG_PATH = OUTPUT / "ZenTrip-System-Architecture.svg"
-if not SOURCE.is_file():
-    raise SystemExit(f"Architecture source is missing: {SOURCE}")
 
-HTML = """<!doctype html>
+WIDTH, HEIGHT = 1800, 1000
+parts: list[str] = []
+
+
+def add(value: str) -> None:
+    parts.append(value)
+
+
+def text(
+    x: float,
+    y: float,
+    value: str,
+    size: int = 16,
+    weight: int = 400,
+    color: str = "#24394a",
+    anchor: str = "start",
+) -> None:
+    add(
+        f'<text x="{x}" y="{y}" font-size="{size}" font-weight="{weight}" '
+        f'fill="{color}" text-anchor="{anchor}">{escape(value)}</text>'
+    )
+
+
+def multiline(
+    x: float,
+    y: float,
+    lines: list[str],
+    size: int = 14,
+    weight: int = 400,
+    color: str = "#526878",
+    line_height: int = 19,
+    anchor: str = "start",
+) -> None:
+    add(
+        f'<text x="{x}" y="{y}" font-size="{size}" font-weight="{weight}" '
+        f'fill="{color}" text-anchor="{anchor}">'
+    )
+    for index, line in enumerate(lines):
+        dy = 0 if index == 0 else line_height
+        add(f'<tspan x="{x}" dy="{dy}">{escape(line)}</tspan>')
+    add("</text>")
+
+
+def rect(
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    fill: str = "#ffffff",
+    stroke: str = "#c9d5df",
+    radius: int = 14,
+    stroke_width: int = 2,
+) -> None:
+    add(
+        f'<rect x="{x}" y="{y}" width="{width}" height="{height}" '
+        f'rx="{radius}" fill="{fill}" stroke="{stroke}" stroke-width="{stroke_width}"/>'
+    )
+
+
+def path(d: str, color: str = "#566f82", dashed: bool = False, both: bool = False) -> None:
+    dash = ' stroke-dasharray="8 7"' if dashed else ""
+    start = ' marker-start="url(#arrowBack)"' if both else ""
+    add(
+        f'<path d="{d}" fill="none" stroke="{color}" stroke-width="2.5" '
+        f'stroke-linecap="round" stroke-linejoin="round"{dash}{start} '
+        'marker-end="url(#arrow)"/>'
+    )
+
+
+def label(x: int, y: int, lines: list[str], width: int = 180) -> None:
+    height = len(lines) * 18 + 14
+    rect(x - width // 2, y - 15, width, height, "#ffffff", "#dce4e9", 7, 1)
+    multiline(x, y + 1, lines, 12, 600, "#526878", 17, "middle")
+
+
+def module(
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    heading: str,
+    lines: list[str],
+    fill: str = "#ffffff",
+    stroke: str = "#ccd8e1",
+    heading_color: str = "#263c4c",
+    desc_color: str = "#536979",
+    font_size: int = 14,
+) -> None:
+    rect(x, y, width, height, fill, stroke, 11, 1.7)
+    text(x + 15, y + 24, heading, 15, 700, heading_color)
+    multiline(x + 15, y + 45, lines, font_size, 400, desc_color, 17)
+
+
+def actor(x: int, y: int, title: str, detail: str) -> None:
+    rect(x, y, 210, 82, "#f5faf6", "#8eaa98", 13, 2)
+    # Simple person icon, deliberately geometric so it remains legible in print.
+    add(f'<circle cx="{x + 31}" cy="{y + 28}" r="9" fill="#456c56"/>')
+    add(
+        f'<path d="M{x + 15} {y + 62}c1-13 8-20 16-20s15 7 16 20" '
+        'fill="none" stroke="#456c56" stroke-width="5" stroke-linecap="round"/>'
+    )
+    text(x + 60, y + 33, title, 16, 700, "#243c2d")
+    text(x + 60, y + 56, detail, 12, 400, "#60766a")
+
+
+def provider(y: int, title: str, detail: str, tag: str | None = None) -> None:
+    x, width, height = 1350, 390, 70
+    rect(x, y, width, height, "#fffaf0", "#cfb77d", 11, 1.7)
+    text(x + 17, y + 25, title, 15, 700, "#493c20")
+    if tag:
+        tag_width = max(66, 9 * len(tag) + 18)
+        rect(x + width - tag_width - 13, y + 10, tag_width, 22, "#f1e8d2", "#e0d2b1", 11, 1)
+        text(x + width - tag_width / 2 - 13, y + 25, tag, 10, 700, "#705a2d", "middle")
+    text(x + 17, y + 49, detail, 12, 400, "#6c624d")
+
+
+def make_svg() -> str:
+    add(
+        f'<svg xmlns="http://www.w3.org/2000/svg" role="img" '
+        f'aria-labelledby="title desc" viewBox="0 0 {WIDTH} {HEIGHT}">'
+    )
+    add(
+        "<title id=\"title\">Zentrip System Architecture</title>"
+        "<desc id=\"desc\">Users access the Flutter client, which calls the "
+        "Spring Boot API. The backend accesses provider data and Supabase PostgreSQL.</desc>"
+    )
+    add(
+        """<defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#566f82"/>
+          </marker>
+          <marker id="arrowBack" viewBox="0 0 10 10" refX="1" refY="5"
+            markerWidth="8" markerHeight="8" orient="auto">
+            <path d="M10 0L0 5L10 10z" fill="#566f82"/>
+          </marker>
+          <style>
+            text { font-family: Arial, Helvetica, sans-serif; }
+          </style>
+        </defs>"""
+    )
+    rect(0, 0, WIDTH, HEIGHT, "#f5f7f8", "#f5f7f8", 0, 0)
+    text(70, 62, "Zentrip System Architecture", 31, 700, "#1c3446")
+    text(
+        70,
+        88,
+        "Current implementation · client, server, provider, and persistent-data relationships",
+        15,
+        400,
+        "#5b7181",
+    )
+    # Main figure boundary and column headings.
+    rect(45, 112, 1710, 810, "#ffffff", "#8fa4b3", 2, 2)
+    text(100, 151, "USER ROLES", 12, 700, "#627b6b")
+    text(350, 151, "FLUTTER CLIENT · WEB + MOBILE", 12, 700, "#577a99")
+    text(760, 151, "SPRING BOOT BACKEND · JAVA 25", 12, 700, "#6b6690")
+    text(1350, 151, "EXTERNAL DATA SERVICES", 12, 700, "#9a7b37")
+
+    # Connectors are drawn before nodes so they stay behind the boxes.
+    path("M310 246H337V320H360")
+    path("M310 382H337V412H360")
+    path("M310 518H337V560H360")
+
+    path("M690 475H760", both=True)
+    label(725, 428, ["REST / JSON", "bearer token · AI SSE"], 170)
+
+    # Server-to-provider trunk with bidirectional data request/response lines.
+    path("M1180 485H1285", both=True)
+    path("M1285 192V816", "#7890a1")
+    for center_y in [212, 294, 376, 458, 540, 622, 704, 786]:
+        path(f"M1285 {center_y}H1350", both=True)
+    label(1230, 414, ["provider", "adapters"], 108)
+
+    # Main service sequence, payment simulation, and database persistence.
+    path("M970 263V285")
+    path("M970 376V398")
+    path("M970 500V522")
+    path("M1160 450H1210V735H1130")
+    path("M1160 558H1200V820H1156", "#547f7d")
+    path("M970 766V800", "#547f7d")
+
+    # Actor roles.
+    actor(100, 205, "Admin", "global app controls")
+    actor(100, 341, "Partner", "owned listings only")
+    actor(100, 477, "Customer", "search · book · travel")
+
+    # Flutter UI boundary.
+    rect(350, 170, 350, 600, "#f7faff", "#9db4ca", 16, 2)
+    module(
+        370,
+        187,
+        310,
+        83,
+        "App interface",
+        [
+            "Explore · Nearby/maps · Zen AI · My Trips",
+            "Profile and role-specific dashboards",
+            "Map tiles load directly from OpenStreetMap",
+        ],
+        "#edf4fc",
+        "#b6c8d8",
+    )
+    module(
+        370,
+        291,
+        310,
+        92,
+        "Feature modules",
+        ["Flights · Hotels · Places · Cars", "Transfers · Auth · Admin · Partner"],
+    )
+    module(
+        370,
+        404,
+        310,
+        100,
+        "Controllers and models",
+        ["Feature state and normalized results", "Use the shared API service"],
+    )
+    module(
+        370,
+        525,
+        310,
+        73,
+        "ApiService · Dio",
+        ["Adds bearer token; calls the /api contract"],
+        "#edf4fc",
+        "#b6c8d8",
+    )
+    module(
+        350,
+        654,
+        350,
+        94,
+        "Device-local state",
+        ["Session, favorites, preferences, notifications,", "and part of Zen AI chat history"],
+        "#f1f8f2",
+        "#a9c4b1",
+    )
+
+    # Backend boundary and actual service responsibilities.
+    rect(750, 170, 440, 615, "#faf9fd", "#aaa7c5", 16, 2)
+    module(
+        780,
+        190,
+        380,
+        73,
+        "Spring Boot API · /api",
+        ["Receives client requests and returns app responses"],
+        "#f0eff8",
+        "#c4c1d8",
+    )
+    module(
+        780,
+        285,
+        380,
+        91,
+        "Authentication and access control",
+        ["Validates bearer token; loads role and partner ID", "from server-side user records"],
+        "#f4f2fa",
+        "#c4c1d8",
+    )
+    module(
+        780,
+        398,
+        380,
+        102,
+        "Controllers and feature services",
+        ["Auth · Customer · Partner · Admin · AI", "Inventory merge · provider adapters · normalization"],
+        "#f4f2fa",
+        "#c4c1d8",
+    )
+    module(
+        780,
+        522,
+        380,
+        73,
+        "Persistence boundary",
+        ["JDBC/JPA · scoped reads/writes · RLS context"],
+    )
+    # Payment simulator is shown as a distinct internal component.
+    module(
+        810,
+        703,
+        320,
+        63,
+        "Payment simulator",
+        ["Mock only · save supported booking after success"],
+        "#fff8ed",
+        "#ddc49d",
+    )
+
+    # Provider panel and nodes.
+    rect(1325, 170, 410, 705, "#fffdf8", "#d4c293", 16, 2)
+    providers = [
+        ("Duffel", "Flight offers only · no airline order", "SEARCH ONLY"),
+        ("LiteAPI", "Hotel data and rates · no provider booking", "DATA ONLY"),
+        ("OpenTripMap", "Tourist places, suggestions, and details", None),
+        ("Geoapify", "Geocoding and airport lookup fallback", None),
+        ("SerpAPI", "Nearby and map search", None),
+        ("Requesty", "Zen AI completion stream", None),
+        ("Frankfurter", "Exchange-rate lookup", None),
+        ("Optional / import jobs", "Google Places sync · OurAirports import", "OPTIONAL"),
+    ]
+    for index, (name, detail, tag) in enumerate(providers[:8]):
+        provider(177 + index * 82, name, detail, tag)
+
+    # The shared external-data services respond back to backend adapters.
+    # Database is a separate platform service below the backend.
+    add('<ellipse cx="970" cy="820" rx="186" ry="19" fill="#edf7f7" stroke="#6a9b99" stroke-width="2"/>')
+    add('<path d="M784 820v57c0 11 83 20 186 20s186-9 186-20v-57" fill="#edf7f7" stroke="#6a9b99" stroke-width="2"/>')
+    add('<ellipse cx="970" cy="877" rx="186" ry="20" fill="#edf7f7" stroke="#6a9b99" stroke-width="2"/>')
+    text(970, 839, "Supabase PostgreSQL", 17, 700, "#285553", "middle")
+    text(970, 860, "users · api_tokens · partner inventory · trips · bookings · transfers", 11, 400, "#426c6a", "middle")
+    text(970, 879, "offers · places · AI chat · preferences", 11, 400, "#426c6a", "middle")
+    # Note under the database cylinder, within the figure.
+    text(970, 912, "Backend-only access · row-level security is an additional layer", 11, 600, "#547977", "middle")
+
+    # Keep the legend and scope limitations visible in print.
+    rect(70, 925, 1660, 42, "#f7f9fa", "#dbe3e8", 9, 1)
+    text(90, 951, "Solid arrows: app/API and persistence flow", 12, 600, "#506879")
+    text(505, 951, "Two-headed arrows: provider data requests/responses", 12, 600, "#506879")
+    text(1010, 951, "Duffel/LiteAPI are data-only · checkout is simulated", 12, 600, "#8a6b35")
+    text(WIDTH / 2, 991, "Figure. Zentrip System Architecture", 18, 600, "#435a69", "middle")
+    add("</svg>")
+    return "".join(parts)
+
+
+def make_html(svg: str) -> str:
+    return f"""<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Zentrip System Architecture</title>
   <style>
-    :root {
-      color-scheme: light;
-      font-family: Inter, "Segoe UI", Arial, sans-serif;
-      color: #172b3a;
-      background: #f3f6f9;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; }
-    main { max-width: 1680px; margin: auto; padding: 34px; }
-    header { margin-bottom: 22px; }
-    h1 { margin: 0 0 8px; font-size: clamp(26px, 3vw, 40px); letter-spacing: -.025em; }
-    header p { max-width: 940px; margin: 0; color: #506474; font-size: 16px; line-height: 1.55; }
-    .badge { display: inline-block; margin-bottom: 12px; padding: 5px 10px; border-radius: 999px; background: #e4eee9; color: #2e6048; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-    .diagram { display: grid; grid-template-columns: minmax(250px, 1fr) 76px minmax(340px, 1.25fr) 76px minmax(260px, 1fr); align-items: stretch; gap: 14px; }
-    .layer { padding: 20px; border: 1px solid #d4dee7; border-radius: 16px; background: #fff; box-shadow: 0 8px 22px rgb(24 48 68 / 5%); }
-    .client { border-top: 5px solid #547aa0; }
-    .backend { border-top: 5px solid #665d9a; }
-    .providers { border-top: 5px solid #b48b3f; }
-    .layer h2 { margin: 2px 0 5px; font-size: 21px; }
-    .subtitle { margin: 0 0 16px; color: #627586; font-size: 13px; line-height: 1.45; }
-    .eyebrow { color: #64798b; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
-    .stack { display: grid; gap: 10px; }
-    .box { padding: 12px 13px; border: 1px solid #dae3eb; border-radius: 11px; background: #f8fafc; line-height: 1.42; }
-    .box strong { display: block; margin-bottom: 4px; font-size: 14px; }
-    .box p { margin: 0; color: #556a7b; font-size: 12.5px; }
-    .box.primary { border-color: #a8bdd4; background: #f0f5fb; }
-    .box.security { border-color: #c5c0df; background: #f5f4fa; }
-    .box.simulator { border-color: #dfc9aa; background: #fff9f0; }
-    .box.local { border-color: #bdd6c7; background: #f2f8f4; }
-    .connector { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; color: #47677b; text-align: center; }
-    .connector span { font-size: 11px; line-height: 1.35; }
-    .connector b { font-size: 35px; font-weight: 400; line-height: 1; }
-    .providers-list { display: grid; gap: 8px; }
-    .provider { padding: 10px 11px; border: 1px solid #e8dfc9; border-radius: 10px; background: #fffdf8; }
-    .provider strong { display: inline-block; margin-right: 5px; font-size: 13px; }
-    .provider p { margin: 3px 0 0; color: #667580; font-size: 12px; line-height: 1.35; }
-    .tag { display: inline-block; padding: 2px 6px; border-radius: 999px; background: #f4eddd; color: #725a2e; font-size: 10px; font-weight: 700; }
-    .client-tag { background: #eaf0f6; color: #45677f; }
-    .database-flow { grid-column: 3; display: flex; flex-direction: column; align-items: center; padding: 0 0 1px; color: #3f7777; text-align: center; }
-    .database-flow span { font-size: 12px; font-weight: 650; }
-    .database-flow b { margin-top: 3px; font-size: 31px; font-weight: 400; line-height: 1; }
-    .database { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center; border-top: 5px solid #4f8b89; background: #f7fbfb; }
-    .database h2 { margin: 3px 0 8px; }
-    .tables { display: flex; flex-wrap: wrap; gap: 7px; }
-    .tables span { padding: 6px 9px; border: 1px solid #cde0df; border-radius: 8px; background: #fff; color: #315c5a; font-size: 12px; }
-    .boundary { padding: 14px 16px; border: 1px solid #d6e1e8; border-radius: 11px; background: #fff; color: #465c6c; font-size: 13px; line-height: 1.5; }
-    .notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
-    .note { padding: 15px 16px; border: 1px solid #d7e0e8; border-radius: 12px; background: #fff; color: #506474; font-size: 13px; line-height: 1.5; }
-    .note strong { display: block; margin-bottom: 5px; color: #20394b; }
-    .legend { display: flex; flex-wrap: wrap; gap: 10px 20px; margin-top: 16px; color: #627586; font-size: 12px; }
-    @media (max-width: 1050px) {
-      main { padding: 22px; }
-      .diagram { grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1.1fr); }
-      .providers { grid-column: 1 / -1; }
-      .providers-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .database-flow { grid-column: 2; grid-row: 2; }
-      .database { grid-column: 1 / -1; }
-      .notes { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 660px) {
-      main { padding: 16px; }
-      .diagram { display: flex; flex-direction: column; }
-      .connector { min-height: 64px; }
-      .connector b { transform: rotate(90deg); }
-      .providers-list { grid-template-columns: 1fr; }
-      .database-flow { order: 4; }
-      .database { display: block; }
-      .database .boundary { margin-top: 14px; }
-    }
-    @media print {
-      :root { background: #fff; }
-      main { max-width: none; padding: 12px; }
-      .layer { box-shadow: none; break-inside: avoid; }
-      .diagram { grid-template-columns: minmax(220px, 1fr) 55px minmax(300px, 1.2fr) 55px minmax(230px, 1fr); }
-      .providers-list { display: grid; grid-template-columns: 1fr; }
-      .notes { grid-template-columns: repeat(3, 1fr); }
-    }
+    * {{ box-sizing: border-box; }}
+    body {{ margin: 0; padding: 22px; background: #eef2f4; font-family: Arial, Helvetica, sans-serif; }}
+    main {{ max-width: 1800px; margin: auto; }}
+    .frame {{ overflow: auto; border-radius: 12px; background: #fff; box-shadow: 0 8px 28px #1d354314; }}
+    svg {{ display: block; width: 100%; min-width: 1200px; height: auto; }}
+    @media (max-width: 760px) {{ body {{ padding: 8px; }} svg {{ min-width: 1400px; }} }}
+    @media print {{ body {{ padding: 0; background: #fff; }} main {{ max-width: none; }} .frame {{ box-shadow: none; overflow: visible; }} svg {{ min-width: 0; width: 100%; }} }}
   </style>
 </head>
-<body>
-<main>
-  <header><span class="badge">Current implementation</span>
-    <h1>Zentrip System Architecture</h1>
-    <p>Flutter web and mobile clients connect to the Spring Boot API. The backend enforces access, combines partner and provider data, and persists supported records in Supabase PostgreSQL. Provider credentials stay on the server.</p>
-  </header>
-  <section class="diagram" aria-label="System architecture">
-    <article class="layer client">
-      <span class="eyebrow">01 · Client</span><h2>Flutter app</h2>
-      <p class="subtitle">Web and mobile · English/Arabic · role-specific navigation</p>
-      <div class="stack">
-        <div class="box"><strong>People and screens</strong><p>Customers: explore, flights, hotels, attractions, cars, transfers, trips, profile, Zen AI. Admins and partners: their own dashboards.</p></div>
-        <div class="box"><strong>Feature controllers and models</strong><p>Feature-first modules normalize API results for the UI.</p></div>
-        <div class="box primary"><strong>Shared ApiService · Dio</strong><p>Calls the /api contract with a bearer token. AI chat uses a streamed response.</p></div>
-        <div class="box local"><strong>Device-local state</strong><p>Saved session and selected preferences; favorites, notifications, and some chat history are local.</p></div>
-      </div>
-    </article>
-    <div class="connector" aria-label="Client to backend"><span>REST / JSON<br>Bearer token<br>AI stream</span><b>→</b></div>
-    <article class="layer backend">
-      <span class="eyebrow">02 · Application services</span><h2>Spring Boot API</h2>
-      <p class="subtitle">Spring Boot 3.5 · Java 25 · central application boundary</p>
-      <div class="stack">
-        <div class="box primary"><strong>API entry · /api</strong><p>Receives app requests and returns normalized responses.</p></div>
-        <div class="box security"><strong>Authentication and authorization</strong><p>Validates the bearer token; loads user role and partner identity from server records. Partner ownership is checked server-side.</p></div>
-        <div class="box"><strong>REST controllers</strong><p>Core API · Partner · Admin · AI chat · travel preferences · exchange rates.</p></div>
-        <div class="box"><strong>Domain services and adapters</strong><p>Flight/hotel inventory merge · airports/geocoding · attractions/maps · AI · pricing.</p></div>
-        <div class="box simulator"><strong>Payment simulator</strong><p>Creates mock checkout sessions; success is not a real payment or supplier reservation.</p></div>
-        <div class="box"><strong>Persistence boundary</strong><p>JDBC/JPA transactions, owner-scoped operations, and request-scoped RLS role context.</p></div>
-      </div>
-    </article>
-    <div class="connector" aria-label="Backend to providers"><span>Server-to-server<br>search and data<br>lookups</span><b>⇄</b></div>
-    <article class="layer providers">
-      <span class="eyebrow">03 · Integrations</span><h2>External services</h2>
-      <p class="subtitle">Keys configured as backend environment secrets</p>
-      <div class="providers-list">
-        <div class="provider"><strong>Duffel</strong><span class="tag">read-only</span><p>Flight offers; no airline order creation.</p></div>
-        <div class="provider"><strong>LiteAPI</strong><span class="tag">read-only</span><p>Hotel data and rates; no provider booking.</p></div>
-        <div class="provider"><strong>OpenTripMap</strong><p>Tourist place search, suggestions, and details.</p></div>
-        <div class="provider"><strong>Geoapify</strong><p>Geocoding and airport lookup fallback.</p></div>
-        <div class="provider"><strong>SerpAPI</strong><p>Nearby and map search.</p></div>
-        <div class="provider"><strong>Requesty</strong><p>Zen AI response stream.</p></div>
-        <div class="provider"><strong>Frankfurter</strong><p>Exchange-rate lookup.</p></div>
-        <div class="provider"><strong>Optional jobs</strong><p>Google Places rating sync; OurAirports data import.</p></div>
-        <div class="provider"><strong>OpenStreetMap</strong><span class="tag client-tag">client direct</span><p>Map tiles requested by the Flutter map client.</p></div>
-      </div>
-    </article>
-    <div class="database-flow"><span>Spring data access · JDBC/JPA · scoped reads and writes</span><b>↓</b></div>
-    <article class="layer database">
-      <div><span class="eyebrow">04 · Persistent storage</span><h2>Supabase PostgreSQL</h2>
-        <div class="tables"><span>users / api_tokens</span><span>partner inventory</span><span>trips</span><span>bookings</span><span>transfers</span><span>offers</span><span>places</span><span>AI chat messages</span><span>preferences</span></div>
-      </div>
-      <div class="boundary"><strong>Trust boundary:</strong> the Flutter app does not query Supabase directly. The backend verifies the session and applies role/ownership rules. PostgreSQL row-level security provides an additional database layer.</div>
-    </article>
-  </section>
-  <section class="notes" aria-label="Important architecture boundaries">
-    <div class="note"><strong>Search is not supplier booking</strong>Duffel supplies flight offers and LiteAPI supplies hotel data/rates. Zentrip does not create orders with either provider.</div>
-    <div class="note"><strong>Checkout is simulated</strong>Payment sessions are mock sessions. Zentrip stores supported trip, booking, and transfer records; it does not process a real card charge.</div>
-    <div class="note"><strong>Push delivery is not active</strong>FCM token registration exists, but push delivery still requires Firebase client and server configuration.</div>
-  </section>
-  <div class="legend" aria-label="Diagram legend"><span>→ app/API and persistence flow</span><span>⇄ provider data request/response</span><span>Amber panels identify external data services</span></div>
-</main>
-</body>
+<body><main><div class="frame">{svg}</div></main></body>
 </html>"""
 
 
 def main() -> None:
+    if not SOURCE.is_file():
+        raise SystemExit(f"Architecture model is missing: {SOURCE}")
     source = SOURCE.read_text(encoding="utf-8")
-    if "Duffel" not in source or "Supabase PostgreSQL" not in source:
-        raise SystemExit("Architecture source is missing a required system boundary.")
+    required_facts = ["Duffel", "LiteAPI", "Supabase PostgreSQL", "Spring Boot"]
+    missing = [fact for fact in required_facts if fact not in source]
+    if missing:
+        raise SystemExit("Architecture source is missing: " + ", ".join(missing))
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    STALE_SVG_PATH.unlink(missing_ok=True)
-    HTML_PATH.write_text(HTML, encoding="utf-8")
+    svg = make_svg()
+    SVG_PATH.write_text(svg, encoding="utf-8")
+    HTML_PATH.write_text(make_html(svg), encoding="utf-8")
+    print(f"Rendered {SVG_PATH.relative_to(ROOT)}")
     print(f"Rendered {HTML_PATH.relative_to(ROOT)}")
-    print(f"Mermaid source: {SOURCE.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
