@@ -44,14 +44,6 @@ outputType = "webview"
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 5101
-externalPort = 3001
-
-[[ports]]
-localPort = 8001
-externalPort = 3000
-
 [postMerge]
 path = "scripts/build-replit.sh"
 timeoutMs = 600000
