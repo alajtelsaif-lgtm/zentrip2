@@ -182,3 +182,17 @@ mtime_ms = 1793978354174
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/5b5c7e5f-9137-4e16-acca-9edf0d8f558b/ee7b9543-5b87-4218-88a8-f24d103f9273"
 storage_version_token = "1793978401318077"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "EbwC4lq3xb2zr1hL6eXjJ"
+uri = "file://generated-artifacts/ZenTrip-System-Architecture-Editable-Aligned.docx"
+type = "word_document"
+title = "ZenTrip architecture — aligned editable Word file"
+description = "Replacement with corrected freeform curve/arc bounds and baseline-aligned text. It contains separate Word-native editable shapes and text, with no flattened image."
+logical_id = "d2815043-6eac-4b34-a569-2ac1c56d2e27"
+content_hash = "sha256:c261cd40cfffa32a2c8b5af4c1cb1d2b5753eeee144553493518943112695ba8"
+size = 28543
+mtime_ms = 1793978730769
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/d2815043-6eac-4b34-a569-2ac1c56d2e27/947f55eb-4889-48de-8c6d-b6472bda4f26"
+storage_version_token = "1793978737979671"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
