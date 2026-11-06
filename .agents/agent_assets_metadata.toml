@@ -168,3 +168,17 @@ mtime_ms = 1793977323462
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/694e1b64-290a-4032-b71b-cf6c8ae730cd/7285e8e2-66b1-47f9-be6d-f56246a54aae"
 storage_version_token = "1793977393880350"
 content_type = "image/png"
+
+[[outputs]]
+id = "9MV4Av-6mEtIY0SFzZup9"
+uri = "file://generated-artifacts/ZenTrip-System-Architecture-Editable.docx"
+type = "word_document"
+title = "ZenTrip System Architecture — fully editable Word file"
+description = "Word-native drawing with 103 individual editable objects: 41 text objects plus separate vector shapes for the icons, boxes, and connectors. It contains no flattened image."
+logical_id = "5b5c7e5f-9137-4e16-acca-9edf0d8f558b"
+content_hash = "sha256:feb7e0e3e9f88099962fd45c781fe2a268877e46e2e666e5a7844406de37c795"
+size = 29137
+mtime_ms = 1793978354174
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/5b5c7e5f-9137-4e16-acca-9edf0d8f558b/ee7b9543-5b87-4218-88a8-f24d103f9273"
+storage_version_token = "1793978401318077"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
