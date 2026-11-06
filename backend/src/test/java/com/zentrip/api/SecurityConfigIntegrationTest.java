@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 import java.sql.Timestamp;
 import java.util.List;
@@ -21,7 +22,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(properties = "app.cors.allowed-origins=https://app.zentrip.example")
+@SpringBootTest(properties = {
+        "app.cors.allowed-origins=https://app.zentrip.example",
+        "ZENTRIP_SECURITY_ALLOW_REPLIT_PREVIEW_EMBEDDING=false"
+})
 @AutoConfigureMockMvc
 class SecurityConfigIntegrationTest {
     @Autowired
@@ -105,7 +109,8 @@ class SecurityConfigIntegrationTest {
     @Test
     void unknownApiRoutesAreNotPublicByDefault() throws Exception {
         mockMvc.perform(get("/api/not-a-real-route"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("X-Frame-Options", "DENY"));
     }
 
     @Test

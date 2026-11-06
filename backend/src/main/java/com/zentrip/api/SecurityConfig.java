@@ -3,6 +3,7 @@ package com.zentrip.api;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -34,7 +35,9 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             TokenAuthFilter tokenAuthFilter,
-            RlsContextFilter rlsContextFilter) throws Exception {
+            RlsContextFilter rlsContextFilter,
+            @Value("${ZENTRIP_SECURITY_ALLOW_REPLIT_PREVIEW_EMBEDDING:false}")
+            boolean allowReplitPreviewEmbedding) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
@@ -99,6 +102,14 @@ public class SecurityConfig {
             )
             .addFilterBefore(tokenAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(rlsContextFilter, TokenAuthFilter.class);
+
+        if (allowReplitPreviewEmbedding) {
+            http.headers(headers -> headers
+                .frameOptions(frameOptions -> frameOptions.disable())
+                .contentSecurityPolicy(csp -> csp.policyDirectives(
+                    "frame-ancestors 'self' https://*.replit.dev "
+                        + "https://*.replit.com https://*.replit.app")));
+        }
 
         return http.build();
     }

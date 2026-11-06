@@ -15,6 +15,7 @@ SUPABASE_URL = "https://zrzhgotsnqclzrkybuzj.supabase.co"
 
 [userenv.development]
 ZENTRIP_PROVIDER_ENV_FILE = "attached_assets/_1793470398811.env"
+ZENTRIP_SECURITY_ALLOW_REPLIT_PREVIEW_EMBEDDING = "true"
 
 [workflows]
 runButton = "Project"

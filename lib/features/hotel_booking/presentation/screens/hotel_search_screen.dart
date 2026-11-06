@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/current_location_service.dart';
+import '../../../../core/services/location_settings_service.dart';
 import '../../../../global_widgets/booking_loading_overlay.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
@@ -278,15 +278,12 @@ class _HotelSearchScreenState extends State<HotelSearchScreen> {
       };
 
   Future<void> _openLocationSettings() async {
+    if (!LocationSettingsService.isSupported) return;
     final reason = _locationError;
-    try {
-      if (reason == CurrentLocationError.serviceDisabled) {
-        await Geolocator.openLocationSettings();
-      } else {
-        await Geolocator.openAppSettings();
-      }
-    } catch (_) {
-      // Keep the inline permission message visible if the settings app cannot open.
+    if (reason == CurrentLocationError.serviceDisabled) {
+      await LocationSettingsService.openLocationSettings();
+    } else {
+      await LocationSettingsService.openAppSettings();
     }
   }
 

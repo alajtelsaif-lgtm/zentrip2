@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/location_settings_service.dart';
 import '../../../../core/services/current_location_service.dart';
 import '../../../../global_widgets/app_network_image.dart';
 import '../../../../global_widgets/app_snackbar.dart';
@@ -720,7 +720,11 @@ class _TaxiMapPointPickerState extends State<_TaxiMapPointPicker> {
                                   if (_locationError ==
                                       widget.permissionDeniedForeverMessage)
                                     OutlinedButton.icon(
-                                      onPressed: Geolocator.openAppSettings,
+                                      onPressed: LocationSettingsService
+                                              .isSupported
+                                          ? LocationSettingsService
+                                              .openAppSettings
+                                          : null,
                                       icon: const Icon(Icons.settings_rounded),
                                       label: FittedBox(
                                         fit: BoxFit.scaleDown,
@@ -734,8 +738,11 @@ class _TaxiMapPointPickerState extends State<_TaxiMapPointPicker> {
                                   if (_locationError ==
                                       widget.serviceDisabledMessage)
                                     OutlinedButton.icon(
-                                      onPressed:
-                                          Geolocator.openLocationSettings,
+                                      onPressed: LocationSettingsService
+                                              .isSupported
+                                          ? LocationSettingsService
+                                              .openLocationSettings
+                                          : null,
                                       icon: const Icon(Icons.settings_rounded),
                                       label: FittedBox(
                                         fit: BoxFit.scaleDown,

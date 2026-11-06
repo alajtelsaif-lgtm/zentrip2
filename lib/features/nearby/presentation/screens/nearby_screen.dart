@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:geolocator/geolocator.dart';
+import '../../../../core/services/location_settings_service.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../features/favorites/logic/favorites_controller.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -516,7 +516,9 @@ class _LocationErrorView extends StatelessWidget {
                       color: AppColors.textSecondary, fontSize: 12)),
             ),
             TextButton(
-              onPressed: () => Geolocator.openLocationSettings(),
+              onPressed: LocationSettingsService.isSupported
+                  ? LocationSettingsService.openLocationSettings
+                  : null,
               child: Text(l10n.openSettings),
             ),
           ],
@@ -540,7 +542,9 @@ class _LocationErrorView extends StatelessWidget {
                 style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () => Geolocator.openLocationSettings(),
+              onPressed: LocationSettingsService.isSupported
+                  ? LocationSettingsService.openLocationSettings
+                  : null,
               icon: const Icon(Icons.settings_outlined),
               label: Text(l10n.openSettings),
             ),
