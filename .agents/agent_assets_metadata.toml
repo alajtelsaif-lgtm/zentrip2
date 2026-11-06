@@ -126,3 +126,45 @@ mtime_ms = 1793901910946
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/b925eeaa-612b-4648-8e4a-24a8196b7ba9/e995dfb2-b310-4bf2-bf58-bf236591c0cc"
 storage_version_token = "1793901942581000"
 content_type = "image/svg+xml"
+
+[[outputs]]
+id = "4_-Uqbcqau_Jsb9EKREPV"
+uri = "file://generated-artifacts/ZenTrip-System-Architecture-corrected.docx"
+type = "word_document"
+title = "Corrected ZenTrip system architecture — Word"
+description = "One-page landscape Word document with the architecture embedded as an SVG image and a PNG compatibility fallback."
+logical_id = "b43db13d-9738-427a-a0a7-4693c89872d7"
+content_hash = "sha256:6e161c27cd6a1edd6b24a6ac070bb70121901d282764a26d8bb8471cd2f13b5a"
+size = 633262
+mtime_ms = 1793977367718
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/b43db13d-9738-427a-a0a7-4693c89872d7/d832d436-f1fb-4ad6-a1dc-638fa3905b78"
+storage_version_token = "1793977392542186"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "yzqQdJXzv8WdDvyz-ZOSL"
+uri = "file://generated-artifacts/ZenTrip-System-Architecture-corrected.svg"
+type = "image"
+title = "Corrected ZenTrip system architecture — SVG"
+description = "Vector diagram with only the two misleading provider labels corrected; layout, colors, and icons are unchanged."
+logical_id = "9466259f-e805-4975-b52d-7027b0a9c2e2"
+content_hash = "sha256:fb37c1530163d45ee72106ffc7ceb0088009740ad3f3b5087bfa9944fd8d4531"
+size = 14312
+mtime_ms = 1793977307010
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/9466259f-e805-4975-b52d-7027b0a9c2e2/0691910f-50e3-4e01-8546-bdf3a07cfe11"
+storage_version_token = "1793977393271480"
+content_type = "image/svg+xml"
+
+[[outputs]]
+id = "WYaE__THBFeaVFX5VrODs"
+uri = "file://generated-artifacts/ZenTrip-System-Architecture-corrected.png"
+type = "image"
+title = "Corrected ZenTrip system architecture — preview"
+description = "PNG preview of the corrected diagram."
+logical_id = "694e1b64-290a-4032-b71b-cf6c8ae730cd"
+content_hash = "sha256:5c94ab90ae90b4b441b2697eb3e5f8fd637b38d303e1cc85d3691dc9ce8b4caf"
+size = 654822
+mtime_ms = 1793977323462
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/694e1b64-290a-4032-b71b-cf6c8ae730cd/7285e8e2-66b1-47f9-be6d-f56246a54aae"
+storage_version_token = "1793977393880350"
+content_type = "image/png"
