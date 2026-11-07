@@ -329,6 +329,7 @@ class ApiControllerTest {
                 List<?> offers = (List<?>) response.get("offers");
                 Map<?, ?> offer = (Map<?, ?>) offers.getFirst();
 
+                assertEquals(false, response.get("flight_link_schema_ready"));
                 assertEquals(1, offers.size());
                 assertEquals("istanbul-dream", offer.get("id"));
                 assertEquals("IST", offer.get("destination_code"));

@@ -430,24 +430,30 @@ public class ApiController {
 
     @GetMapping("/offers")
     public Map<String, Object> offers() {
+        boolean flightLinkSchemaReady = hasOfferFlightLinkColumn();
+        String linkedFlightColumn = flightLinkSchemaReady
+                ? "o.flight_listing_id" : "NULL::BIGINT";
+        String flightJoin = flightLinkSchemaReady
+                ? "LEFT JOIN partner_listings fl ON fl.id = o.flight_listing_id"
+                : "LEFT JOIN partner_listings fl ON FALSE";
         List<Map<String, Object>> payload = jdbc.queryForList("""
                 SELECT o.id, o.title, o.location, o.country, o.destination_code,
                        o.description, o.image_url, o.price_per_person,
                        o.flight_price_per_person, o.hotel_price_per_night,
                        o.duration_nights, o.rating, o.review_count,
                        o.highlights, o.is_featured, o.category,
-                       o.flight_listing_id, COALESCE(m.badge, '') AS badge,
+                       %s AS flight_listing_id, COALESCE(m.badge, '') AS badge,
                        fl.id AS linked_flight_id, fl.title AS flight_title,
                        fl.city AS flight_city, fl.country AS flight_country,
                        fl.price AS linked_flight_price, fl.active AS flight_active,
                        fl.attributes AS flight_attributes, p.name AS flight_airline
                 FROM offers o
                 LEFT JOIN offer_catalog_metadata m ON m.offer_id = o.id
-                LEFT JOIN partner_listings fl ON fl.id = o.flight_listing_id
+                %s
                 LEFT JOIN partners p ON p.id = fl.partner_id
                 WHERE o.is_active = TRUE
                 ORDER BY o.is_featured DESC, o.sort_order ASC, o.title ASC
-                """).stream().map(row -> {
+                """.formatted(linkedFlightColumn, flightJoin)).stream().map(row -> {
                     Map<String, Object> offer = new LinkedHashMap<>(row);
                     offer.put("highlights", parseHighlights(row.get("highlights")));
                     Map<String, Object> flight = offerFlightPayload(row);
@@ -471,7 +477,9 @@ public class ApiController {
                     offer.put("total_price_per_person", total);
                     return offer;
                 }).toList();
-        return Map.of("offers", payload);
+        return Map.of(
+                "offers", payload,
+                "flight_link_schema_ready", flightLinkSchemaReady);
     }
 
     private Map<String, Object> offerFlightPayload(Map<String, Object> row) {
@@ -1669,6 +1677,11 @@ public class ApiController {
     }
 
     private Map<String, Object> packageOfferForFlight(String offerId, long flightId) {
+        if (!hasOfferFlightLinkColumn()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Apply migration 20261107_offer_flight_link.sql before booking a linked offer");
+        }
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 SELECT id, title, location, country, image_url,
                        hotel_price_per_night, duration_nights, flight_listing_id
@@ -1688,6 +1701,19 @@ public class ApiController {
                     "The selected flight is not linked to this offer");
         }
         return offer;
+    }
+
+    private boolean hasOfferFlightLinkColumn() {
+        Boolean exists = jdbc.queryForObject("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM pg_attribute
+                    WHERE attrelid = to_regclass('public.offers')
+                      AND attname = 'flight_listing_id'
+                      AND NOT attisdropped
+                )
+                """, Boolean.class);
+        return Boolean.TRUE.equals(exists);
     }
 
     private ResponseEntity<?> existingSeatConfirmation(

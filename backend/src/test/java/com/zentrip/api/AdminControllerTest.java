@@ -12,6 +12,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
@@ -289,6 +290,47 @@ class AdminControllerTest {
     }
 
     @Test
+    void offerListFallsBackUntilFlightLinkMigrationIsApplied() {
+        when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
+                .thenReturn("admin");
+        when(jdbc.queryForObject(contains("pg_attribute"), eq(Boolean.class)))
+                .thenReturn(false);
+        when(jdbc.queryForList(contains("FROM offers"))).thenReturn(List.of());
+
+        Map<String, Object> response = controller.offers(authenticatedRequest());
+
+        assertEquals(false, response.get("flight_link_schema_ready"));
+        assertEquals(List.of(), response.get("offers"));
+    }
+
+    @Test
+    void offerWriteReturnsMigrationInstructionInsteadOfDatabaseError() {
+        when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
+                .thenReturn("admin");
+        when(jdbc.queryForObject(contains("pg_attribute"), eq(Boolean.class)))
+                .thenReturn(false);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.createOffer(Map.ofEntries(
+                        Map.entry("title", "Istanbul Dream"),
+                        Map.entry("location", "Istanbul"),
+                        Map.entry("country", "Turkey"),
+                        Map.entry("description", "A trip"),
+                        Map.entry("price_per_person", 1085),
+                        Map.entry("flight_price_per_person", 420),
+                        Map.entry("flight_listing_id", 25),
+                        Map.entry("hotel_price_per_night", 95),
+                        Map.entry("duration_nights", 7),
+                        Map.entry("rating", 4.8),
+                        Map.entry("review_count", 2340)),
+                        authenticatedRequest()));
+
+        assertEquals(409, exception.getStatusCode().value());
+        assertTrue(exception.getReason().contains("20261107_offer_flight_link.sql"));
+    }
+
+    @Test
     void monumentUpdateKeepsExistingItemsEditableWhenValuesAreUnchanged() {
         when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
                 .thenReturn("admin");
@@ -317,6 +359,8 @@ class AdminControllerTest {
     void offerUpdatePersistsTheCustomBadge() {
         when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
                 .thenReturn("admin");
+        when(jdbc.queryForObject(contains("pg_attribute"), eq(Boolean.class)))
+                .thenReturn(true);
         when(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM offers WHERE id = ? AND is_active = TRUE",
                 Integer.class,
