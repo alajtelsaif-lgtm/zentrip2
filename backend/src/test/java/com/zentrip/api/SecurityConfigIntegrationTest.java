@@ -122,6 +122,12 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
+    void notificationInboxRequiresCustomerAuthentication() throws Exception {
+        mockMvc.perform(get("/api/notifications"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void corsAllowsOnlyTheConfiguredExactOrigin() throws Exception {
         mockMvc.perform(options("/api/offers")
                         .header("Origin", "https://app.zentrip.example")

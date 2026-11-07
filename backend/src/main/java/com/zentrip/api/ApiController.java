@@ -243,6 +243,67 @@ public class ApiController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/notifications")
+    public Map<String, Object> userNotifications(
+            @RequestParam(defaultValue = "50") int limit,
+            HttpServletRequest request) {
+        long userId = requireUserId(request);
+        if (!userNotificationsTableAvailable()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Notification storage migration is required");
+        }
+        int boundedLimit = Math.max(1, Math.min(limit, 100));
+        List<Map<String, Object>> notifications = jdbc.queryForList("""
+                SELECT id, kind, title_en, title_ar, body_en, body_ar,
+                       target_type, target_id, booking_ref, created_at,
+                       (read_at IS NOT NULL) AS is_read
+                FROM public.user_notifications
+                WHERE user_id = ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """, userId, boundedLimit);
+        return Map.of("notifications", notifications);
+    }
+
+    @PutMapping("/notifications/{notificationId}/read")
+    public ResponseEntity<?> markNotificationRead(
+            @PathVariable long notificationId,
+            HttpServletRequest request) {
+        long userId = requireUserId(request);
+        if (!userNotificationsTableAvailable()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Notification storage migration is required");
+        }
+        int updated = jdbc.update("""
+                UPDATE public.user_notifications
+                SET read_at = COALESCE(read_at, NOW())
+                WHERE id = ? AND user_id = ?
+                """, notificationId, userId);
+        if (updated == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/notifications/read-all")
+    public Map<String, Object> markAllNotificationsRead(
+            HttpServletRequest request) {
+        long userId = requireUserId(request);
+        if (!userNotificationsTableAvailable()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Notification storage migration is required");
+        }
+        int updated = jdbc.update("""
+                UPDATE public.user_notifications
+                SET read_at = NOW()
+                WHERE user_id = ? AND read_at IS NULL
+                """, userId);
+        return Map.of("updated", updated);
+    }
+
     @PostMapping("/profile")
     public ResponseEntity<?> updateProfile(
             @RequestParam(value = "name", required = false) String name,
@@ -1450,6 +1511,20 @@ public class ApiController {
                     HttpStatus.CONFLICT, "Seat reservation expired during confirmation");
         }
 
+        String flightRoute = originCity + " to " + destinationCity;
+        String flightRouteArabic = "من " + originCity + " إلى " + destinationCity;
+        insertUserNotification(
+                userId,
+                "flight-booking:" + tripId,
+                "booking",
+                "Flight booking confirmed",
+                "تم تأكيد حجز الرحلة",
+                "Your flight " + flightRoute + " is confirmed. Reference: " + reference + ".",
+                "تم تأكيد رحلتك " + flightRouteArabic + ". رقم الحجز: " + reference + ".",
+                "trip",
+                tripId,
+                reference);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "booking", Map.of(
                         "reference", reference,
@@ -1976,6 +2051,33 @@ public class ApiController {
             if (paymentAttemptId != null) {
                 linkPaymentAttemptToBooking(paymentAttemptId, userId, id);
             }
+            String bookingReference = text(body.get("ref_code")).trim();
+            if (bookingReference.length() > 120) {
+                bookingReference = bookingReference.substring(0, 120);
+            }
+            String safeTitle = title.trim();
+            if (safeTitle.length() > 120) {
+                safeTitle = safeTitle.substring(0, 120);
+            }
+            String englishType = bookingTypeLabel(type, false);
+            String arabicType = bookingTypeLabel(type, true);
+            String englishReference = bookingReference.isBlank()
+                    ? "" : " Reference: " + bookingReference + ".";
+            String arabicReference = bookingReference.isBlank()
+                    ? "" : " رقم الحجز: " + bookingReference + ".";
+            insertUserNotification(
+                    userId,
+                    "booking:" + id,
+                    "booking",
+                    "Booking confirmed",
+                    "تم تأكيد الحجز",
+                    "Your " + englishType + " booking for " + safeTitle
+                            + " is confirmed." + englishReference,
+                    "تم تأكيد حجز " + arabicType + " " + safeTitle + "."
+                            + arabicReference,
+                    "booking",
+                    id,
+                    bookingReference.isBlank() ? null : bookingReference);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("booking", bookingPayload(jdbc.queryForMap("""
                             SELECT bookings.*,
@@ -2092,6 +2194,65 @@ public class ApiController {
                     "Booking type must be hotel, car, attraction, or package");
         }
         return normalized;
+    }
+
+    private static String bookingTypeLabel(String type, boolean arabic) {
+        if (arabic) {
+            return switch (type) {
+                case "hotel" -> "الفندق";
+                case "car" -> "السيارة";
+                case "attraction" -> "المعلم السياحي";
+                case "package" -> "الباقة السياحية";
+                default -> "الحجز";
+            };
+        }
+        return switch (type) {
+            case "hotel" -> "hotel";
+            case "car" -> "car";
+            case "attraction" -> "attraction";
+            case "package" -> "travel package";
+            default -> "booking";
+        };
+    }
+
+    private void insertUserNotification(
+            long userId,
+            String eventKey,
+            String kind,
+            String titleEn,
+            String titleAr,
+            String bodyEn,
+            String bodyAr,
+            String targetType,
+            long targetId,
+            String bookingReference) {
+        if (!userNotificationsTableAvailable()) {
+            LOG.warn("Notification migration is not installed; booking was saved without inbox entry");
+            return;
+        }
+        jdbc.update("""
+                INSERT INTO public.user_notifications
+                    (user_id, event_key, kind, title_en, title_ar,
+                     body_en, body_ar, target_type, target_id,
+                     booking_ref, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                ON CONFLICT (user_id, event_key) DO NOTHING
+                """,
+                userId, eventKey, kind, titleEn, titleAr, bodyEn, bodyAr,
+                targetType, targetId,
+                bookingReference == null || bookingReference.isBlank()
+                        ? null : bookingReference);
+    }
+
+    private boolean userNotificationsTableAvailable() {
+        try {
+            return Boolean.TRUE.equals(jdbc.queryForObject(
+                    "SELECT to_regclass('public.user_notifications') IS NOT NULL",
+                    Boolean.class));
+        } catch (org.springframework.dao.DataAccessException exception) {
+            LOG.warn("Could not check notification migration status", exception);
+            return false;
+        }
     }
 
     private boolean hasBookingScheduleConflict(

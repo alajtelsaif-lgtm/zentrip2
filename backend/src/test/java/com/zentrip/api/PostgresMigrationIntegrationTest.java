@@ -567,6 +567,14 @@ class PostgresMigrationIntegrationTest {
         JsonNode response = postJson("/api/bookings", booking("car", listing), 201);
         long id = response.path("booking").path("id").asLong();
         assertTrue(id > 0);
+        Map<String, Object> notification = jdbc.queryForMap("""
+                SELECT user_id, kind, target_type, target_id, booking_ref
+                FROM user_notifications WHERE event_key = ?
+                """, "booking:" + id);
+        assertEquals(userId, ((Number) notification.get("user_id")).longValue());
+        assertEquals("booking", notification.get("kind"));
+        assertEquals("booking", notification.get("target_type"));
+        assertEquals(id, ((Number) notification.get("target_id")).longValue());
         assertEquals("0", jdbc.queryForObject(
                 "SELECT attributes ->> 'available_vehicles' FROM partner_listings WHERE id = ?", String.class, listing));
         assertEquals(Instant.parse("2035-11-10T08:00:00Z"), jdbc.queryForObject(
@@ -1006,6 +1014,11 @@ class PostgresMigrationIntegrationTest {
                 "SELECT seat_class FROM trips WHERE user_id = ?", String.class, userId));
         assertEquals("confirmed", jdbc.queryForObject(
                 "SELECT status FROM flight_seat_holds WHERE flight_listing_id = ?", String.class, flight));
+        assertEquals(1, jdbc.queryForObject("""
+                SELECT COUNT(*) FROM user_notifications
+                WHERE user_id = ? AND event_key = ? AND target_type = 'trip'
+                """, Integer.class, userId,
+                "flight-booking:" + confirmed.path("trip").path("id").asLong()));
     }
 
     @Test
@@ -1194,6 +1207,62 @@ class PostgresMigrationIntegrationTest {
         assertEquals(0, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM user_push_tokens WHERE token = ?",
                 Integer.class, deviceToken));
+    }
+
+    @Test
+    @Transactional
+    void notificationInboxIsOwnerScopedAndSupportsReadState() throws Exception {
+        long otherUserId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password)
+                VALUES ('Other Notification Owner', ?, 'unused-test-hash')
+                RETURNING id
+                """, Long.class, UUID.randomUUID() + "@example.invalid");
+        long ownNotificationId = jdbc.queryForObject("""
+                INSERT INTO user_notifications
+                    (user_id, event_key, kind, title_en, title_ar,
+                     body_en, body_ar, target_type, target_id, booking_ref)
+                VALUES (?, ?, 'booking', 'Booking confirmed', 'تم تأكيد الحجز',
+                        'Your booking is confirmed.', 'تم تأكيد حجزك.',
+                        'booking', 501, 'ZT-OWN')
+                RETURNING id
+                """, Long.class, userId, "test-own-" + UUID.randomUUID());
+        long otherNotificationId = jdbc.queryForObject("""
+                INSERT INTO user_notifications
+                    (user_id, event_key, kind, title_en, title_ar,
+                     body_en, body_ar, target_type, target_id, booking_ref)
+                VALUES (?, ?, 'booking', 'Other booking', 'حجز آخر',
+                        'Private notification.', 'إشعار خاص.',
+                        'booking', 502, 'ZT-OTHER')
+                RETURNING id
+                """, Long.class, otherUserId, "test-other-" + UUID.randomUUID());
+
+        JsonNode listed = json.readTree(http.perform(get("/api/notifications")
+                        .param("limit", "10")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString()).path("notifications");
+        assertEquals(1, listed.size());
+        assertEquals(ownNotificationId, listed.get(0).path("id").asLong());
+
+        http.perform(put("/api/notifications/" + ownNotificationId + "/read")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        assertNotNull(jdbc.queryForObject(
+                "SELECT read_at FROM user_notifications WHERE id = ?",
+                Timestamp.class, ownNotificationId));
+
+        http.perform(put("/api/notifications/" + otherNotificationId + "/read")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+        assertEquals(0, jdbc.queryForObject("""
+                SELECT COUNT(*) FROM user_notifications
+                WHERE id = ? AND read_at IS NOT NULL
+                """, Integer.class, otherNotificationId));
+
+        http.perform(put("/api/notifications/read-all")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.updated").value(0));
     }
 
     @Test

@@ -62,6 +62,8 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/me", "/api/auth/logout", "/api/users/fcm-token"
                 ).authenticated()
+                .requestMatchers("/api/notifications", "/api/notifications/**")
+                    .hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.POST, "/api/attractions/*/visits")
                     .permitAll()
                 .requestMatchers(

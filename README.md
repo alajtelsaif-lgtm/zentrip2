@@ -32,6 +32,7 @@ For an existing database, first run the read-only schema/policy inspection query
 6. `backend/src/main/resources/migrations/20261104_core_data_rls.sql`
 7. `backend/src/main/resources/migrations/20261104_payment_attempts.sql`
 8. `backend/src/main/resources/migrations/20261105_user_push_tokens.sql`
+9. `backend/src/main/resources/migrations/20261107_user_notifications.sql` — creates the authenticated notification inbox; apply before enabling booking notifications.
 
 The feature migrations are transactional and safe to rerun after a successful commit. Do not mark an older migration as applied merely because a similarly named table exists; verify its columns, policies, grants, and helper functions first. The backend does not run production migrations automatically. After applying, confirm `zentrip_api_runtime` is `NOLOGIN` and `NOBYPASSRLS`, the database login can `SET ROLE zentrip_api_runtime`, and the visit tables deny direct `anon`/`authenticated` access while runtime API calls still work. If `SUPABASE_DB_USER` is not `postgres`, verify it can assume the runtime role.
 
@@ -46,6 +47,8 @@ Cross-origin browser access is disabled unless `CORS_ALLOWED_ORIGINS` is set. Se
 ## Push-token storage
 
 `POST` and `DELETE /api/users/fcm-token` require an authenticated session and operate only on the current user's device token. The `user_push_tokens` table is protected by RLS and migration `20261105_user_push_tokens.sql`. Push delivery remains disabled in Flutter until Firebase client configuration and backend Firebase Admin credentials are installed; registering a token alone does not send notifications.
+
+Booking and flight confirmations are also written to `user_notifications` in the same database transaction as the successful booking. The authenticated notification endpoints return only the current user's records and support per-item and bulk read state. Apply `20261107_user_notifications.sql` before releasing the booking endpoints that write these events. These persisted inbox notifications work without FCM; operating-system push alerts still require Firebase configuration on both client and backend.
 
 ## Run Flutter
 

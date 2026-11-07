@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
@@ -94,10 +96,11 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
     setState(() => _isBooking = false);
     if (!mounted) return;
     AppSnackbar.success(context, l10n.packageBookingSuccess(package.location));
-    await NotificationsStore.instance.add(
-        kind: NotifKind.booking,
-        title: l10n.notifBookingConfirmedTitle,
-        subtitle: package.title);
+    unawaited(NotificationsStore.instance.refreshAfterBooking(
+      title: l10n.notifBookingConfirmedTitle,
+      subtitle: package.title,
+      bookingRef: ref,
+    ));
     if (!mounted) return;
     AppShellTabController.goToTab(3); // تاب "رحلاتي" — عشان يشوف حجزه فورًا
     Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (_) => false);

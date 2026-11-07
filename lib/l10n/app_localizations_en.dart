@@ -409,6 +409,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifEmptyTitle => 'No notifications yet';
 
   @override
+  String get notifEmptyHint => 'Booking and trip updates will appear here.';
+
+  @override
+  String get notifMarkAllRead => 'Mark all read';
+
+  @override
+  String get notifNewSection => 'New';
+
+  @override
+  String get notifEarlierSection => 'Earlier';
+
+  @override
+  String get notifTimeAgoNow => 'Now';
+
+  @override
+  String notifTimeAgoMinutes(Object minutes) {
+    return '${minutes}m ago';
+  }
+
+  @override
+  String notifUnreadCount(Object count) {
+    return '$count unread notifications';
+  }
+
+  @override
   String notifTimeAgoHours(Object hours) {
     return '${hours}h ago';
   }

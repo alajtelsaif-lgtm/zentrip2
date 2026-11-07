@@ -715,6 +715,43 @@ class ApiService {
     });
   }
 
+  Future<ApiResult<List<Map<String, dynamic>>>> getNotifications({
+    int limit = 50,
+  }) {
+    if (useMockMode) {
+      return Future.value(ApiResult.success(const <Map<String, dynamic>>[]));
+    }
+    return _request(() async {
+      final response = await _dio.get(
+        '/notifications',
+        queryParameters: {'limit': limit.clamp(1, 100)},
+      );
+      final rows = response.data is Map ? response.data['notifications'] : null;
+      if (rows is! List) {
+        throw const FormatException(
+            'Notification response must contain a list');
+      }
+      return rows
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList(growable: false);
+    });
+  }
+
+  Future<ApiResult<void>> markNotificationRead(int notificationId) {
+    if (useMockMode) return Future.value(ApiResult<void>.success());
+    return _request(() async {
+      await _dio.put('/notifications/$notificationId/read');
+    });
+  }
+
+  Future<ApiResult<void>> markAllNotificationsRead() {
+    if (useMockMode) return Future.value(ApiResult<void>.success());
+    return _request(() async {
+      await _dio.put('/notifications/read-all');
+    });
+  }
+
   // ── AI Chatbot (Python Service) ──────────────────────────────────────────
 
   Future<ApiResult<String>> sendChatMessage({

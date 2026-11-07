@@ -875,8 +875,50 @@ abstract class AppLocalizations {
   /// No description provided for @notifEmptyTitle.
   ///
   /// In ar, this message translates to:
-  /// **'مفيش إشعارات لسه'**
+  /// **'لا توجد إشعارات حتى الآن'**
   String get notifEmptyTitle;
+
+  /// No description provided for @notifEmptyHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'ستظهر هنا تحديثات الحجوزات والرحلات.'**
+  String get notifEmptyHint;
+
+  /// No description provided for @notifMarkAllRead.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحديد الكل كمقروء'**
+  String get notifMarkAllRead;
+
+  /// No description provided for @notifNewSection.
+  ///
+  /// In ar, this message translates to:
+  /// **'الجديد'**
+  String get notifNewSection;
+
+  /// No description provided for @notifEarlierSection.
+  ///
+  /// In ar, this message translates to:
+  /// **'السابق'**
+  String get notifEarlierSection;
+
+  /// No description provided for @notifTimeAgoNow.
+  ///
+  /// In ar, this message translates to:
+  /// **'الآن'**
+  String get notifTimeAgoNow;
+
+  /// No description provided for @notifTimeAgoMinutes.
+  ///
+  /// In ar, this message translates to:
+  /// **'منذ {minutes} دقيقة'**
+  String notifTimeAgoMinutes(Object minutes);
+
+  /// No description provided for @notifUnreadCount.
+  ///
+  /// In ar, this message translates to:
+  /// **'عدد الإشعارات غير المقروءة: {count}'**
+  String notifUnreadCount(Object count);
 
   /// No description provided for @notifTimeAgoHours.
   ///

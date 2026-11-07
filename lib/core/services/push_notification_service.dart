@@ -8,17 +8,9 @@ import 'api_service.dart';
 /// FCM handles device notifications only; account data remains in the
 /// authenticated Zentrip API and PostgreSQL.
 ///
-/// ── لتفعيلها ────────────────────────────────────────────────────────────
-/// 1. اعمل مشروع على https://console.firebase.google.com
-/// 2. ضيف تطبيق Android وتطبيق iOS للمشروع، ونزّل:
-///    - google-services.json → حطه في android/app/
-///    - GoogleService-Info.plist → حطه في ios/Runner/
-/// 3. في android/build.gradle.kts (أو .gradle) ضيف classpath خدمات جوجل،
-///    وفي android/app/build.gradle.kts ضيف بلجن Google Services — التفاصيل
-///    الكاملة في: https://firebase.google.com/docs/flutter/setup
-/// 4. خلي [isConfigured] = true تحت.
-/// 5. The backend uses Firebase Admin SDK to send notifications to tokens
-///    registered at /users/fcm-token. The client only receives notifications.
+/// FCM delivery is intentionally disabled until Firebase client configuration
+/// and backend Admin credentials are installed. Booking confirmations are
+/// persisted in the authenticated backend inbox independently of FCM.
 class PushNotificationService {
   static final PushNotificationService instance = PushNotificationService._();
   PushNotificationService._();

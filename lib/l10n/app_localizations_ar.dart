@@ -400,7 +400,32 @@ class AppLocalizationsAr extends AppLocalizations {
   String get notifTripCancelledTitle => 'تم إلغاء الرحلة';
 
   @override
-  String get notifEmptyTitle => 'مفيش إشعارات لسه';
+  String get notifEmptyTitle => 'لا توجد إشعارات حتى الآن';
+
+  @override
+  String get notifEmptyHint => 'ستظهر هنا تحديثات الحجوزات والرحلات.';
+
+  @override
+  String get notifMarkAllRead => 'تحديد الكل كمقروء';
+
+  @override
+  String get notifNewSection => 'الجديد';
+
+  @override
+  String get notifEarlierSection => 'السابق';
+
+  @override
+  String get notifTimeAgoNow => 'الآن';
+
+  @override
+  String notifTimeAgoMinutes(Object minutes) {
+    return 'منذ $minutes دقيقة';
+  }
+
+  @override
+  String notifUnreadCount(Object count) {
+    return 'عدد الإشعارات غير المقروءة: $count';
+  }
 
   @override
   String notifTimeAgoHours(Object hours) {

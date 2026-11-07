@@ -16,3 +16,4 @@
 - [OpenTripMap landmark source](opentripmap-landmarks.md) — keep landmark records on OpenTripMap, with only the requested Wikipedia image fallback; preserve Geoapify for airport/geocoding use.
 - [Flight checkout data boundary](flight-checkout-data-boundary.md) — use only existing trip and booking persistence; passenger passport and payment details remain transient.
 - [Replit preview framing](replit-preview-framing.md) — a default DENY frame header can blank the embedded preview while the app still works directly.
+- [Notification persistence rollout safety](notification-persistence.md) — keep booking success independent of the inbox migration and retain a local alert fallback until server storage is ready.

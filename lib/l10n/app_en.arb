@@ -130,6 +130,19 @@
   "notifPromoBody": "20% off on car rentals this weekend",
   "notifTripCancelledTitle": "Trip cancelled",
   "notifEmptyTitle": "No notifications yet",
+  "notifEmptyHint": "Booking and trip updates will appear here.",
+  "notifMarkAllRead": "Mark all read",
+  "notifNewSection": "New",
+  "notifEarlierSection": "Earlier",
+  "notifTimeAgoNow": "Now",
+  "notifTimeAgoMinutes": "{minutes}m ago",
+  "@notifTimeAgoMinutes": {
+    "placeholders": { "minutes": { "type": "Object" } }
+  },
+  "notifUnreadCount": "{count} unread notifications",
+  "@notifUnreadCount": {
+    "placeholders": { "count": { "type": "Object" } }
+  },
   "notifTimeAgoHours": "{hours}h ago",
   "@notifTimeAgoHours": {
     "placeholders": { "hours": { "type": "Object" } }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -117,10 +119,11 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     if (!mounted) return;
     setState(() => _isBooking = false);
     AppSnackbar.success(context, l10n.carBookedSuccess);
-    await NotificationsStore.instance.add(
-        kind: NotifKind.booking,
-        title: l10n.notifBookingConfirmedTitle,
-        subtitle: '${car.brand} ${car.model}');
+    unawaited(NotificationsStore.instance.refreshAfterBooking(
+      title: l10n.notifBookingConfirmedTitle,
+      subtitle: '${car.brand} ${car.model}',
+      bookingRef: ref,
+    ));
     if (!mounted) return;
     Navigator.push(
       context,

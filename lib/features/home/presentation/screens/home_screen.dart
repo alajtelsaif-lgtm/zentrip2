@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import '../../../../features/flight_booking/logic/flight_controller.dart';
 import '../../../../features/flight_booking/logic/flexible_flight_selection.dart';
 import '../../../../features/flight_booking/presentation/widgets/flexible_flight_dates_button.dart';
+import '../../../../features/notifications/logic/notifications_store.dart';
+import '../../../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/services/current_location_service.dart';
@@ -899,31 +901,69 @@ class _Header extends StatelessWidget {
           Positioned(
             right: 20,
             top: topPad + 22,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(50),
-                shape: BoxShape.circle,
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Icon(Icons.notifications_none_rounded,
-                      color: Colors.white, size: 22),
-                  Positioned(
-                    top: 9,
-                    right: 10,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF5A524),
-                        shape: BoxShape.circle,
-                      ),
+            child: Material(
+              color: Colors.white.withAlpha(50),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NotificationsScreen(),
                     ),
+                  );
+                },
+                child: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: AnimatedBuilder(
+                    animation: NotificationsStore.instance,
+                    builder: (context, _) {
+                      final unread = NotificationsStore.instance.unreadCount;
+                      return Semantics(
+                        button: true,
+                        label: unread > 0
+                            ? '${l10n.notificationsTitle}, ${l10n.notifUnreadCount(unread)}'
+                            : l10n.notificationsTitle,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: [
+                            const Icon(Icons.notifications_none_rounded,
+                                color: Colors.white, size: 22),
+                            if (unread > 0)
+                              PositionedDirectional(
+                                top: 2,
+                                end: 2,
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFF5A524),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    unread > 9 ? '9+' : '$unread',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                ],
+                ),
               ),
             ),
           ),

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../../features/notifications/logic/notifications_store.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_booking_model.dart';
 import '../../../../models/flight_model.dart';
@@ -73,6 +76,12 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
         _confirmation = result.data;
         _loading = false;
       });
+      unawaited(NotificationsStore.instance.refreshAfterBooking(
+        title: AppLocalizations.of(context).notifBookingConfirmedTitle,
+        subtitle:
+            '${widget.draft.flight.originCity} → ${widget.draft.flight.destinationCity}',
+        bookingRef: result.data!.reference,
+      ));
     } catch (error, stackTrace) {
       debugPrint('Flight booking confirmation failed: $error\n$stackTrace');
       if (!mounted) return;

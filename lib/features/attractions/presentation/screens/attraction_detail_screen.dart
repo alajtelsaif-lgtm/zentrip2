@@ -127,10 +127,11 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
     setState(() => _isBooking = false);
     if (!mounted) return;
     AppSnackbar.success(context, l10n.attractionTicketBookedSuccess);
-    await NotificationsStore.instance.add(
-        kind: NotifKind.booking,
-        title: l10n.notifBookingConfirmedTitle,
-        subtitle: a.name);
+    unawaited(NotificationsStore.instance.refreshAfterBooking(
+      title: l10n.notifBookingConfirmedTitle,
+      subtitle: a.name,
+      bookingRef: ref,
+    ));
     if (!mounted) return;
     AppShellTabController.goToTab(3); // تاب "رحلاتي" — عشان يشوف حجزه فورًا
     Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (_) => false);

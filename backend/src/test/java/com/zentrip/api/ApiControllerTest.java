@@ -89,6 +89,81 @@ class ApiControllerTest {
     }
 
     @Test
+    void notificationListingUsesAuthenticatedOwnerAndCapsRequestedLimit() {
+        when(jdbc.queryForObject(
+                eq("SELECT to_regclass('public.user_notifications') IS NOT NULL"),
+                eq(Boolean.class)))
+                .thenReturn(true);
+        when(jdbc.queryForList(any(String.class), any(Object[].class)))
+                .thenReturn(List.of(Map.of(
+                        "id", 9L,
+                        "kind", "booking",
+                        "title_en", "Booking confirmed",
+                        "title_ar", "تم تأكيد الحجز",
+                        "body_en", "Your booking is confirmed.",
+                        "body_ar", "تم تأكيد حجزك.",
+                        "is_read", false)));
+
+        Map<String, Object> response =
+                controller.userNotifications(500, authenticatedRequest());
+
+        assertEquals(1, ((List<?>) response.get("notifications")).size());
+        verify(jdbc).queryForList(
+                contains("WHERE user_id = ?"), eq(7L), eq(100));
+    }
+
+    @Test
+    void notificationInboxReturnsServiceUnavailableUntilMigrationIsInstalled() {
+        when(jdbc.queryForObject(
+                eq("SELECT to_regclass('public.user_notifications') IS NOT NULL"),
+                eq(Boolean.class)))
+                .thenReturn(false);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> controller.userNotifications(50, authenticatedRequest()));
+
+        assertEquals(503, exception.getStatusCode().value());
+        verify(jdbc, never()).queryForList(any(String.class), any(Object[].class));
+    }
+
+    @Test
+    void notificationReadCannotUpdateAnotherUsersNotification() {
+        when(jdbc.queryForObject(
+                eq("SELECT to_regclass('public.user_notifications') IS NOT NULL"),
+                eq(Boolean.class)))
+                .thenReturn(true);
+        when(jdbc.update(
+                contains("WHERE id = ? AND user_id = ?"), eq(88L), eq(7L)))
+                .thenReturn(0);
+
+        ResponseEntity<?> response =
+                controller.markNotificationRead(88L, authenticatedRequest());
+
+        assertEquals(404, response.getStatusCode().value());
+        verify(jdbc).update(
+                contains("WHERE id = ? AND user_id = ?"), eq(88L), eq(7L));
+    }
+
+    @Test
+    void markAllNotificationsReadUsesAuthenticatedUserOnly() {
+        when(jdbc.queryForObject(
+                eq("SELECT to_regclass('public.user_notifications') IS NOT NULL"),
+                eq(Boolean.class)))
+                .thenReturn(true);
+        when(jdbc.update(
+                contains("WHERE user_id = ? AND read_at IS NULL"), eq(7L)))
+                .thenReturn(3);
+
+        Map<String, Object> response =
+                controller.markAllNotificationsRead(authenticatedRequest());
+
+        assertEquals(3, response.get("updated"));
+        verify(jdbc).update(
+                contains("WHERE user_id = ? AND read_at IS NULL"), eq(7L));
+    }
+
+    @Test
     void recentAttractionDestinationRequiresVerifiedCustomerSession() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute("authRole", "partner");

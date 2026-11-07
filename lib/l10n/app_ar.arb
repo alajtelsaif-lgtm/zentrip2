@@ -129,7 +129,20 @@
   "notifPromoTitle": "عرض خاص",
   "notifPromoBody": "خصم 20% على تأجير السيارات نهاية الأسبوع ده",
   "notifTripCancelledTitle": "تم إلغاء الرحلة",
-  "notifEmptyTitle": "مفيش إشعارات لسه",
+  "notifEmptyTitle": "لا توجد إشعارات حتى الآن",
+  "notifEmptyHint": "ستظهر هنا تحديثات الحجوزات والرحلات.",
+  "notifMarkAllRead": "تحديد الكل كمقروء",
+  "notifNewSection": "الجديد",
+  "notifEarlierSection": "السابق",
+  "notifTimeAgoNow": "الآن",
+  "notifTimeAgoMinutes": "منذ {minutes} دقيقة",
+  "@notifTimeAgoMinutes": {
+    "placeholders": { "minutes": { "type": "Object" } }
+  },
+  "notifUnreadCount": "عدد الإشعارات غير المقروءة: {count}",
+  "@notifUnreadCount": {
+    "placeholders": { "count": { "type": "Object" } }
+  },
   "notifTimeAgoHours": "من {hours} ساعة",
   "notifTimeAgoDays": "من {days} يوم",
   "tripReminders": "تذكيرات الرحلات",
