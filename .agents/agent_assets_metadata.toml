@@ -196,3 +196,17 @@ mtime_ms = 1793978730769
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/d2815043-6eac-4b34-a569-2ac1c56d2e27/947f55eb-4889-48de-8c6d-b6472bda4f26"
 storage_version_token = "1793978737979671"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "N9LkvcFq0cD-PXoZoKQeg"
+uri = "file://generated-artifacts/Zentrip-1.3-introduction-ar.docx"
+type = "word_document"
+title = "مقدمة الفصل الثالث لمشروع Zentrip"
+description = "ملف Word قابل للتحرير يتضمن المقدمة الأكاديمية والتقنيات والأدوات المستخدمة في المشروع، مع تنسيق عربي من اليمين إلى اليسار."
+logical_id = "633dfaeb-2a82-4a4e-9a85-558f82a58e43"
+content_hash = "sha256:2b3e3b8fece2283d3e396473b9782a0e206a42c245ca2bc5feb6a9f2c338de19"
+size = 11662
+mtime_ms = 1794064086037
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/633dfaeb-2a82-4a4e-9a85-558f82a58e43/3ebadae4-8105-4b61-9e7d-f588cea36aff"
+storage_version_token = "1794064092218256"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
