@@ -12,7 +12,7 @@ class LanguageScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final langs = [
-      (const Locale('ar'), '🇸🇦', l10n.arabic, 'العربية'),
+      (const Locale('ar'), '🇱🇾', l10n.arabic, 'العربية'),
       (const Locale('en'), '🇺🇸', l10n.english, 'English'),
     ];
 
