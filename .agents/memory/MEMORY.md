@@ -17,3 +17,4 @@
 - [Flight checkout data boundary](flight-checkout-data-boundary.md) — use only existing trip and booking persistence; passenger passport and payment details remain transient.
 - [Replit preview framing](replit-preview-framing.md) — a default DENY frame header can blank the embedded preview while the app still works directly.
 - [Notification persistence rollout safety](notification-persistence.md) — keep booking success independent of the inbox migration and retain a local alert fallback until server storage is ready.
+- [RLS catalog reads](offer-catalog-rls.md) — avoid row-locking public catalog reads when update policies are admin-only; lock queries can hide otherwise visible rows.

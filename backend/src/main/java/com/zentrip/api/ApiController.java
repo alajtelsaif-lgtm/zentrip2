@@ -1674,7 +1674,6 @@ public class ApiController {
                        hotel_price_per_night, duration_nights, flight_listing_id
                 FROM offers
                 WHERE id = ? AND is_active = TRUE
-                FOR SHARE
                 """, offerId);
         if (rows.isEmpty()) {
             throw new ResponseStatusException(
