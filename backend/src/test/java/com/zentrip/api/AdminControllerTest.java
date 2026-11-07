@@ -310,24 +310,23 @@ class AdminControllerTest {
         when(jdbc.queryForObject(contains("pg_attribute"), eq(Boolean.class)))
                 .thenReturn(false);
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
-                () -> controller.createOffer(Map.ofEntries(
-                        Map.entry("title", "Istanbul Dream"),
-                        Map.entry("location", "Istanbul"),
-                        Map.entry("country", "Turkey"),
-                        Map.entry("description", "A trip"),
-                        Map.entry("price_per_person", 1085),
-                        Map.entry("flight_price_per_person", 420),
-                        Map.entry("flight_listing_id", 25),
-                        Map.entry("hotel_price_per_night", 95),
-                        Map.entry("duration_nights", 7),
-                        Map.entry("rating", 4.8),
-                        Map.entry("review_count", 2340)),
-                        authenticatedRequest()));
+        var response = controller.createOffer(Map.ofEntries(
+                Map.entry("title", "Istanbul Dream"),
+                Map.entry("location", "Istanbul"),
+                Map.entry("country", "Turkey"),
+                Map.entry("description", "A trip"),
+                Map.entry("price_per_person", 1085),
+                Map.entry("flight_price_per_person", 420),
+                Map.entry("flight_listing_id", 25),
+                Map.entry("hotel_price_per_night", 95),
+                Map.entry("duration_nights", 7),
+                Map.entry("rating", 4.8),
+                Map.entry("review_count", 2340)),
+                authenticatedRequest());
 
-        assertEquals(409, exception.getStatusCode().value());
-        assertTrue(exception.getReason().contains("20261107_offer_flight_link.sql"));
+        assertEquals(409, response.getStatusCode().value());
+        assertTrue(response.getBody().get("message").toString()
+                .contains("20261107_offer_flight_link.sql"));
     }
 
     @Test
@@ -369,7 +368,7 @@ class AdminControllerTest {
                 contains("FROM partner_listings l"), eq(25L)))
                 .thenReturn(List.of(Map.of("price", new BigDecimal("420"))));
 
-        Map<String, Object> response = controller.updateOffer(
+        var response = controller.updateOffer(
                 "offer-1",
                 Map.ofEntries(
                         Map.entry("title", "Istanbul Dream"),
@@ -389,7 +388,8 @@ class AdminControllerTest {
                 authenticatedRequest());
 
         @SuppressWarnings("unchecked")
-        Map<String, Object> offer = (Map<String, Object>) response.get("offer");
+        Map<String, Object> offer =
+                (Map<String, Object>) response.getBody().get("offer");
         assertEquals("offer-1", offer.get("id"));
         assertEquals("Limited-time", offer.get("badge"));
         verify(jdbc).update(

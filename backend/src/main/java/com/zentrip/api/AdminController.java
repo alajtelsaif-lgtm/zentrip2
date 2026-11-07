@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -31,6 +32,9 @@ import java.util.LinkedHashSet;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
+    private static final String OFFER_FLIGHT_MIGRATION_REQUIRED =
+            "Apply migration 20261107_offer_flight_link.sql in Supabase before linking flights to offers";
+
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Set<String> PARTNER_SERVICE_TYPES =
             Set.of("airline", "hotel", "car", "transfer", "travel");
@@ -669,12 +673,15 @@ public class AdminController {
 
     @PostMapping("/offers")
     @Transactional
-    public Map<String, Object> createOffer(
+    public ResponseEntity<Map<String, Object>> createOffer(
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
         requireAdminId(request);
         Map<String, Object> offer = validateOffer(body);
-        requireOfferFlightLinkSchema();
+        if (!hasOfferFlightLinkColumn()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("message", OFFER_FLIGHT_MIGRATION_REQUIRED));
+        }
         resolveOfferFlightPrice(offer);
         String id = UUID.randomUUID().toString();
         jdbc.update("""
@@ -708,18 +715,21 @@ public class AdminController {
                 VALUES (?, ?)
                 """, id, offer.get("badge"));
         offer.put("id", id);
-        return Map.of("offer", offer);
+        return ResponseEntity.ok(Map.of("offer", offer));
     }
 
     @PutMapping("/offers/{id}")
     @Transactional
-    public Map<String, Object> updateOffer(
+    public ResponseEntity<Map<String, Object>> updateOffer(
             @PathVariable String id,
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
         requireAdminId(request);
         Map<String, Object> offer = validateOffer(body);
-        requireOfferFlightLinkSchema();
+        if (!hasOfferFlightLinkColumn()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("message", OFFER_FLIGHT_MIGRATION_REQUIRED));
+        }
         resolveOfferFlightPrice(offer);
         requireCatalogItem(
                 "SELECT COUNT(*) FROM offers WHERE id = ? AND is_active = TRUE",
@@ -764,7 +774,7 @@ public class AdminController {
                 ON CONFLICT (offer_id) DO UPDATE SET badge = EXCLUDED.badge
                 """, id, offer.get("badge"));
         offer.put("id", id);
-        return Map.of("offer", offer);
+        return ResponseEntity.ok(Map.of("offer", offer));
     }
 
     @DeleteMapping("/offers/{id}")
@@ -1260,14 +1270,6 @@ public class AdminController {
     private boolean catalogItemExists(String query, String id) {
         Integer count = jdbc.queryForObject(query, Integer.class, id);
         return count != null && count > 0;
-    }
-
-    private void requireOfferFlightLinkSchema() {
-        if (!hasOfferFlightLinkColumn()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Apply migration 20261107_offer_flight_link.sql before linking a flight to an offer");
-        }
     }
 
     private boolean hasOfferFlightLinkColumn() {
