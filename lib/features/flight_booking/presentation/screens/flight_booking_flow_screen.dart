@@ -5,6 +5,7 @@ import '../../../../core/services/api_service.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
 import '../../../../models/flight_seat_map.dart';
+import '../../../../models/travel_package_model.dart';
 import '../../logic/flight_controller.dart';
 import 'flight_checkout_shared_components.dart';
 import 'flight_choose_fare_screen.dart';
@@ -16,11 +17,13 @@ import 'flight_seat_selection.dart';
 class FlightBookingFlowScreen extends StatefulWidget {
   final FlightController? controller;
   final FlightSeatMapLoader? seatMapLoader;
+  final TravelPackage? packageOffer;
 
   const FlightBookingFlowScreen({
     super.key,
     this.controller,
     this.seatMapLoader,
+    this.packageOffer,
   });
 
   @override
@@ -204,6 +207,7 @@ class _FlightBookingFlowScreenState extends State<FlightBookingFlowScreen> {
           initialFareId: fare.id,
           passengers: List.unmodifiable(_passengers),
           reviewFlowEnabled: true,
+          packageOffer: widget.packageOffer,
         ),
       ),
     );

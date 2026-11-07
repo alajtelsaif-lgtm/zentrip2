@@ -1023,6 +1023,71 @@ class PostgresMigrationIntegrationTest {
 
     @Test
     @Transactional
+    void dealConfirmationUsesItsLinkedFlightAndPersistsTheStayWithTheTicket() throws Exception {
+        long flight = listing("flight", """
+                {"seat_layout":"2-2","seat_rows":16,"seats_available":64,
+                 "origin_code":"MRA","origin_city":"Misrata",
+                 "destination_code":"MJI","destination_city":"Tripoli",
+                 "flight_number":"MW123","departure_time":"2035-11-20T10:00:00+02:00",
+                 "arrival_time":"2035-11-20T11:00:00+02:00"}
+                """);
+        String offerId = UUID.randomUUID().toString();
+        jdbc.update("""
+                INSERT INTO offers (
+                    id, title, location, country, destination_code, description,
+                    image_url, price_per_person, flight_price_per_person,
+                    hotel_price_per_night, duration_nights, rating, review_count,
+                    highlights, flight_listing_id, is_featured, category, is_active
+                ) VALUES (?, 'Tripoli Escape', 'Tripoli', 'Libya', 'MJI',
+                    'A package stay', '', 340, 100, 80, 3, 4.8, 10,
+                    '[]'::jsonb, ?, FALSE, 'city', TRUE)
+                """, offerId, flight);
+        JsonNode visibleOffers = json.readTree(http.perform(get("/api/offers")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        boolean offerIsPublic = false;
+        for (JsonNode candidate : visibleOffers.path("offers")) {
+            if (offerId.equals(candidate.path("id").asText())) {
+                offerIsPublic = true;
+                break;
+            }
+        }
+        assertTrue(offerIsPublic);
+        postJson("/api/flights/" + flight + "/seats/reserve",
+                Map.of("seats", java.util.List.of("2A")), 200);
+
+        JsonNode confirmed = postJson("/api/bookings/confirm", Map.of(
+                "flight_id", flight,
+                "offer_id", offerId,
+                "seats", java.util.List.of("2A"),
+                "seat_class", "economy"), 201);
+        long tripId = confirmed.path("trip").path("id").asLong();
+        long packageBookingId = confirmed.path("booking")
+                .path("package_booking_id").asLong();
+        String reference = confirmed.path("booking").path("reference").asText();
+
+        assertEquals(240, confirmed.path("booking").path("hotel_total").asDouble(), .001);
+        assertEquals("Tripoli Escape", jdbc.queryForObject(
+                "SELECT title FROM bookings WHERE id = ? AND type = 'package'",
+                String.class, packageBookingId));
+        assertEquals(tripId, jdbc.queryForObject(
+                "SELECT trip_id FROM bookings WHERE id = ?",
+                Long.class, packageBookingId));
+        assertEquals(reference, jdbc.queryForObject(
+                "SELECT ref_code FROM bookings WHERE id = ?",
+                String.class, packageBookingId));
+        assertEquals("Tripoli Escape", jdbc.queryForObject(
+                "SELECT details ->> 'package_title' FROM trips WHERE id = ?",
+                String.class, tripId));
+        assertEquals(1, jdbc.queryForObject("""
+                SELECT COUNT(*) FROM user_notifications
+                WHERE user_id = ? AND event_key = ? AND target_type = 'booking'
+                """, Integer.class, userId, "package-booking:" + packageBookingId));
+    }
+
+    @Test
+    @Transactional
     void coreRlsIsEnabledAndSeparatesCustomerPartnerAndAdminData() {
         assertFalse(jdbc.queryForObject("""
                 SELECT rolsuper OR rolcanlogin OR rolbypassrls

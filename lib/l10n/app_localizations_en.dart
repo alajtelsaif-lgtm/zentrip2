@@ -2612,6 +2612,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminHotelPriceNight => 'Hotel price per night';
 
   @override
+  String get adminLinkedFlight => 'Flight included in this offer';
+
+  @override
+  String get adminSelectFlight => 'Select an existing flight';
+
+  @override
+  String get adminOfferFlightMissing => 'Flight not linked';
+
+  @override
+  String get packageAirline => 'Airline';
+
+  @override
+  String get packageStayTotal => 'Hotel stay';
+
+  @override
   String get adminRating => 'Rating (0–5)';
 
   @override

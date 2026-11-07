@@ -271,17 +271,18 @@ class AdminControllerTest {
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> controller.createOffer(Map.of(
-                        "title", "Istanbul Dream",
-                        "location", "Istanbul",
-                        "country", "Turkey",
-                        "description", "A trip",
-                        "price_per_person", 1290,
-                        "flight_price_per_person", 420,
-                        "hotel_price_per_night", 95,
-                        "duration_nights", 0,
-                        "rating", 4.8,
-                        "review_count", 2340),
+                () -> controller.createOffer(Map.ofEntries(
+                        Map.entry("title", "Istanbul Dream"),
+                        Map.entry("location", "Istanbul"),
+                        Map.entry("country", "Turkey"),
+                        Map.entry("description", "A trip"),
+                        Map.entry("price_per_person", 1290),
+                        Map.entry("flight_price_per_person", 420),
+                        Map.entry("flight_listing_id", 25),
+                        Map.entry("hotel_price_per_night", 95),
+                        Map.entry("duration_nights", 0),
+                        Map.entry("rating", 4.8),
+                        Map.entry("review_count", 2340)),
                         authenticatedRequest()));
 
         assertEquals(400, exception.getStatusCode().value());
@@ -320,6 +321,9 @@ class AdminControllerTest {
                 "SELECT COUNT(*) FROM offers WHERE id = ? AND is_active = TRUE",
                 Integer.class,
                 "offer-1")).thenReturn(1);
+        when(jdbc.queryForList(
+                contains("FROM partner_listings l"), eq(25L)))
+                .thenReturn(List.of(Map.of("price", new BigDecimal("420"))));
 
         Map<String, Object> response = controller.updateOffer(
                 "offer-1",
@@ -330,6 +334,7 @@ class AdminControllerTest {
                         Map.entry("description", "Explore the city"),
                         Map.entry("price_per_person", 1290),
                         Map.entry("flight_price_per_person", 420),
+                        Map.entry("flight_listing_id", 25),
                         Map.entry("hotel_price_per_night", 95),
                         Map.entry("duration_nights", 7),
                         Map.entry("rating", 4.8),
@@ -347,6 +352,36 @@ class AdminControllerTest {
                 contains("INSERT INTO offer_catalog_metadata"),
                 eq("offer-1"),
                 eq("Limited-time"));
+    }
+
+    @Test
+    void offerFlightPickerListsOnlyActivePartnerFlightsWithAirlineAndPrice() {
+        when(jdbc.queryForObject("SELECT role FROM users WHERE id = ?", String.class, 7L))
+                .thenReturn("admin");
+        when(jdbc.queryForList(contains("FROM partner_listings l")))
+                .thenReturn(List.of(Map.ofEntries(
+                        Map.entry("linked_flight_id", 25L),
+                        Map.entry("flight_title", "MRA to MJI"),
+                        Map.entry("flight_city", "Tripoli"),
+                        Map.entry("flight_country", "Libya"),
+                        Map.entry("linked_flight_price", new BigDecimal("175")),
+                        Map.entry("flight_active", true),
+                        Map.entry("flight_attributes",
+                                "{\"origin_code\":\"MRA\",\"destination_code\":\"MJI\","
+                                        + "\"flight_number\":\"YL25\"}"),
+                        Map.entry("flight_airline", "Libyan Wings"))));
+
+        Map<String, Object> response =
+                controller.offerFlightListings(authenticatedRequest());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> flight =
+                (Map<String, Object>) ((List<?>) response.get("flights")).getFirst();
+
+        assertEquals("Libyan Wings", flight.get("airline"));
+        assertEquals(25L, flight.get("partner_listing_id"));
+        assertEquals("MRA", flight.get("origin_code"));
+        assertEquals("MJI", flight.get("destination_code"));
+        assertEquals(Boolean.TRUE, flight.get("is_active"));
     }
 
     @Test

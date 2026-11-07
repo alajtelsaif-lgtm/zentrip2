@@ -11,6 +11,7 @@ import '../../../../models/flight_booking_model.dart';
 import '../../../../models/flight_model.dart';
 import '../../../../models/flight_seat_map.dart';
 import '../../../../models/trip_model.dart';
+import '../../../../models/travel_package_model.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'booking_confirmed_screen.dart';
 import 'flight_checkout_shared_components.dart';
@@ -49,6 +50,7 @@ class FlightSeatSelectionScreen extends StatefulWidget {
   final String? initialFareId;
   final List<FlightCheckoutPassenger> passengers;
   final bool reviewFlowEnabled;
+  final TravelPackage? packageOffer;
 
   const FlightSeatSelectionScreen({
     super.key,
@@ -65,6 +67,7 @@ class FlightSeatSelectionScreen extends StatefulWidget {
     this.initialFareId,
     this.passengers = const [],
     this.reviewFlowEnabled = false,
+    this.packageOffer,
   });
 
   @override
@@ -115,12 +118,18 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
   }
 
   double get _totalPrice {
+    final hotelStayTotal = widget.packageOffer == null
+        ? 0.0
+        : widget.packageOffer!.hotelPricePerNight *
+            widget.packageOffer!.durationNights *
+            widget.passengerCount;
     if (widget.flight.isDuffelOffer) {
-      return widget.flight.comparisonTotal(
+      return (widget.flight.comparisonTotal(
             passengers: widget.passengerCount,
             seatClass: widget.seatClass,
           ) ??
-          0;
+          0) +
+          hotelStayTotal;
     }
     final map = _seatMap;
     final fare = _fare;
@@ -136,7 +145,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
     final subtotal = fare.price * widget.passengerCount +
         premiumCount * map.extraLegroomFee +
         extras;
-    return subtotal * (1 + map.taxRate) + map.bookingFee;
+    return subtotal * (1 + map.taxRate) + map.bookingFee + hotelStayTotal;
   }
 
   @override
@@ -386,8 +395,13 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       return [
         FlightPriceLine(
           label: AppLocalizations.of(context).flightTicketPrice,
-          amount: _totalPrice,
+          amount: _totalPrice - _packageStayTotal,
         ),
+        if (_packageStayTotal > 0)
+          FlightPriceLine(
+            label: AppLocalizations.of(context).packageStayTotal,
+            amount: _packageStayTotal,
+          ),
       ];
     }
     final fareAmount = fare.price * widget.passengerCount;
@@ -423,8 +437,19 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
           label: AppLocalizations.of(context).flightServiceFee,
           amount: map.bookingFee,
         ),
+      if (_packageStayTotal > 0)
+        FlightPriceLine(
+          label: AppLocalizations.of(context).packageStayTotal,
+          amount: _packageStayTotal,
+        ),
     ];
   }
+
+  double get _packageStayTotal => widget.packageOffer == null
+      ? 0
+      : widget.packageOffer!.hotelPricePerNight *
+          widget.packageOffer!.durationNights *
+          widget.passengerCount;
 
   Future<void> _proceedToPayment() async {
     final flightId = _flightId;
@@ -515,7 +540,9 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
             context,
             amountUsd: bookingTotal,
             currencyCode: isDuffel ? widget.flight.priceCurrencyCode : 'USD',
-            description: '${widget.flight.flightNumber} seat booking',
+            description: widget.packageOffer == null
+                ? '${widget.flight.flightNumber} seat booking'
+                : '${widget.packageOffer!.title} · ${widget.flight.flightNumber}',
             referenceId: requestReference,
           );
       paymentAttemptId = payment?.attemptId;
@@ -525,7 +552,9 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
             context,
             amount: bookingTotal,
             currencyCode: isDuffel ? widget.flight.priceCurrencyCode : 'USD',
-            description: '${widget.flight.flightNumber} seat booking',
+            description: widget.packageOffer == null
+                ? '${widget.flight.flightNumber} seat booking'
+                : '${widget.packageOffer!.title} · ${widget.flight.flightNumber}',
             referenceId: requestReference,
           );
     }
@@ -611,6 +640,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         totalPrice: bookingTotal,
         extras: selectedExtras,
         paymentAttemptId: paymentAttemptId,
+        packageOffer: widget.packageOffer,
       );
       if (_reviewPushed) Navigator.of(context).pop();
       await Navigator.of(context).push(
@@ -634,6 +664,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       totalPrice: bookingTotal,
       extras: selectedExtras,
       paymentAttemptId: paymentAttemptId,
+      packageOffer: widget.packageOffer,
     );
     if (_reviewPushed) Navigator.of(context).pop();
     await Navigator.of(context).push(

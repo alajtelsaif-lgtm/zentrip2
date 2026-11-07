@@ -2604,6 +2604,21 @@ class AppLocalizationsAr extends AppLocalizations {
   String get adminHotelPriceNight => 'سعر الفندق للليلة';
 
   @override
+  String get adminLinkedFlight => 'الرحلة المضمنة في هذا العرض';
+
+  @override
+  String get adminSelectFlight => 'اختر رحلة موجودة';
+
+  @override
+  String get adminOfferFlightMissing => 'لم يتم ربط رحلة';
+
+  @override
+  String get packageAirline => 'شركة الطيران';
+
+  @override
+  String get packageStayTotal => 'الإقامة الفندقية';
+
+  @override
   String get adminRating => 'التقييم (0–5)';
 
   @override

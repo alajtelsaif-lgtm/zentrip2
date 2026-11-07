@@ -1,21 +1,16 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../features/favorites/logic/favorites_controller.dart';
+import '../../../../features/flight_booking/logic/flight_controller.dart';
+import '../../../../features/flight_booking/presentation/screens/flight_booking_flow_screen.dart';
 import '../../../../global_widgets/app_network_image.dart';
-import '../../../../global_widgets/app_shell.dart';
 import '../../../../global_widgets/app_snackbar.dart';
-import '../../../../global_widgets/payment_checkout_screen.dart';
-import '../../../../features/notifications/logic/notifications_store.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../../models/booking_model.dart';
 import '../../../../models/destination_info_model.dart';
 import '../../../../models/travel_package_model.dart';
-import '../../../../routes/app_routes.dart';
 
 class PackageDetailScreen extends StatefulWidget {
   final TravelPackage package;
@@ -31,79 +26,37 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
   Future<void> _bookOffer() async {
     final l10n = AppLocalizations.of(context);
     final package = widget.package;
-    final ref =
-        'ZT-P-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
-    final bookingStart = DateTime.now().add(const Duration(days: 14));
-    final bookingEnd = bookingStart.add(Duration(days: package.durationNights));
-
-    final availability = await ApiService.instance.checkBookingAvailability(
-      type: BookingType.package,
-      title: package.title,
-      startDate: bookingStart,
-      endDate: bookingEnd,
+    final flight = package.flight;
+    if (flight == null || !flight.isActive) {
+      AppSnackbar.error(context, l10n.flightProviderUnavailable);
+      return;
+    }
+    final controller = FlightController();
+    controller.selectFlight(flight);
+    controller.searchParams = FlightSearchParams(
+      originCode: flight.originCode,
+      originCity: flight.originCity,
+      destinationCode: flight.destinationCode,
+      destinationCity: flight.destinationCity,
+      departureDate: flight.departureTime,
+      passengers: 1,
+      seatClass: 'economy',
+      isRoundTrip: false,
     );
-    if (!mounted) return;
-    if (availability.isFailure || availability.data != true) {
-      AppSnackbar.error(
-        context,
-        availability.isFailure
-            ? availability.errorMessage ?? l10n.genericError
-            : l10n.bookingScheduleConflict,
-      );
-      return;
-    }
-
-    final payment = await PaymentCheckoutScreen.start(context,
-        amountUsd: package.totalPricePerPerson,
-        description: package.title,
-        referenceId: ref);
-    if (!mounted) return;
-    if (payment?.paid != true) {
-      AppSnackbar.error(context, l10n.paymentFailedMessage);
-      return;
-    }
-
     setState(() => _isBooking = true);
-    await Future.delayed(const Duration(seconds: 1));
-    final booking = BookingModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      type: BookingType.package,
-      title: package.title,
-      subtitle: '${package.location}, ${package.country}',
-      date: bookingStart,
-      endDate: bookingEnd,
-      price: package.totalPricePerPerson,
-      refCode: ref,
-      status: 'upcoming',
-      imageUrl: package.imageUrl.isEmpty ? null : package.imageUrl,
-      partnerListingId: package.partnerListingId,
-    );
-    final createResult = await ApiService.instance.createBooking(
-      booking,
-      paymentAttemptId: payment?.attemptId,
-    );
-    if (createResult.isFailure) {
-      if (!mounted) return;
-      setState(() => _isBooking = false);
-      AppSnackbar.error(
-        context,
-        createResult.errorMessage == 'BOOKING_SCHEDULE_CONFLICT'
-            ? l10n.bookingScheduleConflict
-            : createResult.errorMessage ?? l10n.genericError,
+    try {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => FlightBookingFlowScreen(
+            controller: controller,
+            packageOffer: package,
+          ),
+        ),
       );
-      return;
+    } finally {
+      controller.dispose();
+      if (mounted) setState(() => _isBooking = false);
     }
-    setState(() => _isBooking = false);
-    if (!mounted) return;
-    AppSnackbar.success(context, l10n.packageBookingSuccess(package.location));
-    unawaited(NotificationsStore.instance.refreshAfterBooking(
-      title: l10n.notifBookingConfirmedTitle,
-      subtitle: package.title,
-      bookingRef: ref,
-    ));
-    if (!mounted) return;
-    AppShellTabController.goToTab(3); // تاب "رحلاتي" — عشان يشوف حجزه فورًا
-    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (_) => false);
   }
 
   @override
@@ -225,10 +178,44 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                       const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
                           child: Divider(height: 1)),
+                      if (package.flight case final flight?)
+                        Row(
+                          children: [
+                            const Icon(Icons.flight_takeoff_rounded,
+                                color: AppColors.primary, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${l10n.packageAirline}: ${flight.airline}'
+                                '${flight.flightNumber.isEmpty ? '' : ' · ${flight.flightNumber}'}'
+                                ' · ${flight.originCode} → ${flight.destinationCode}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text(
+                            l10n.flightProviderUnavailable,
+                            style: const TextStyle(
+                              color: AppColors.accentOrange,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
                       _PriceLine(
                           icon: Icons.flight_rounded,
                           label: l10n.packageTicketPrice,
-                          value: package.flightPricePerPerson),
+                          value: package.flight?.economyPrice ??
+                              package.flightPricePerPerson),
                       const SizedBox(height: 10),
                       _PriceLine(
                           icon: Icons.hotel_rounded,
@@ -323,7 +310,11 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _isBooking ? null : _bookOffer,
+                    onPressed: _isBooking ||
+                            package.flight == null ||
+                            !package.flight!.isActive
+                        ? null
+                        : _bookOffer,
                     icon: _isBooking
                         ? const SizedBox(
                             width: 16,

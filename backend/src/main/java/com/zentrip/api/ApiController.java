@@ -436,29 +436,68 @@ public class ApiController {
                        o.flight_price_per_person, o.hotel_price_per_night,
                        o.duration_nights, o.rating, o.review_count,
                        o.highlights, o.is_featured, o.category,
-                       COALESCE(m.badge, '') AS badge
+                       o.flight_listing_id, COALESCE(m.badge, '') AS badge,
+                       fl.id AS linked_flight_id, fl.title AS flight_title,
+                       fl.city AS flight_city, fl.country AS flight_country,
+                       fl.price AS linked_flight_price, fl.active AS flight_active,
+                       fl.attributes AS flight_attributes, p.name AS flight_airline
                 FROM offers o
                 LEFT JOIN offer_catalog_metadata m ON m.offer_id = o.id
+                LEFT JOIN partner_listings fl ON fl.id = o.flight_listing_id
+                LEFT JOIN partners p ON p.id = fl.partner_id
                 WHERE o.is_active = TRUE
                 ORDER BY o.is_featured DESC, o.sort_order ASC, o.title ASC
                 """).stream().map(row -> {
                     Map<String, Object> offer = new LinkedHashMap<>(row);
                     offer.put("highlights", parseHighlights(row.get("highlights")));
+                    Map<String, Object> flight = offerFlightPayload(row);
+                    offer.put("flight", flight.isEmpty() ? null : flight);
                     String badge = row.get("badge") == null ? "" : row.get("badge").toString();
                     boolean featured = Boolean.TRUE.equals(row.get("is_featured"))
                             || "1".equals(String.valueOf(row.get("is_featured")))
                             || "true".equalsIgnoreCase(String.valueOf(row.get("is_featured")));
                     offer.put("badge", badge.isEmpty() && featured ? "Featured Offer" : badge);
+                    Object linkedPrice = row.get("linked_flight_price");
+                    Object flightPrice = linkedPrice == null
+                            ? row.get("flight_price_per_person") : linkedPrice;
                     BigDecimal total = new BigDecimal(String.valueOf(
-                            row.getOrDefault("flight_price_per_person", 0)))
+                            flightPrice == null ? 0 : flightPrice))
                             .add(new BigDecimal(String.valueOf(
                                     row.getOrDefault("hotel_price_per_night", 0)))
                                     .multiply(new BigDecimal(String.valueOf(
                                             row.getOrDefault("duration_nights", 0)))));
+                    offer.put("flight_price_per_person", flightPrice);
+                    offer.put("price_per_person", total);
                     offer.put("total_price_per_person", total);
                     return offer;
                 }).toList();
         return Map.of("offers", payload);
+    }
+
+    private Map<String, Object> offerFlightPayload(Map<String, Object> row) {
+        Object rawId = row.get("linked_flight_id");
+        if (!(rawId instanceof Number number)) return Map.of();
+        long id = number.longValue();
+        Map<String, Object> attributes = flightAttributes(row.get("flight_attributes"));
+        Map<String, Object> flight = new LinkedHashMap<>(attributes);
+        flight.put("id", "partner-" + id);
+        flight.put("partner_listing_id", id);
+        flight.put("title", row.get("flight_title"));
+        flight.put("city", row.get("flight_city"));
+        flight.put("country", row.get("flight_country"));
+        flight.put("airline", row.get("flight_airline"));
+        flight.put("origin_city", value(attributes, "origin_city",
+                text(row.get("flight_city"))));
+        flight.put("destination_city", value(attributes, "destination_city", ""));
+        flight.put("airline_code", value(attributes, "airline_code", ""));
+        flight.put("flight_number", value(attributes, "flight_number", ""));
+        flight.put("economy_price", row.get("linked_flight_price"));
+        flight.put("airline_logo_url", value(attributes, "airline_logo_url", ""));
+        flight.put("source", "partner");
+        flight.put("is_active", Boolean.TRUE.equals(row.get("flight_active")));
+        flight.put("status", Boolean.TRUE.equals(row.get("flight_active"))
+                ? "published" : "inactive");
+        return flight;
     }
 
     @GetMapping("/attractions/search")
@@ -1391,6 +1430,9 @@ public class ApiController {
         }
         Map<String, Object> listing = flightListing(flightId, true);
         List<String> seats = validatedFlightSeats(body.get("seats"), listing);
+        String packageOfferId = text(body.get("offer_id")).trim();
+        Map<String, Object> packageOffer = packageOfferId.isEmpty()
+                ? null : packageOfferForFlight(packageOfferId, flightId);
         List<String> extras = validatedFlightExtras(body.get("extras"));
         String seatClass = value(body, "seat_class", "economy")
                 .trim().toLowerCase(Locale.ROOT);
@@ -1455,6 +1497,22 @@ public class ApiController {
                 .multiply(BigDecimal.ONE.add(FlightSeatConfiguration.TAX_RATE))
                 .add(FlightSeatConfiguration.BOOKING_FEE)
                 .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal packageStayTotal = BigDecimal.ZERO;
+        if (packageOffer != null) {
+            BigDecimal hotelNightly = decimal(packageOffer.get("hotel_price_per_night"));
+            int nights = integer(packageOffer.get("duration_nights"), 1);
+            packageStayTotal = hotelNightly
+                    .multiply(BigDecimal.valueOf((long) nights * seats.size()))
+                    .setScale(2, RoundingMode.HALF_UP);
+            OffsetDateTime stayEnd = departure.plusDays(nights);
+            if (hasBookingScheduleConflict(
+                    userId, "package", text(packageOffer.get("title")), departure, stayEnd)) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "BOOKING_SCHEDULE_CONFLICT"));
+            }
+            totalPrice = totalPrice.add(packageStayTotal)
+                    .setScale(2, RoundingMode.HALF_UP);
+        }
 
         reserveFlightSeats(flightId, seats.size());
         String reference = "ZT-" + UUID.randomUUID().toString()
@@ -1470,6 +1528,15 @@ public class ApiController {
         details.put("passenger_count", seats.size());
         details.put("seat_numbers", seats);
         details.put("extras", extras);
+        if (packageOffer != null) {
+            details.put("offer_id", packageOfferId);
+            details.put("package_title", text(packageOffer.get("title")));
+            details.put("hotel_price_per_night",
+                    decimal(packageOffer.get("hotel_price_per_night")));
+            details.put("package_nights",
+                    integer(packageOffer.get("duration_nights"), 1));
+            details.put("hotel_total", packageStayTotal);
+        }
         String detailsJson;
         try {
             detailsJson = JSON.writeValueAsString(details);
@@ -1494,6 +1561,53 @@ public class ApiController {
                 flightNumber, airline,
                 airlineLogoUrl.isBlank() ? null : airlineLogoUrl,
                 isDirect, seatClassLabel, totalPrice, reference, detailsJson);
+        Long packageBookingId = null;
+        if (packageOffer != null) {
+            Map<String, Object> packageDetails = new LinkedHashMap<>();
+            packageDetails.put("trip_id", tripId);
+            packageDetails.put("offer_id", packageOfferId);
+            packageDetails.put("flight_listing_id", flightId);
+            packageDetails.put("airline", airline);
+            packageDetails.put("flight_number", flightNumber);
+            packageDetails.put("seats", seats);
+            packageDetails.put("seat_class", seatClassLabel);
+            packageDetails.put("hotel_price_per_night",
+                    decimal(packageOffer.get("hotel_price_per_night")));
+            packageDetails.put("duration_nights",
+                    integer(packageOffer.get("duration_nights"), 1));
+            packageDetails.put("hotel_total", packageStayTotal);
+            packageDetails.put("image_url", packageOffer.get("image_url"));
+            packageDetails.put("start_date", departure.toString());
+            packageDetails.put("end_date", departure.plusDays(
+                    integer(packageOffer.get("duration_nights"), 1)).toString());
+            String packageDetailsJson;
+            try {
+                packageDetailsJson = JSON.writeValueAsString(packageDetails);
+            } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+                throw new IllegalStateException(
+                        "Could not encode package booking details", exception);
+            }
+            packageBookingId = insert("""
+                    INSERT INTO bookings
+                        (user_id, partner_id, partner_listing_id, trip_id, type, status,
+                         total_amount, title, subtitle, "date", price, ref_code, details,
+                         created_at, updated_at)
+                    VALUES (?, ?, ?, ?, 'package', 'upcoming', ?, ?, ?, ?, ?, ?,
+                            CAST(? AS JSONB), NOW(), NOW())
+                    """,
+                    userId,
+                    number(listing.get("partner_id")),
+                    flightId,
+                    tripId,
+                    totalPrice,
+                    text(packageOffer.get("title")),
+                    text(packageOffer.get("location")) + ", "
+                            + text(packageOffer.get("country")),
+                    departure,
+                    totalPrice,
+                    reference,
+                    packageDetailsJson);
+        }
         if (paymentAttemptId != null) {
             linkPaymentAttemptToTrip(paymentAttemptId, userId, tripId);
         }
@@ -1513,25 +1627,68 @@ public class ApiController {
 
         String flightRoute = originCity + " to " + destinationCity;
         String flightRouteArabic = "من " + originCity + " إلى " + destinationCity;
+        String notificationTitle = packageOffer == null
+                ? "Flight booking confirmed" : "Travel package booking confirmed";
+        String notificationTitleArabic = packageOffer == null
+                ? "تم تأكيد حجز الرحلة" : "تم تأكيد حجز الباقة السياحية";
+        String notificationMessage = packageOffer == null
+                ? "Your flight " + flightRoute + " is confirmed. Reference: " + reference + "."
+                : "Your package " + text(packageOffer.get("title"))
+                        + " and flight " + flightRoute
+                        + " are confirmed. Reference: " + reference + ".";
+        String notificationMessageArabic = packageOffer == null
+                ? "تم تأكيد رحلتك " + flightRouteArabic + ". رقم الحجز: " + reference + "."
+                : "تم تأكيد باقتك " + text(packageOffer.get("title"))
+                        + " ورحلتك " + flightRouteArabic
+                        + ". رقم الحجز: " + reference + ".";
         insertUserNotification(
                 userId,
-                "flight-booking:" + tripId,
+                (packageOffer == null ? "flight-booking:" + tripId
+                        : "package-booking:" + packageBookingId),
                 "booking",
-                "Flight booking confirmed",
-                "تم تأكيد حجز الرحلة",
-                "Your flight " + flightRoute + " is confirmed. Reference: " + reference + ".",
-                "تم تأكيد رحلتك " + flightRouteArabic + ". رقم الحجز: " + reference + ".",
-                "trip",
-                tripId,
+                notificationTitle,
+                notificationTitleArabic,
+                notificationMessage,
+                notificationMessageArabic,
+                packageOffer == null ? "trip" : "booking",
+                packageOffer == null ? tripId : packageBookingId,
                 reference);
 
+        Map<String, Object> booking = new LinkedHashMap<>();
+        booking.put("reference", reference);
+        booking.put("seats", seats);
+        booking.put("extras", extras);
+        booking.put("total_price", totalPrice);
+        if (packageBookingId != null) {
+            booking.put("package_booking_id", packageBookingId);
+            booking.put("hotel_total", packageStayTotal);
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "booking", Map.of(
-                        "reference", reference,
-                        "seats", seats,
-                        "extras", extras,
-                        "total_price", totalPrice),
+                "booking", booking,
                 "trip", tripRow(tripId)));
+    }
+
+    private Map<String, Object> packageOfferForFlight(String offerId, long flightId) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT id, title, location, country, image_url,
+                       hotel_price_per_night, duration_nights, flight_listing_id
+                FROM offers
+                WHERE id = ? AND is_active = TRUE
+                FOR SHARE
+                """, offerId);
+        if (rows.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Travel offer is unavailable");
+        }
+        Map<String, Object> offer = rows.getFirst();
+        Object linkedFlight = offer.get("flight_listing_id");
+        if (!(linkedFlight instanceof Number number)
+                || number.longValue() != flightId) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "The selected flight is not linked to this offer");
+        }
+        return offer;
     }
 
     private ResponseEntity<?> existingSeatConfirmation(

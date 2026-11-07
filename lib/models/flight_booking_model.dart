@@ -1,5 +1,6 @@
 import 'flight_model.dart';
 import 'trip_model.dart';
+import 'travel_package_model.dart';
 
 class FlightBookingDraft {
   final FlightModel flight;
@@ -10,6 +11,7 @@ class FlightBookingDraft {
   final double totalPrice;
   final List<String> extras;
   final int? paymentAttemptId;
+  final TravelPackage? packageOffer;
 
   const FlightBookingDraft({
     required this.flight,
@@ -20,6 +22,7 @@ class FlightBookingDraft {
     required this.totalPrice,
     this.extras = const [],
     this.paymentAttemptId,
+    this.packageOffer,
   });
 }
 

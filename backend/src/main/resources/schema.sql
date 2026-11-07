@@ -346,6 +346,8 @@ CREATE TABLE IF NOT EXISTS offers (
     rating DECIMAL(3,2) NOT NULL DEFAULT 0,
     review_count INTEGER NOT NULL DEFAULT 0,
     highlights JSONB NOT NULL,
+    flight_listing_id BIGINT NULL
+        REFERENCES partner_listings(id) ON DELETE SET NULL,
     is_featured BOOLEAN NOT NULL DEFAULT FALSE,
     category VARCHAR(40) NOT NULL DEFAULT 'city',
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -354,6 +356,7 @@ CREATE TABLE IF NOT EXISTS offers (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS offers_active_order_index ON offers (is_active, is_featured, sort_order);
+CREATE INDEX IF NOT EXISTS offers_flight_listing_index ON offers (flight_listing_id);
 
 CREATE TABLE IF NOT EXISTS offer_catalog_metadata (
     offer_id VARCHAR(64) NOT NULL PRIMARY KEY,

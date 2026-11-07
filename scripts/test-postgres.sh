@@ -115,14 +115,20 @@ psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_te
 psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
   -f backend/src/main/resources/migrations/20261107_user_notifications.sql \
   > "$cluster/user-notifications-idempotency.log"
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
+  -f backend/src/main/resources/migrations/20261107_offer_flight_link.sql \
+  > "$cluster/offer-flight-link-migration.log"
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test \
+  -f backend/src/main/resources/migrations/20261107_offer_flight_link.sql \
+  > "$cluster/offer-flight-link-idempotency.log"
 psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U zentrip_test -d zentrip_test <<'SQL'
 DO $$
 DECLARE
     table_name TEXT;
     role_name TEXT;
 BEGIN
-    IF (SELECT COUNT(*) FROM public.schema_migrations) <> 9 THEN
-        RAISE EXCEPTION 'Expected all 9 SQL migrations to be tracked';
+    IF (SELECT COUNT(*) FROM public.schema_migrations) <> 10 THEN
+        RAISE EXCEPTION 'Expected all 10 SQL migrations to be tracked';
     END IF;
     IF NOT (SELECT relrowsecurity FROM pg_class
             WHERE oid = to_regclass('public.user_notifications')) THEN

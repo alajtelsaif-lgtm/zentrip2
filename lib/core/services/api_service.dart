@@ -979,6 +979,17 @@ class ApiService {
     });
   }
 
+  Future<ApiResult<List<FlightModel>>> getAdminFlightListings() {
+    return _request(() async {
+      final response = await _dio.get('/admin/flight-listings');
+      return (response.data['flights'] as List)
+          .whereType<Map>()
+          .map((item) =>
+              FlightModel.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    });
+  }
+
   Future<ApiResult<void>> saveAdminOffer(
     TravelPackage offer, {
     String? id,
@@ -1303,6 +1314,7 @@ class ApiService {
     DateTime? returnDate,
     List<String> extras = const [],
     int? paymentAttemptId,
+    String? packageOfferId,
   }) async {
     final result = await _request(() async {
       final response = await _dio.post(
@@ -1312,6 +1324,8 @@ class ApiService {
           'seats': seats,
           'seat_class': seatClass,
           'extras': extras,
+          if (packageOfferId != null && packageOfferId.isNotEmpty)
+            'offer_id': packageOfferId,
           if (paymentAttemptId != null) 'payment_attempt_id': paymentAttemptId,
           if (returnDate != null)
             'return_date': returnDate.toUtc().toIso8601String(),

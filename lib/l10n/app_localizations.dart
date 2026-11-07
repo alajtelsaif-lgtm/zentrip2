@@ -4888,6 +4888,36 @@ abstract class AppLocalizations {
   /// **'سعر الفندق للليلة'**
   String get adminHotelPriceNight;
 
+  /// No description provided for @adminLinkedFlight.
+  ///
+  /// In ar, this message translates to:
+  /// **'الرحلة المضمنة في هذا العرض'**
+  String get adminLinkedFlight;
+
+  /// No description provided for @adminSelectFlight.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر رحلة موجودة'**
+  String get adminSelectFlight;
+
+  /// No description provided for @adminOfferFlightMissing.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يتم ربط رحلة'**
+  String get adminOfferFlightMissing;
+
+  /// No description provided for @packageAirline.
+  ///
+  /// In ar, this message translates to:
+  /// **'شركة الطيران'**
+  String get packageAirline;
+
+  /// No description provided for @packageStayTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإقامة الفندقية'**
+  String get packageStayTotal;
+
   /// No description provided for @adminRating.
   ///
   /// In ar, this message translates to:

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
+import 'flight_model.dart';
 
 class TravelPackage {
   final String id;
@@ -23,6 +24,8 @@ class TravelPackage {
   final String
       category; // 'beach' | 'city' | 'mountain' | 'desert' | 'cultural'
   final int? partnerListingId;
+  final int? flightListingId;
+  final FlightModel? flight;
 
   const TravelPackage({
     required this.id,
@@ -45,6 +48,8 @@ class TravelPackage {
     this.badge = '',
     this.category = 'city',
     this.partnerListingId,
+    this.flightListingId,
+    this.flight,
   });
 
   String get durationLabel => '$durationNights nights';
@@ -66,6 +71,10 @@ class TravelPackage {
   factory TravelPackage.fromJson(Map<String, dynamic> json) {
     final category = (json['category'] ?? 'city').toString();
     final id = (json['id'] ?? '').toString();
+    final rawFlight = json['flight'];
+    final flight = rawFlight is Map
+        ? FlightModel.fromJson(Map<String, dynamic>.from(rawFlight))
+        : null;
     return TravelPackage(
       id: id,
       title: (json['title'] ?? '').toString(),
@@ -74,8 +83,12 @@ class TravelPackage {
       destinationCode: (json['destination_code'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       imageUrl: (json['image_url'] ?? '').toString(),
-      pricePerPerson: _parseDouble(json['price_per_person']),
-      flightPricePerPerson: _parseDouble(json['flight_price_per_person']),
+      pricePerPerson: _parseDouble(
+          json['total_price_per_person'] ?? json['price_per_person']),
+      flightPricePerPerson: _parseDouble(
+        json['flight_price_per_person'],
+        flight?.economyPrice ?? 0,
+      ),
       hotelPricePerNight: _parseDouble(json['hotel_price_per_night']),
       durationNights: _parseInt(json['duration_nights']),
       rating: _parseDouble(json['rating']),
@@ -96,6 +109,10 @@ class TravelPackage {
       partnerListingId: json['partner_listing_id'] == null
           ? null
           : _parseInt(json['partner_listing_id']),
+      flightListingId: json['flight_listing_id'] == null
+          ? null
+          : _parseInt(json['flight_listing_id']),
+      flight: flight,
     );
   }
 
@@ -135,5 +152,6 @@ class TravelPackage {
         'badge': badge,
         'category': category,
         'partner_listing_id': partnerListingId,
+        'flight_listing_id': flightListingId,
       };
 }

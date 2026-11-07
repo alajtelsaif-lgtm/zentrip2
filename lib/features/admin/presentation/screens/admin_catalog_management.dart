@@ -6,6 +6,7 @@ import '../../../../global_widgets/app_network_image.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/attraction_model.dart';
+import '../../../../models/flight_model.dart';
 import '../../../../models/travel_package_model.dart';
 
 enum AdminCatalogKind { monuments, offers }
@@ -22,6 +23,7 @@ class AdminCatalogManagement extends StatefulWidget {
 class AdminCatalogManagementState extends State<AdminCatalogManagement> {
   List<AttractionModel> _monuments = [];
   List<TravelPackage> _offers = [];
+  List<FlightModel> _flights = [];
   bool _loading = true;
   String? _error;
 
@@ -48,6 +50,7 @@ class AdminCatalogManagementState extends State<AdminCatalogManagement> {
     });
     if (_isOffer) {
       final result = await ApiService.instance.getAdminOffers();
+      final flightsResult = await ApiService.instance.getAdminFlightListings();
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -55,6 +58,11 @@ class AdminCatalogManagementState extends State<AdminCatalogManagement> {
           _offers = result.data!;
         } else {
           _error = result.errorMessage;
+        }
+        if (flightsResult.isSuccess && flightsResult.data != null) {
+          _flights = flightsResult.data!;
+        } else {
+          _error ??= flightsResult.errorMessage;
         }
       });
     } else {
@@ -79,6 +87,7 @@ class AdminCatalogManagementState extends State<AdminCatalogManagement> {
         kind: widget.kind,
         monument: monument,
         offer: offer,
+        flights: _flights,
       ),
     );
     if (value == null || !mounted) return;
@@ -268,10 +277,21 @@ class _OfferCard extends StatelessWidget {
       fallbackIcon: offer.icon,
       rating: offer.rating,
       reviewCount: offer.reviewCount,
-      price: offer.pricePerPerson,
+      price: offer.totalPricePerPerson,
       onEdit: onEdit,
       onDelete: onDelete,
       children: [
+        if (offer.flight != null)
+          _CatalogBadge(
+            label: '${offer.flight!.airline}'
+                '${offer.flight!.flightNumber.isEmpty ? '' : ' · ${offer.flight!.flightNumber}'}'
+                ' · ${offer.flight!.originCode} → ${offer.flight!.destinationCode}',
+            color: AppColors.primary,
+          ),
+        if (offer.flight == null)
+          _CatalogBadge(
+              label: l10n.adminOfferFlightMissing,
+              color: AppColors.accentOrange),
         if (offer.badge.isNotEmpty || offer.isFeatured)
           _CatalogBadge(
               label: offer.badge.isEmpty ||
@@ -458,11 +478,13 @@ class _CatalogEditor extends StatefulWidget {
   final AdminCatalogKind kind;
   final AttractionModel? monument;
   final TravelPackage? offer;
+  final List<FlightModel> flights;
 
   const _CatalogEditor({
     required this.kind,
     this.monument,
     this.offer,
+    this.flights = const [],
   });
 
   @override
@@ -475,6 +497,7 @@ class _CatalogEditorState extends State<_CatalogEditor> {
   late final Map<String, TextEditingController> _fields;
   late final List<String> _tags;
   late bool _featured;
+  FlightModel? _selectedFlight;
 
   bool get _isOffer => widget.kind == AdminCatalogKind.offers;
   dynamic get _current => _isOffer ? widget.offer : widget.monument;
@@ -484,6 +507,12 @@ class _CatalogEditorState extends State<_CatalogEditor> {
     super.initState();
     final monument = widget.monument;
     final offer = widget.offer;
+    for (final flight in widget.flights) {
+      if (flight.partnerListingId == offer?.flightListingId) {
+        _selectedFlight = flight;
+        break;
+      }
+    }
     _fields = _isOffer
         ? {
             'title': TextEditingController(text: offer?.title ?? ''),
@@ -495,10 +524,6 @@ class _CatalogEditorState extends State<_CatalogEditor> {
                 TextEditingController(text: offer?.description ?? ''),
             'image_url': TextEditingController(text: offer?.imageUrl ?? ''),
             'badge': TextEditingController(text: offer?.badge ?? ''),
-            'price_per_person': TextEditingController(
-                text: offer == null ? '' : '${offer.pricePerPerson}'),
-            'flight_price_per_person': TextEditingController(
-                text: offer == null ? '' : '${offer.flightPricePerPerson}'),
             'hotel_price_per_night': TextEditingController(
                 text: offer == null ? '' : '${offer.hotelPricePerNight}'),
             'duration_nights':
@@ -635,6 +660,47 @@ class _CatalogEditorState extends State<_CatalogEditor> {
   int _int(String key, [int fallback = 0]) =>
       int.tryParse(_fields[key]!.text.trim()) ?? fallback;
 
+  Widget _flightPicker(AppLocalizations l10n) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<FlightModel>(
+        initialValue: _selectedFlight,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: l10n.adminLinkedFlight,
+          hintText: l10n.adminSelectFlight,
+          filled: true,
+          fillColor:
+              isDark ? AppColors.darkSurfaceSecondary : AppColors.surfaceSecondary,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.border),
+          ),
+        ),
+        items: widget.flights
+            .map((flight) => DropdownMenuItem(
+                  value: flight,
+                  child: Text(
+                    '${flight.airline} · ${flight.flightNumber} · '
+                    '${flight.originCode} → ${flight.destinationCode} '
+                    '· \$${flight.economyPrice.toStringAsFixed(0)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ))
+            .toList(),
+        validator: (value) =>
+            value == null ? l10n.adminSelectFlight : null,
+        onChanged: widget.flights.isEmpty
+            ? null
+            : (flight) => setState(() => _selectedFlight = flight),
+      ),
+    );
+  }
+
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     final id = (_current?.id ?? '').toString();
@@ -652,8 +718,10 @@ class _CatalogEditorState extends State<_CatalogEditor> {
           destinationCode: _fields['destination_code']!.text.trim(),
           description: _fields['description']!.text.trim(),
           imageUrl: _fields['image_url']!.text.trim(),
-          pricePerPerson: _number('price_per_person'),
-          flightPricePerPerson: _number('flight_price_per_person'),
+          pricePerPerson: (_selectedFlight?.economyPrice ?? 0) +
+              _number('hotel_price_per_night') *
+                  _int('duration_nights', 7),
+          flightPricePerPerson: _selectedFlight?.economyPrice ?? 0,
           hotelPricePerNight: _number('hotel_price_per_night'),
           durationNights: _int('duration_nights', 7),
           rating: _number('rating'),
@@ -665,6 +733,8 @@ class _CatalogEditorState extends State<_CatalogEditor> {
           isFeatured: _featured,
           badge: _fields['badge']!.text.trim(),
           category: category,
+          flightListingId: _selectedFlight?.partnerListingId,
+          flight: _selectedFlight,
         ),
       );
     } else {
@@ -709,8 +779,6 @@ class _CatalogEditorState extends State<_CatalogEditor> {
             ('description', l10n.adminDescription, true, false, 4),
             ('image_url', l10n.adminImageUrl, false, false, 1),
             ('badge', l10n.adminBadge, false, false, 1),
-            ('price_per_person', l10n.adminStartingPrice, true, true, 1),
-            ('flight_price_per_person', l10n.adminFlightPrice, true, true, 1),
             ('hotel_price_per_night', l10n.adminHotelPriceNight, true, true, 1),
             ('duration_nights', l10n.adminNights, true, true, 1),
             ('rating', l10n.adminRating, true, true, 1),
@@ -770,6 +838,7 @@ class _CatalogEditorState extends State<_CatalogEditor> {
                         lines: lines,
                       ),
                     if (_isOffer) ...[
+                      _flightPicker(l10n),
                       _field('category', l10n.adminCategory),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
@@ -777,12 +846,12 @@ class _CatalogEditorState extends State<_CatalogEditor> {
                         value: _featured,
                         onChanged: (value) => setState(() => _featured = value),
                       ),
-                      if (_fields['flight_price_per_person']!.text.isNotEmpty ||
+                      if (_selectedFlight != null ||
                           _fields['hotel_price_per_night']!.text.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Text(
-                            '${l10n.adminCalculatedOfferTotal}: \$${(_number('flight_price_per_person') + _number('hotel_price_per_night') * _int('duration_nights', 7)).toStringAsFixed(0)}',
+                            '${l10n.adminCalculatedOfferTotal}: \$${((_selectedFlight?.economyPrice ?? 0) + _number('hotel_price_per_night') * _int('duration_nights', 7)).toStringAsFixed(0)}',
                             style: const TextStyle(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w800),

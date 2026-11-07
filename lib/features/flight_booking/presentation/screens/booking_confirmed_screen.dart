@@ -62,6 +62,7 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
         returnDate: widget.draft.returnDate,
         extras: widget.draft.extras,
         paymentAttemptId: widget.draft.paymentAttemptId,
+        packageOfferId: widget.draft.packageOffer?.id,
       );
       if (!mounted) return;
       if (result.isFailure || result.data == null) {
@@ -202,6 +203,47 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
             totalPrice: confirmation.totalPrice,
             passengerName: passengerName,
           ),
+          if (widget.draft.packageOffer case final offer?) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.darkSurface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.35)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    offer.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.hotelNightsSummary(offer.durationNights),
+                    style: const TextStyle(
+                      color: AppColors.darkTextSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${l10n.packageStayTotal}: \$${(offer.hotelPricePerNight * offer.durationNights * widget.draft.passengerCount).toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (extras.isNotEmpty) ...[
             const SizedBox(height: 16),
             Wrap(

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -625,13 +626,37 @@ public class AdminController {
                        o.flight_price_per_person, o.hotel_price_per_night,
                        o.duration_nights, o.rating, o.review_count, o.highlights,
                        o.is_featured, o.category, o.is_active,
-                       COALESCE(m.badge, '') AS badge
+                       o.flight_listing_id, COALESCE(m.badge, '') AS badge,
+                       fl.id AS linked_flight_id, fl.title AS flight_title,
+                       fl.city AS flight_city, fl.country AS flight_country,
+                       fl.price AS linked_flight_price, fl.active AS flight_active,
+                       fl.attributes AS flight_attributes, p.name AS flight_airline
                 FROM offers o
                 LEFT JOIN offer_catalog_metadata m ON m.offer_id = o.id
+                LEFT JOIN partner_listings fl ON fl.id = o.flight_listing_id
+                LEFT JOIN partners p ON p.id = fl.partner_id
                 WHERE o.is_active = TRUE
                 ORDER BY o.is_featured DESC, o.sort_order ASC, o.title ASC
                 """);
         return Map.of("offers", rows.stream().map(AdminController::offerPayload).toList());
+    }
+
+    @GetMapping("/flight-listings")
+    public Map<String, Object> offerFlightListings(HttpServletRequest request) {
+        requireAdminId(request);
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT l.id AS linked_flight_id, l.title AS flight_title,
+                       l.city AS flight_city, l.country AS flight_country,
+                       l.price AS linked_flight_price, l.active AS flight_active,
+                       l.attributes AS flight_attributes, p.name AS flight_airline
+                FROM partner_listings l
+                JOIN partners p ON p.id = l.partner_id AND p.status = 'active'
+                WHERE l.type = 'flight' AND l.active = TRUE
+                ORDER BY p.name, l.title
+                """);
+        return Map.of("flights", rows.stream()
+                .map(AdminController::flightListingPayload)
+                .toList());
     }
 
     @PostMapping("/offers")
@@ -641,14 +666,15 @@ public class AdminController {
             HttpServletRequest request) {
         requireAdminId(request);
         Map<String, Object> offer = validateOffer(body);
+        resolveOfferFlightPrice(offer);
         String id = UUID.randomUUID().toString();
         jdbc.update("""
                 INSERT INTO offers (
                     id, title, location, country, destination_code, description,
                     image_url, price_per_person, flight_price_per_person,
                     hotel_price_per_night, duration_nights, rating, review_count,
-                    highlights, is_featured, category, is_active
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    highlights, flight_listing_id, is_featured, category, is_active
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 id,
                 offer.get("title"),
@@ -664,6 +690,7 @@ public class AdminController {
                 offer.get("rating"),
                 offer.get("review_count"),
                 jsonList(offer.get("highlights")),
+                offer.get("flight_listing_id"),
                 offer.get("is_featured"),
                 offer.get("category"),
                 offer.get("is_active"));
@@ -683,6 +710,7 @@ public class AdminController {
             HttpServletRequest request) {
         requireAdminId(request);
         Map<String, Object> offer = validateOffer(body);
+        resolveOfferFlightPrice(offer);
         requireCatalogItem(
                 "SELECT COUNT(*) FROM offers WHERE id = ? AND is_active = TRUE",
                 id,
@@ -693,7 +721,8 @@ public class AdminController {
                     description = ?, image_url = ?, price_per_person = ?,
                     flight_price_per_person = ?, hotel_price_per_night = ?,
                     duration_nights = ?, rating = ?, review_count = ?,
-                    highlights = ?, is_featured = ?, category = ?, is_active = ?
+                    highlights = ?, flight_listing_id = ?, is_featured = ?,
+                    category = ?, is_active = ?
                 WHERE id = ?
                 """,
                 offer.get("title"),
@@ -709,6 +738,7 @@ public class AdminController {
                 offer.get("rating"),
                 offer.get("review_count"),
                 jsonList(offer.get("highlights")),
+                offer.get("flight_listing_id"),
                 offer.get("is_featured"),
                 offer.get("category"),
                 offer.get("is_active"),
@@ -770,6 +800,8 @@ public class AdminController {
         offer.put("price_per_person", nonNegativeMoney(body.get("price_per_person"), "price_per_person"));
         offer.put("flight_price_per_person", nonNegativeMoney(
                 body.get("flight_price_per_person"), "flight_price_per_person"));
+        offer.put("flight_listing_id", positiveLong(
+                body.get("flight_listing_id"), "flight_listing_id"));
         offer.put("hotel_price_per_night", nonNegativeMoney(
                 body.get("hotel_price_per_night"), "hotel_price_per_night"));
         int nights = nonNegativeInt(body.get("duration_nights"), "duration_nights");
@@ -789,6 +821,29 @@ public class AdminController {
         return offer;
     }
 
+    private void resolveOfferFlightPrice(Map<String, Object> offer) {
+        long flightListingId = ((Number) offer.get("flight_listing_id")).longValue();
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT l.price
+                FROM partner_listings l
+                JOIN partners p ON p.id = l.partner_id AND p.status = 'active'
+                WHERE l.id = ? AND l.type = 'flight' AND l.active = TRUE
+                """, flightListingId);
+        if (rows.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Select an active partner flight for this offer");
+        }
+        BigDecimal flightPrice = decimal(rows.getFirst().get("price"), "flight price");
+        BigDecimal hotelPrice = (BigDecimal) offer.get("hotel_price_per_night");
+        int nights = ((Number) offer.get("duration_nights")).intValue();
+        BigDecimal packageTotal = flightPrice
+                .add(hotelPrice.multiply(BigDecimal.valueOf(nights)))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        offer.put("flight_price_per_person", flightPrice);
+        offer.put("price_per_person", packageTotal);
+    }
+
     private static Map<String, Object> monumentPayload(Map<String, Object> row) {
         Map<String, Object> payload = new LinkedHashMap<>(row);
         payload.put("name", row.get("title"));
@@ -801,12 +856,69 @@ public class AdminController {
     private static Map<String, Object> offerPayload(Map<String, Object> row) {
         Map<String, Object> payload = new LinkedHashMap<>(row);
         payload.put("highlights", parseStringList(row.get("highlights")));
+        Map<String, Object> flight = flightListingPayload(row);
+        if (flight != null) {
+            payload.put("flight", flight);
+            BigDecimal flightPrice = row.get("linked_flight_price") == null
+                    ? BigDecimal.ZERO
+                    : decimal(row.get("linked_flight_price"), "flight price");
+            BigDecimal hotelPrice = row.get("hotel_price_per_night") == null
+                    ? BigDecimal.ZERO
+                    : decimal(row.get("hotel_price_per_night"), "hotel price");
+            int nights = ((Number) row.get("duration_nights")).intValue();
+            BigDecimal total = flightPrice.add(
+                    hotelPrice.multiply(BigDecimal.valueOf(nights)));
+            payload.put("flight_price_per_person", flightPrice);
+            payload.put("price_per_person", total);
+            payload.put("total_price_per_person", total);
+        } else {
+            payload.put("flight", null);
+            BigDecimal flightPrice = row.get("flight_price_per_person") == null
+                    ? BigDecimal.ZERO
+                    : decimal(row.get("flight_price_per_person"), "flight price");
+            BigDecimal hotelPrice = row.get("hotel_price_per_night") == null
+                    ? BigDecimal.ZERO
+                    : decimal(row.get("hotel_price_per_night"), "hotel price");
+            BigDecimal total = flightPrice.add(hotelPrice
+                            .multiply(BigDecimal.valueOf(
+                                    row.get("duration_nights") instanceof Number n
+                                            ? n.intValue() : 0)));
+            payload.put("total_price_per_person", total);
+        }
         String badge = text(row.get("badge")).trim();
         boolean featured = Boolean.TRUE.equals(row.get("is_featured"))
                 || "1".equals(String.valueOf(row.get("is_featured")))
                 || "true".equalsIgnoreCase(String.valueOf(row.get("is_featured")));
         payload.put("badge", badge.isEmpty() && featured ? "Featured Offer" : badge);
         return payload;
+    }
+
+    private static Map<String, Object> flightListingPayload(Map<String, Object> row) {
+        Object rawId = row.get("linked_flight_id");
+        if (rawId == null) return null;
+        long id = ((Number) rawId).longValue();
+        Map<String, Object> attributes = parseObject(row.get("flight_attributes"));
+        boolean active = booleanValue(row.get("flight_active"), false);
+        Map<String, Object> flight = new LinkedHashMap<>(attributes);
+        flight.put("id", "partner-" + id);
+        flight.put("partner_listing_id", id);
+        flight.put("title", row.get("flight_title"));
+        flight.put("city", row.get("flight_city"));
+        flight.put("country", row.get("flight_country"));
+        flight.put("airline", row.get("flight_airline"));
+        flight.put("origin_city", attributeText(
+                attributes, "origin_city", text(row.get("flight_city"))));
+        flight.put("destination_city",
+                attributeText(attributes, "destination_city", ""));
+        flight.put("airline_code", attributeText(attributes, "airline_code", ""));
+        flight.put("flight_number", attributeText(attributes, "flight_number", ""));
+        flight.put("economy_price", row.get("linked_flight_price"));
+        flight.put("airline_logo_url",
+                attributeText(attributes, "airline_logo_url", ""));
+        flight.put("source", "partner");
+        flight.put("is_active", active);
+        flight.put("status", active ? "published" : "inactive");
+        return flight;
     }
 
     private static String firstLocationPart(Object value, int index) {
