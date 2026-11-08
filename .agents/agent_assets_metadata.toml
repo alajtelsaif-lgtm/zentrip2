@@ -238,3 +238,17 @@ mtime_ms = 1794162421506
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/c1564d44-84e4-4882-9e7d-435d17dcaf98/1cc1ea62-7cd0-43ae-a858-0e4004d57fa4"
 storage_version_token = "1794162430809084"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "hOaM2ymhELHNo8MYHUSjY"
+uri = "file://generated-artifacts/%D8%A8%D8%AD%D8%AB_Zentrip_%D8%B5%D9%8A%D8%A7%D8%BA%D8%A9_%D8%A3%D9%83%D8%A7%D8%AF%D9%8A%D9%85%D9%8A%D8%A9.docx"
+type = "word_document"
+title = "بحث Zentrip بصياغة أكاديمية"
+description = "نسخة Word منقحة، مع إزالة الملاحظات التحريرية وتحديث وصف المعمارية والتكاملات والمراجع."
+logical_id = "067fb943-31ca-4b4d-8ace-516088251ae2"
+content_hash = "sha256:864c6a3cf272d7aa86738eef630994f1e26a58fc34a043511d926f3b8c79a307"
+size = 1818398
+mtime_ms = 1794163411475
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/067fb943-31ca-4b4d-8ace-516088251ae2/97befe32-463d-41a7-a331-b1606b8220c6"
+storage_version_token = "1794163428676259"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
