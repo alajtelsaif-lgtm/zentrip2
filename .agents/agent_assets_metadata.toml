@@ -224,3 +224,17 @@ mtime_ms = 1794159500598
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/c8a3677d-fd23-481f-855a-9cc611edd7ba/7cd3e174-4507-40c9-8386-55d718b2c5f8"
 storage_version_token = "1794159531096661"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "CRxtJ9T3WeJH_bu96QGSM"
+uri = "file://generated-artifacts/%D8%A8%D8%AD%D8%AB_Zentrip_%D9%85%D8%B1%D8%A7%D8%AC%D8%B9_%D9%88%D9%85%D9%88%D8%AB%D9%82.docx"
+type = "word_document"
+title = "بحث Zentrip بعد المراجعة"
+description = "نسخة Word محدثة وفق تعليمات المراجعة، مع تمييز التعديلات بالأصفر، وتوثيق نقاط المشروع التي تحتاج أدلة أو مراجع إضافية."
+logical_id = "c1564d44-84e4-4882-9e7d-435d17dcaf98"
+content_hash = "sha256:13dcb99539010abfb44ddb0c7ac2c229b2e0fd9fb6ff858b2b8b5b89929eb219"
+size = 1823344
+mtime_ms = 1794162421506
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/c1564d44-84e4-4882-9e7d-435d17dcaf98/1cc1ea62-7cd0-43ae-a858-0e4004d57fa4"
+storage_version_token = "1794162430809084"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
