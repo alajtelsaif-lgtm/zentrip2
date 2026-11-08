@@ -252,3 +252,17 @@ mtime_ms = 1794163411475
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/067fb943-31ca-4b4d-8ace-516088251ae2/97befe32-463d-41a7-a331-b1606b8220c6"
 storage_version_token = "1794163428676259"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "NZM_fQxZps8pPCI9_XqFW"
+uri = "file://generated-artifacts/%D8%A8%D8%AD%D8%AB_Zentrip_%D8%AA%D8%B9%D8%AF%D9%8A%D9%84%D8%A7%D8%AA_%D8%AC%D8%B1%D8%A7%D8%AD%D9%8A%D8%A9.docx"
+type = "word_document"
+title = "البحث الأكاديمي بعد التعديلات المحدودة"
+description = "نسخة Word قابلة للتحرير مبنية على المستند الأصلي، مع تعديلات أكاديمية محددة والحفاظ على التنسيق والصور والجداول."
+logical_id = "feeb6fc4-1c80-4f18-8618-4ca7ac021ee3"
+content_hash = "sha256:978134f5dc167a5de0d68a94be13f94f6ab7e35b4df7c323a4a3da38b00616cb"
+size = 1828837
+mtime_ms = 1794164835710
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/feeb6fc4-1c80-4f18-8618-4ca7ac021ee3/d9ca542e-6bc5-4882-98bc-53df8773b931"
+storage_version_token = "1794164856821139"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
