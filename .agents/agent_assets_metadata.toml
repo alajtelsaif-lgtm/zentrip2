@@ -210,3 +210,17 @@ mtime_ms = 1794064086037
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/633dfaeb-2a82-4a4e-9a85-558f82a58e43/3ebadae4-8105-4b61-9e7d-f588cea36aff"
 storage_version_token = "1794064092218256"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "OBOIsDScon5vpytWHOwTd"
+uri = "file://generated-artifacts/%D8%A8%D8%AD%D8%AB_Zentrip_%D9%85%D9%86%D9%82%D8%AD.docx"
+type = "word_document"
+title = "بحث Zentrip المنقح"
+description = "نسخة Word منقحة مع الحفاظ على الجداول والصور والتنسيق قدر الإمكان، وتصحيح وصف المعمارية والتكاملات والادعاءات غير المدعومة."
+logical_id = "c8a3677d-fd23-481f-855a-9cc611edd7ba"
+content_hash = "sha256:4055cc5df9909fb0935172b949729a44dcfd65132910d4e6b3983ca173c263d9"
+size = 1820054
+mtime_ms = 1794159500598
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/c8a3677d-fd23-481f-855a-9cc611edd7ba/7cd3e174-4507-40c9-8386-55d718b2c5f8"
+storage_version_token = "1794159531096661"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
