@@ -6,7 +6,15 @@ import '../../../../l10n/app_localizations.dart';
 /// بطاقة البرنامج السياحي المُنشأ بواسطة زن AI.
 class ItineraryCard extends StatelessWidget {
   final Map<String, dynamic> data;
-  const ItineraryCard({super.key, required this.data});
+  final bool isSaved;
+  final VoidCallback onSave;
+
+  const ItineraryCard({
+    super.key,
+    required this.data,
+    required this.isSaved,
+    required this.onSave,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -66,9 +74,16 @@ class ItineraryCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: OutlinedButton.icon(
-              onPressed: () => AppSnackbar.success(context, l10n.chatItinerarySavedSuccess),
-              icon: const Icon(Icons.bookmark_add_outlined, color: Colors.white, size: 16),
-              label: Text(l10n.chatItinerarySave, style: const TextStyle(color: Colors.white)),
+              onPressed: isSaved ? null : onSave,
+              icon: Icon(
+                isSaved ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
+                color: Colors.white,
+                size: 16,
+              ),
+              label: Text(
+                isSaved ? l10n.chatItinerarySavedSuccess : l10n.chatItinerarySave,
+                style: const TextStyle(color: Colors.white),
+              ),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
                 minimumSize: const Size(double.infinity, 42),

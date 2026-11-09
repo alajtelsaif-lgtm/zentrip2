@@ -15,6 +15,7 @@ class ChatMessage {
   final DateTime timestamp;
   final bool isItinerary;
   final Map<String, dynamic>? itineraryData;
+  final bool isSavedItinerary;
 
   const ChatMessage({
     required this.text,
@@ -22,6 +23,7 @@ class ChatMessage {
     required this.timestamp,
     this.isItinerary = false,
     this.itineraryData,
+    this.isSavedItinerary = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -30,6 +32,7 @@ class ChatMessage {
         'timestamp': timestamp.toIso8601String(),
         'is_itinerary': isItinerary,
         'itinerary_data': itineraryData,
+        'is_saved_itinerary': isSavedItinerary,
       };
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
@@ -38,6 +41,7 @@ class ChatMessage {
         timestamp: DateTime.parse(json['timestamp'] as String),
         isItinerary: json['is_itinerary'] as bool? ?? false,
         itineraryData: json['itinerary_data'] as Map<String, dynamic>?,
+        isSavedItinerary: json['is_saved_itinerary'] as bool? ?? false,
       );
 }
 
@@ -75,6 +79,11 @@ class ChatSession {
 
 /// Chat state and local transcript persistence for Zen AI.
 class ChatbotController extends ChangeNotifier {
+  static final RegExp _itineraryIntent = RegExp(
+    r'\b(?:itinerary|travel plan|trip plan|plan (?:a |my |our )?trip)\b|برنامج|خطة سفر|جدول الرحلة|مسار الرحلة',
+    caseSensitive: false,
+  );
+
   static final RegExp _locationIntent = RegExp(
     r'\b(?:where am i|my location|near me|nearby|around me|closest|nearest)\b|موقعي|مكاني|أين أنا|بالقرب مني|قريب مني|قريبة مني|أماكن قريبة|الأماكن القريبة|حولِي',
     caseSensitive: false,
@@ -135,6 +144,77 @@ class ChatbotController extends ChangeNotifier {
       isUser: false,
       timestamp: DateTime.now(),
     ));
+  }
+
+  static Map<String, dynamic>? parseItineraryResponse(
+    String response, {
+    String? requestedDestination,
+  }) {
+    final dayHeading = RegExp(
+      r'^\s*(?:#{1,6}\s*)?(?:\*{1,2}\s*)?(?:day|اليوم)\s*([0-9٠-٩]+(?:\s*[-–—]\s*[0-9٠-٩]+)?)\s*(?:\|\s*|[：:–—-]\s*)?(.*?)(?:\*{1,2})?\s*$',
+      caseSensitive: false,
+    );
+    final bullet = RegExp(r'^\s*(?:[-*•●▪]\s*|\d+[.)]\s*)(.+?)\s*$');
+    final budgetPattern = RegExp(
+      r'(?:estimated (?:cost|budget)|التكلفة التقديرية|الميزانية التقديرية|ميزانية تقديرية)\s*[:：]?\s*(.+)$',
+      caseSensitive: false,
+    );
+    final days = <Map<String, dynamic>>[];
+    Map<String, dynamic>? currentDay;
+    String? budget;
+
+    for (final rawLine in response.split('\n')) {
+      final line = rawLine.replaceAll(RegExp(r'[*_`]'), '').trim();
+      if (line.isEmpty) continue;
+
+      final dayMatch = dayHeading.firstMatch(rawLine.trim());
+      if (dayMatch != null) {
+        final number = dayMatch.group(1)!.replaceAll(RegExp(r'\s+'), '');
+        final title = dayMatch.group(2)?.trim() ?? '';
+        final dayLabel = RegExp(r'اليوم', caseSensitive: false)
+                .hasMatch(rawLine)
+            ? 'اليوم'
+            : 'Day';
+        currentDay = <String, dynamic>{
+          'title': title.isEmpty ? '$dayLabel $number' : '$dayLabel $number | $title',
+          'activities': <String>[],
+        };
+        days.add(currentDay);
+        continue;
+      }
+
+      budget ??= budgetPattern.firstMatch(line)?.group(1)?.trim();
+      final activity = bullet.firstMatch(rawLine)?.group(1)?.trim();
+      if (currentDay != null && activity != null && activity.isNotEmpty) {
+        (currentDay['activities'] as List<String>).add(activity);
+      }
+    }
+
+    if (days.isEmpty) return null;
+
+    final destination = _extractRequestedDestination(requestedDestination ?? '');
+    return <String, dynamic>{
+      if (destination != null) 'destination': destination,
+      'days': days,
+      if (budget != null && budget.isNotEmpty) 'estimated_budget': budget,
+    };
+  }
+
+  static String? _extractRequestedDestination(String text) {
+    if (text.trim().isEmpty) return null;
+    final match = RegExp(
+      r'\b(?:to|for)\s+([^.!?,\n]+)|(?:إلى|الى|عن)\s*([^،.!؟?\n]+)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    var destination = (match?.group(1) ?? match?.group(2) ?? '').trim();
+    destination = destination.replaceFirst(
+      RegExp(
+        r'\s+(?:(?:for|over|lasting)\b|لمدة|للمدة).*$',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    return destination.isEmpty ? null : destination;
   }
 
   Future<void> sendMessage(String text) async {
@@ -199,18 +279,25 @@ class ChatbotController extends ChangeNotifier {
 
       if (generation != _requestGeneration) return;
 
+      final itineraryData = _itineraryIntent.hasMatch(messageText)
+          ? parseItineraryResponse(
+              reply,
+              requestedDestination: messageText,
+            )
+          : null;
       final streamedMessage = _streamingAssistantMessage;
+      final completedMessage = ChatMessage(
+        text: reply,
+        isUser: false,
+        timestamp: streamedMessage?.timestamp ?? DateTime.now(),
+        isItinerary: itineraryData != null,
+        itineraryData: itineraryData,
+      );
       if (streamedMessage == null) {
-        messages.add(
-            ChatMessage(text: reply, isUser: false, timestamp: DateTime.now()));
+        messages.add(completedMessage);
       } else {
         final index = messages.indexOf(streamedMessage);
         if (index >= 0) {
-          final completedMessage = ChatMessage(
-            text: reply,
-            isUser: false,
-            timestamp: streamedMessage.timestamp,
-          );
           messages[index] = completedMessage;
           _streamingAssistantMessage = completedMessage;
         }
@@ -310,6 +397,25 @@ class ChatbotController extends ChangeNotifier {
     await sendMessage(_isArabic
         ? 'أريد برنامج سفر كامل إلى $destination لمدة 7 أيام'
         : 'I want a full 7-day travel itinerary for $destination');
+  }
+
+  Future<void> saveItinerary(ChatMessage message) async {
+    final index = messages.indexOf(message);
+    if (index < 0 || !message.isItinerary || message.itineraryData == null) {
+      throw StateError('This message does not contain a saveable itinerary.');
+    }
+    if (message.isSavedItinerary) return;
+
+    messages[index] = ChatMessage(
+      text: message.text,
+      isUser: false,
+      timestamp: message.timestamp,
+      isItinerary: true,
+      itineraryData: message.itineraryData,
+      isSavedItinerary: true,
+    );
+    await _autoSave();
+    notifyListeners();
   }
 
   void clearChat() {
