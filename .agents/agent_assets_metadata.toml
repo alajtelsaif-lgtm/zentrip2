@@ -266,3 +266,17 @@ mtime_ms = 1794164835710
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/feeb6fc4-1c80-4f18-8618-4ca7ac021ee3/d9ca542e-6bc5-4882-98bc-53df8773b931"
 storage_version_token = "1794164856821139"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "IGupkimRjMXfv9nWfzL0I"
+uri = "file://generated-artifacts/Zen_AI_%D8%AA%D8%AD%D9%84%D9%8A%D9%84_%D8%A7%D9%84%D9%85%D9%86%D8%A7%D9%81%D8%B3%D9%8A%D9%86.html"
+type = "html"
+title = "تحليل المنافسين وتميّز Zen AI"
+description = "عرض عربي تفاعلي من 8 شرائح، يعرض قدرات Zen المثبتة في الكود، مقارنة المنافسين، الفجوات الحالية، وخارطة طريق مقترحة مع روابط المصادر."
+logical_id = "855ca2d6-0615-47c6-8176-cfcecdfa0573"
+content_hash = "sha256:57cd46289a1306036b685411e6b08653e4c924daa4242bcd98edb35d38da15f1"
+size = 29926
+mtime_ms = 1794227007931
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/855ca2d6-0615-47c6-8176-cfcecdfa0573/b9c46988-7aaf-4d6c-bf6a-536eaf824511"
+storage_version_token = "1794227030760385"
+content_type = "text/html"
