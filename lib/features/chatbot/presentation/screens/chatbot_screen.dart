@@ -180,7 +180,28 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     }
                     final msg = _chatCtrl.messages[i];
                     if (msg.isItinerary && msg.itineraryData != null) {
-                      return ItineraryCard(data: msg.itineraryData!);
+                      return ItineraryCard(
+                        data: msg.itineraryData!,
+                        isSaved: msg.isSavedItinerary,
+                        onSave: () async {
+                          try {
+                            await _chatCtrl.saveItinerary(msg);
+                            if (ctx.mounted) {
+                              AppSnackbar.success(
+                                ctx,
+                                l10n.chatItinerarySavedSuccess,
+                              );
+                            }
+                          } catch (_) {
+                            if (ctx.mounted) {
+                              AppSnackbar.error(
+                                ctx,
+                                l10n.chatItinerarySaveFailed,
+                              );
+                            }
+                          }
+                        },
+                      );
                     }
                     return _MessageBubble(message: msg);
                   },

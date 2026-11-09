@@ -2868,8 +2868,14 @@ abstract class AppLocalizations {
   /// No description provided for @chatItinerarySavedSuccess.
   ///
   /// In ar, this message translates to:
-  /// **'تم حفظ البرنامج في رحلاتك'**
+  /// **'تم حفظ البرنامج في سجل المحادثة على هذا الجهاز'**
   String get chatItinerarySavedSuccess;
+
+  /// No description provided for @chatItinerarySaveFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذر حفظ البرنامج. حاول مرة أخرى.'**
+  String get chatItinerarySaveFailed;
 
   /// No description provided for @chatItineraryFullRequest.
   ///

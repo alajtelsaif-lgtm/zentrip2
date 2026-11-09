@@ -62,6 +62,8 @@ class RequestyChatServiceTest {
         assertTrue(instruction.contains("regardless of the app interface language"));
         assertTrue(instruction.contains("use Arabic"));
         assertTrue(instruction.contains("Keep answers concise by default"));
+        assertTrue(instruction.contains("اليوم 1 | العنوان"));
+        assertTrue(instruction.contains("Day 1 | Title"));
     }
 
     @Test

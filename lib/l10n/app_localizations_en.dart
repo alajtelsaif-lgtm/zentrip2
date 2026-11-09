@@ -1487,7 +1487,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatItinerarySave => 'Save Itinerary';
 
   @override
-  String get chatItinerarySavedSuccess => 'Itinerary saved to your trips';
+  String get chatItinerarySavedSuccess =>
+      'Saved in this device\'s chat history';
+
+  @override
+  String get chatItinerarySaveFailed =>
+      'Couldn\'t save this itinerary. Please try again.';
 
   @override
   String chatItineraryFullRequest(Object destination) {

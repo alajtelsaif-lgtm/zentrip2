@@ -171,12 +171,14 @@ class ChatbotController extends ChangeNotifier {
       if (dayMatch != null) {
         final number = dayMatch.group(1)!.replaceAll(RegExp(r'\s+'), '');
         final title = dayMatch.group(2)?.trim() ?? '';
-        final dayLabel = RegExp(r'اليوم', caseSensitive: false)
-                .hasMatch(rawLine)
-            ? 'اليوم'
-            : 'Day';
+        final dayLabel =
+            RegExp(r'اليوم', caseSensitive: false).hasMatch(rawLine)
+                ? 'اليوم'
+                : 'Day';
         currentDay = <String, dynamic>{
-          'title': title.isEmpty ? '$dayLabel $number' : '$dayLabel $number | $title',
+          'title': title.isEmpty
+              ? '$dayLabel $number'
+              : '$dayLabel $number | $title',
           'activities': <String>[],
         };
         days.add(currentDay);
@@ -192,7 +194,8 @@ class ChatbotController extends ChangeNotifier {
 
     if (days.isEmpty) return null;
 
-    final destination = _extractRequestedDestination(requestedDestination ?? '');
+    final destination =
+        _extractRequestedDestination(requestedDestination ?? '');
     return <String, dynamic>{
       if (destination != null) 'destination': destination,
       'days': days,

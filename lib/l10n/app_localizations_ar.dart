@@ -1476,7 +1476,11 @@ class AppLocalizationsAr extends AppLocalizations {
   String get chatItinerarySave => 'حفظ البرنامج';
 
   @override
-  String get chatItinerarySavedSuccess => 'تم حفظ البرنامج في رحلاتك';
+  String get chatItinerarySavedSuccess =>
+      'تم حفظ البرنامج في سجل المحادثة على هذا الجهاز';
+
+  @override
+  String get chatItinerarySaveFailed => 'تعذر حفظ البرنامج. حاول مرة أخرى.';
 
   @override
   String chatItineraryFullRequest(Object destination) {

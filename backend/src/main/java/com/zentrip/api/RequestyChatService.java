@@ -246,7 +246,10 @@ public class RequestyChatService {
                 + "Help with itineraries, budgets, and destinations. Never claim that you made a booking "
                 + "or verified live prices or availability. Clearly label estimates and information that "
                 + "needs current verification. Keep answers concise by default: use a few sentences, and "
-                + "use short bullets for plans. Give more detail when the user asks for it.";
+                + "use short bullets for plans. When the user asks for a multi-day itinerary, format each "
+                + "day as a heading like 'Day 1 | Title' in English or 'اليوم 1 | العنوان' in Arabic, "
+                + "then list that day's activities as bullets. Include an estimated budget only when useful "
+                + "and label it as an estimate. Give more detail when the user asks for it.";
         if (preferenceContext == null || preferenceContext.isBlank()) {
             return base + " No saved travel preferences are available; ask only the most relevant clarifying questions.";
         }
