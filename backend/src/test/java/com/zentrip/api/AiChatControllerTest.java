@@ -126,6 +126,53 @@ class AiChatControllerTest {
                 eq(42L), eq("chat-1"), eq("إليك خطة سفر"));
     }
 
+    @Test
+    void emitsSseHeartbeatBeforeReplyTokens() throws Exception {
+        doAnswer(invocation -> {
+            java.util.function.Consumer<String> onDelta = invocation.getArgument(3);
+            onDelta.accept("Hello from Zen.");
+            return null;
+        }).when(requesty).streamReply(anyList(), eq("en"), anyString(), any());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute("authUserId", 42L);
+        ResponseEntity<?> response = controller.chat(Map.of(
+                "message", "Hello",
+                "session_id", "chat-heartbeat",
+                "request_id", "request-heartbeat",
+                "language", "en"), request);
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ((StreamingResponseBody) response.getBody()).writeTo(output);
+        String stream = output.toString(StandardCharsets.UTF_8);
+
+        assertTrue(stream.contains(": connected\n\n"));
+        assertTrue(stream.indexOf(": connected") < stream.indexOf("event: token"));
+        assertTrue(stream.contains("event: done"));
+    }
+
+    @Test
+    void convertsUnexpectedProviderErrorsIntoStreamErrorsInsteadOfHttp500()
+            throws Exception {
+        org.mockito.Mockito.doThrow(new IllegalStateException("provider parser failure"))
+                .when(requesty).streamReply(anyList(), eq("en"), anyString(), any());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute("authUserId", 42L);
+        ResponseEntity<?> response = controller.chat(Map.of(
+                "message", "Hello",
+                "session_id", "chat-provider-error",
+                "request_id", "request-provider-error",
+                "language", "en"), request);
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ((StreamingResponseBody) response.getBody()).writeTo(output);
+        String stream = output.toString(StandardCharsets.UTF_8);
+
+        assertEquals(200, response.getStatusCode().value());
+        assertTrue(stream.contains("event: error"));
+        assertTrue(stream.contains("Zen could not complete the request. Please retry."));
+        assertTrue(!stream.contains("event: done"));
+    }
+
         @Test
         void cancellationReceivedBeforeGenerationSuppressesTheRequest() {
                 MockHttpServletRequest request = new MockHttpServletRequest();

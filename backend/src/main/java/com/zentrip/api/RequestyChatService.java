@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -26,6 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class RequestyChatService {
+    private static final Logger LOG = LoggerFactory.getLogger(RequestyChatService.class);
     private static final String ENDPOINT = "https://router.requesty.ai/v1/chat/completions";
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -91,6 +94,7 @@ public class RequestyChatService {
                     .uri(ENDPOINT)
                     .header("Authorization", "Bearer " + apiKey)
                     .header("X-Title", "ZenTrip")
+                    .header("Accept", MediaType.TEXT_EVENT_STREAM_VALUE)
                     .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
                     .body(Objects.requireNonNull(request))
                     .exchange((clientRequest, clientResponse) -> {
@@ -174,6 +178,7 @@ public class RequestyChatService {
     }
 
     private static ResponseStatusException providerFailure(int status) {
+        LOG.warn("Requesty chat request failed with HTTP status {}", status);
         if (status == 429) {
             return new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,

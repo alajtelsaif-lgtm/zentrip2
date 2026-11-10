@@ -4,6 +4,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -40,7 +45,14 @@ public class AiChatController {
     private static final int HISTORY_LIMIT = 10;
     private static final int STORED_MESSAGE_LIMIT = 40;
     private static final long CANCELLATION_TTL_MILLIS = 180_000;
+    private static final long STREAM_HEARTBEAT_INTERVAL_SECONDS = 10;
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ScheduledExecutorService STREAM_HEARTBEATS =
+            Executors.newScheduledThreadPool(2, runnable -> {
+                Thread thread = new Thread(runnable, "zen-chat-heartbeat");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     private final JdbcTemplate jdbc;
     private final RequestyChatService requesty;
@@ -195,12 +207,23 @@ public class AiChatController {
             String language,
             String context) throws IOException {
         StringBuilder reply = new StringBuilder();
+        AtomicBoolean outputFailed = new AtomicBoolean();
+        writeComment(output, "connected");
+        ScheduledFuture<?> heartbeat = STREAM_HEARTBEATS.scheduleAtFixedRate(
+                () -> writeHeartbeat(output, outputFailed),
+                STREAM_HEARTBEAT_INTERVAL_SECONDS,
+                STREAM_HEARTBEAT_INTERVAL_SECONDS,
+                TimeUnit.SECONDS);
         try {
             requesty.streamReply(turns, language, context, delta -> {
+                if (outputFailed.get()) {
+                    throw new UncheckedIOException(new IOException("Zen chat client disconnected"));
+                }
                 reply.append(delta);
                 try {
                     writeEvent(output, "token", Map.of("text", delta));
                 } catch (IOException exception) {
+                    outputFailed.set(true);
                     throw new UncheckedIOException(exception);
                 }
             });
@@ -213,21 +236,49 @@ public class AiChatController {
             }
             writeEvent(output, "done", Map.of());
         } catch (ResponseStatusException exception) {
-            writeEvent(output, "error", Map.of(
-                    "message", exception.getReason() == null
-                            ? "Zen could not complete the request. Please retry."
-                            : exception.getReason()));
+            if (!outputFailed.get()) {
+                writeEvent(output, "error", Map.of(
+                        "message", exception.getReason() == null
+                                ? "Zen could not complete the request. Please retry."
+                                : exception.getReason()));
+            }
         } catch (UncheckedIOException exception) {
             throw exception.getCause();
+        } catch (RuntimeException exception) {
+            LOG.error("Zen chat stream failed unexpectedly for user {}", userId, exception);
+            if (!outputFailed.get()) {
+                writeEvent(output, "error", Map.of(
+                        "message", "Zen could not complete the request. Please retry."));
+            }
+        } finally {
+            heartbeat.cancel(false);
         }
     }
 
     private static void writeEvent(OutputStream output, String event, Map<String, String> data)
             throws IOException {
         String payload = JSON.writeValueAsString(data);
-        output.write(("event: " + event + "\ndata: " + payload + "\n\n")
-                .getBytes(StandardCharsets.UTF_8));
-        output.flush();
+        synchronized (output) {
+            output.write(("event: " + event + "\ndata: " + payload + "\n\n")
+                    .getBytes(StandardCharsets.UTF_8));
+            output.flush();
+        }
+    }
+
+    private static void writeComment(OutputStream output, String comment) throws IOException {
+        synchronized (output) {
+            output.write((": " + comment + "\n\n").getBytes(StandardCharsets.UTF_8));
+            output.flush();
+        }
+    }
+
+    private static void writeHeartbeat(OutputStream output, AtomicBoolean outputFailed) {
+        if (outputFailed.get()) return;
+        try {
+            writeComment(output, "keep-alive");
+        } catch (IOException exception) {
+            outputFailed.set(true);
+        }
     }
 
     private void setLocal(String name, String value) {
