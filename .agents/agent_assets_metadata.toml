@@ -294,3 +294,17 @@ mtime_ms = 1794333789475
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/99df0b0f-7724-41e5-b930-50f8ff7c268d/2d9b1c58-ef65-4300-84d8-0c997029e2ce"
 storage_version_token = "1794333796358929"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "o_Q1DDsxUrM1_xe9u1xGI"
+uri = "file://generated-artifacts/Zentrip_System_Architecture_Corrected.docx"
+type = "word_document"
+title = "مخطط معمارية Zentrip المصحح"
+description = "ملف Word قابل لتحرير عناصره؛ صُححت التسميات مع الحفاظ على مواضع الأشكال وألوانها وتنسيقاتها."
+logical_id = "147aa8fe-cab1-4400-8921-4d5a636f07f3"
+content_hash = "sha256:3d6ebf8053e7edf4e310167f73a2dba7808aead6570a4db89f4f3b0f45de7bf6"
+size = 71707
+mtime_ms = 1794338281931
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/147aa8fe-cab1-4400-8921-4d5a636f07f3/cdd63a6b-4aa2-4d09-a36f-50156d8dfef4"
+storage_version_token = "1794338337100906"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
