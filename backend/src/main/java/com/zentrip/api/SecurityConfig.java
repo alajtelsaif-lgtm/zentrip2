@@ -13,6 +13,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.DispatcherType;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -48,6 +49,10 @@ public class SecurityConfig {
                     (request, response, exception) ->
                             response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
             .authorizeHttpRequests(auth -> auth
+                // The original REQUEST dispatch is authenticated before Spring MVC starts
+                // StreamingResponseBody. Its container-generated ASYNC redispatch resumes
+                // that already-authorized request and may not carry the stateless auth context.
+                .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                 .requestMatchers(
                     "/api/auth/register",
                     "/api/auth/login",

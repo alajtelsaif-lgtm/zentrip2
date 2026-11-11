@@ -43,14 +43,14 @@ public class GoogleGeminiChatService {
     public GoogleGeminiChatService(
             RestClient.Builder builder,
             @Value("${gemini.api-key:}") String apiKey,
-            @Value("${gemini.model:gemini-2.5-flash}") String model) {
+            @Value("${gemini.model:gemini-3.8-flash}") String model) {
         this(builder.requestFactory(requestFactory()).build(), apiKey, model);
     }
 
     GoogleGeminiChatService(RestClient http, String apiKey, String model) {
         this.http = http;
         this.apiKey = apiKey == null ? "" : apiKey.trim();
-        this.model = model == null || model.isBlank() ? "gemini-2.5-flash" : model.trim();
+        this.model = model == null || model.isBlank() ? "gemini-3.8-flash" : model.trim();
     }
 
     private static SimpleClientHttpRequestFactory requestFactory() {
@@ -231,6 +231,12 @@ public class GoogleGeminiChatService {
             return new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "Google Gemini usage is currently rate-limited. Wait briefly and try again.");
+        }
+        if (status == 404 && (providerCode.equalsIgnoreCase("NOT_FOUND")
+                || normalizedError.contains("model"))) {
+            return new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "The configured Google Gemini model is unavailable. Set GEMINI_MODEL to a model enabled in Google AI Studio.");
         }
         if (status == 401 || status == 403) {
             return new ResponseStatusException(
