@@ -308,3 +308,17 @@ mtime_ms = 1794338281931
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/147aa8fe-cab1-4400-8921-4d5a636f07f3/cdd63a6b-4aa2-4d09-a36f-50156d8dfef4"
 storage_version_token = "1794338337100906"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "PHUUht-s5xUxVqJmaa0D8"
+uri = "file://generated-artifacts/ZenTrip-Supabase-Database-Diagram.docx"
+type = "word_document"
+title = "ZenTrip Supabase Database Diagram"
+description = "Editable Word ER diagrams and a complete live schema dictionary, extracted read-only from Supabase."
+logical_id = "aeded4bd-ace6-4157-bbf5-f959c288a813"
+content_hash = "sha256:6b8758b7d4d225f8682987dd25782625aa2541b82d7497c78612a78f8f559367"
+size = 34355
+mtime_ms = 1794423306165
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/aeded4bd-ace6-4157-bbf5-f959c288a813/46d78779-58c8-4742-ba1a-0f5fa5cf1f5e"
+storage_version_token = "1794423388630916"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
