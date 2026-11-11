@@ -6,9 +6,14 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
+import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.server.ResponseStatusException;
 
 class RequestyChatServiceTest {
@@ -52,6 +57,37 @@ class RequestyChatServiceTest {
                 () -> RequestyChatService.extractChatCompletionText(Map.of("choices", List.of())));
 
         assertEquals(HttpStatus.BAD_GATEWAY, exception.getStatusCode());
+    }
+
+    @Test
+    void reportsForbiddenModelAccessWithoutExposingTheApiKey() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("https://router.requesty.ai/v1/chat/completions"))
+                .andExpect(header("Authorization", "Bearer test-secret"))
+                .andRespond(withStatus(HttpStatus.FORBIDDEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("x-request-id", "request-test-123")
+                        .body("""
+                                {"error":{"code":"model_access_denied",
+                                "message":"The selected model is not enabled."}}
+                                """));
+
+        RequestyChatService service = new RequestyChatService(
+                builder.build(), "test-secret", "example/model");
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.streamReply(
+                        List.of(new RequestyChatService.ChatTurn("user", "Hello")),
+                        "en",
+                        "",
+                        ignored -> {}));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exception.getStatusCode());
+        assertTrue(exception.getReason().contains("HTTP 403"));
+        assertTrue(exception.getReason().contains("configured model"));
+        assertTrue(!exception.getReason().contains("test-secret"));
+        server.verify();
     }
 
     @Test

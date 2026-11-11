@@ -15,6 +15,8 @@ import java.util.function.Consumer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -36,16 +38,25 @@ public class RequestyChatService {
     private final String apiKey;
     private final String model;
 
+    @Autowired
     public RequestyChatService(
             RestClient.Builder builder,
             @Value("${requesty.api-key:}") String apiKey,
             @Value("${requesty.model:google/gemma-4-31b-it}") String model) {
+        this(builder.requestFactory(requestFactory()).build(), apiKey, model);
+    }
+
+    RequestyChatService(RestClient http, String apiKey, String model) {
+        this.http = http;
+        this.apiKey = apiKey;
+        this.model = model;
+    }
+
+    private static SimpleClientHttpRequestFactory requestFactory() {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Objects.requireNonNull(Duration.ofSeconds(10)));
         requestFactory.setReadTimeout(Objects.requireNonNull(Duration.ofSeconds(120)));
-        this.http = builder.requestFactory(requestFactory).build();
-        this.apiKey = apiKey;
-        this.model = model;
+        return requestFactory;
     }
 
     public String generateReply(List<ChatTurn> history, String language) {
@@ -99,7 +110,15 @@ public class RequestyChatService {
                     .body(Objects.requireNonNull(request))
                     .exchange((clientRequest, clientResponse) -> {
                         if (!clientResponse.getStatusCode().is2xxSuccessful()) {
-                            throw providerFailure(clientResponse.getStatusCode().value());
+                            String errorBody = new String(
+                                    clientResponse.getBody().readAllBytes(),
+                                    StandardCharsets.UTF_8);
+                            throw providerFailure(
+                                    clientResponse.getStatusCode().value(),
+                                    errorBody,
+                                    clientResponse.getHeaders().getFirst("x-request-id"),
+                                    model,
+                                    apiKey);
                         }
                         try (BufferedReader reader = new BufferedReader(
                                 new InputStreamReader(
@@ -174,24 +193,87 @@ public class RequestyChatService {
 
     private static ResponseStatusException providerFailure(
             RestClientResponseException exception) {
-        return providerFailure(exception.getStatusCode().value());
+        return providerFailure(
+                exception.getStatusCode().value(),
+                exception.getResponseBodyAsString(),
+                exception.getResponseHeaders() == null
+                        ? null
+                        : exception.getResponseHeaders().getFirst("x-request-id"),
+                "",
+                "");
     }
 
     private static ResponseStatusException providerFailure(int status) {
-        LOG.warn("Requesty chat request failed with HTTP status {}", status);
+        return providerFailure(status, "", null, "", "");
+    }
+
+    private static ResponseStatusException providerFailure(
+            int status, String responseBody, String requestId, String model, String apiKey) {
+        JsonNode providerError = providerError(responseBody);
+        String providerCode = firstText(
+                providerError.path("code").asText(""),
+                providerError.path("type").asText(""),
+                providerError.path("error_code").asText(""));
+        String providerMessage = firstText(
+                providerError.path("message").asText(""),
+                providerError.path("detail").asText(""),
+                providerError.path("error_description").asText(""));
+        String providerRequestId = firstText(
+                requestId,
+                providerError.path("request_id").asText(""),
+                providerError.path("requestId").asText(""));
+        LOG.warn(
+                "Requesty chat request failed: status={}, model={}, code={}, message={}, requestId={}",
+                status,
+                safeLogValue(model, apiKey),
+                safeLogValue(providerCode, apiKey),
+                safeLogValue(providerMessage, apiKey),
+                safeLogValue(providerRequestId, apiKey));
         if (status == 429) {
             return new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "Zen is at the Requesty usage limit. Wait a little and try again.");
         }
-        if (status == 401 || status == 403) {
+        if (status == 401) {
             return new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "Requesty rejected its API key. Check the provider key and account credits.");
+                    "Requesty rejected the configured API credential (HTTP 401). Verify the key in Replit Secrets.");
+        }
+        if (status == 403) {
+            return new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Requesty denied this request (HTTP 403). Verify that the account can use the configured model and is active.");
         }
         return new ResponseStatusException(
                 HttpStatus.BAD_GATEWAY,
                 "Requesty could not complete the request. Please try again.");
+    }
+
+    private static JsonNode providerError(String responseBody) {
+        try {
+            JsonNode root = JSON.readTree(responseBody);
+            if (root == null) return JSON.createObjectNode();
+            JsonNode error = root.path("error");
+            return error.isObject() ? error : root;
+        } catch (IOException exception) {
+            return JSON.createObjectNode();
+        }
+    }
+
+    private static String firstText(String... candidates) {
+        for (String candidate : candidates) {
+            if (candidate != null && !candidate.isBlank()) return candidate;
+        }
+        return "unavailable";
+    }
+
+    private static String safeLogValue(String value, String apiKey) {
+        if (value == null || value.isBlank()) return "unavailable";
+        String safe = apiKey == null || apiKey.isBlank()
+                ? value
+                : value.replace(apiKey, "[REDACTED]");
+        safe = safe.replaceAll("[\\r\\n\\t]", " ").trim();
+        return safe.length() <= 300 ? safe : safe.substring(0, 300);
     }
 
     private static String fallbackReply(

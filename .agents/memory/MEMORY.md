@@ -19,3 +19,4 @@
 - [Notification persistence rollout safety](notification-persistence.md) — keep booking success independent of the inbox migration and retain a local alert fallback until server storage is ready.
 - [RLS catalog reads](offer-catalog-rls.md) — avoid row-locking public catalog reads when update policies are admin-only; lock queries can hide otherwise visible rows.
 - [Word diagram text](word-diagram-text.md) — legacy Word shape fallbacks can duplicate diagram text; update both shape representations when editing embedded labels.
+- [RestClient mock isolation](restclient-mock-isolation.md) — preserve injected request factories in provider tests so mocked calls cannot escape to the network.
