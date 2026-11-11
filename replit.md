@@ -103,7 +103,8 @@ Replit project's Secrets for the corresponding features to work.
 
 For local preview only, `ZENTRIP_PROVIDER_ENV_FILE` can select an ignored uploaded
 environment file. The launcher reads only `GEMINI_API_KEY`, `GEMINI_MODEL`,
-`SERPAPI_KEY`, and `GOOGLE_PLACES_API_KEY`; existing environment variables take
+`GEMINI_FALLBACK_MODEL`, `GEMINI_READ_TIMEOUT_SECONDS`, `SERPAPI_KEY`, and
+`GOOGLE_PLACES_API_KEY`; existing environment variables take
 precedence. It does not apply database, admin, partner, or service-role values
 from that file. Uploaded `.env` files are excluded from Git and publishing.
 Use Replit Secrets rather than this local-file option for publishing.

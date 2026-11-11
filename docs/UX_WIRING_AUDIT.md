@@ -168,7 +168,7 @@ The AppShell tab widgets are `HomeScreen`, `NearbyScreen` (`lib/features/nearby/
 | OpenTripMap | Attraction search/details/destination suggestions | API key configured | `OpenTripMapAttractionServiceTest`, attraction controller tests; no live request |
 | Geoapify | Airport/geocoding fallback when the local airport directory does not resolve a query | API key configured | Airport directory/controller contract tests; no live request |
 | SerpAPI | `/maps/search`, used by Nearby for category/location searches | Key configured | API/controller code path; no live request |
-| Google Gemini | AI chat streaming and cancellation through Spring | `GEMINI_API_KEY` is not configured in the current environment | `GoogleGeminiChatServiceTest`; live chat is not yet verified |
+| Google Gemini | AI chat streaming, overload fallback, and cancellation through Spring | `GEMINI_API_KEY` configured; primary and fallback models both returned HTTP 200 in provider smoke requests | Unit/contract tests; authenticated full-screen flow still needs browser confirmation |
 | Google Places | Optional partner-listing rating enrichment | `GOOGLE_PLACES_API_KEY` was not configured in the environment | Startup/per-listing sync code checks for key; live enrichment not available or verified |
 | Exchange-rate service | `/exchange-rates` used by flight/hotel `PriceComparison` | Server service and endpoint are wired; separate currency preference still uses fixed mock rates | Backend service/controller and Flutter price-comparison tests |
 | Weather/visa | Package detail calls client methods, but there are no corresponding server routes/providers in production mode | Sample-only methods return failure when mock mode is off | Code-read only; destination row degrades to unavailable/partial |
@@ -190,7 +190,7 @@ No active HotelBeds or RapidAPI integration was found in the current source; hot
 | Car rental | Search/detail/booking routes read; model/location tests exist | Full UI flow and booking persistence in browser |
 | Transfers | Search, map picker, vehicle selection, submit, and API wiring read | No screen-level end-to-end test or signed-in browser run |
 | Packages/attractions | Attraction search/map/controller and visit-ranking tests; package navigation read | Package booking and all detail actions in a signed-in browser; live weather/visa |
-| Zen AI | Gemini streaming contract and cancellation tests | Live prompt/reply/history browser flow after configuring the Google AI Studio key |
+| Zen AI | Gemini primary/fallback smoke requests and streaming contract tests | Live authenticated prompt/reply/history browser flow in the app |
 | Profile/settings | Route and persistence code read | Signed-in browser; restart persistence; notifications/device permission |
 | Admin/partner | Role route tests and backend/model tests | CRUD, ownership, and dashboard data in signed-in browser accounts |
 

@@ -38,25 +38,37 @@ public class GoogleGeminiChatService {
     private final RestClient http;
     private final String apiKey;
     private final String model;
+    private final String fallbackModel;
 
     @Autowired
     public GoogleGeminiChatService(
             RestClient.Builder builder,
             @Value("${gemini.api-key:}") String apiKey,
-            @Value("${gemini.model:gemini-3.8-flash}") String model) {
-        this(builder.requestFactory(requestFactory()).build(), apiKey, model);
+            @Value("${gemini.model:gemini-flash-lite-latest}") String model,
+            @Value("${gemini.fallback-model:gemini-3.5-flash-lite}") String fallbackModel,
+            @Value("${gemini.read-timeout-seconds:35}") int readTimeoutSeconds) {
+        this(builder.requestFactory(requestFactory(readTimeoutSeconds)).build(),
+                apiKey, model, fallbackModel);
     }
 
     GoogleGeminiChatService(RestClient http, String apiKey, String model) {
-        this.http = http;
-        this.apiKey = apiKey == null ? "" : apiKey.trim();
-        this.model = model == null || model.isBlank() ? "gemini-3.8-flash" : model.trim();
+        this(http, apiKey, model, "gemini-3.5-flash-lite");
     }
 
-    private static SimpleClientHttpRequestFactory requestFactory() {
+    GoogleGeminiChatService(
+            RestClient http, String apiKey, String model, String fallbackModel) {
+        this.http = http;
+        this.apiKey = apiKey == null ? "" : apiKey.trim();
+        this.model = model == null || model.isBlank()
+                ? "gemini-flash-lite-latest" : model.trim();
+        this.fallbackModel = fallbackModel == null ? "" : fallbackModel.trim();
+    }
+
+    private static SimpleClientHttpRequestFactory requestFactory(int readTimeoutSeconds) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Objects.requireNonNull(Duration.ofSeconds(10)));
-        requestFactory.setReadTimeout(Objects.requireNonNull(Duration.ofSeconds(120)));
+        requestFactory.setReadTimeout(
+                Objects.requireNonNull(Duration.ofSeconds(Math.max(1, readTimeoutSeconds))));
         return requestFactory;
     }
 
@@ -100,48 +112,26 @@ public class GoogleGeminiChatService {
         boolean[] hasContent = {false};
 
         try {
-            http.post()
-                    .uri(ENDPOINT, model)
-                    .header("x-goog-api-key", apiKey)
-                    .header("Accept", MediaType.TEXT_EVENT_STREAM_VALUE)
-                    .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
-                    .body(Objects.requireNonNull(request))
-                    .exchange((clientRequest, clientResponse) -> {
-                        if (!clientResponse.getStatusCode().is2xxSuccessful()) {
-                            String errorBody = new String(
-                                    clientResponse.getBody().readAllBytes(),
-                                    StandardCharsets.UTF_8);
-                            throw providerFailure(
-                                    clientResponse.getStatusCode().value(),
-                                    errorBody,
-                                    firstText(
-                                            clientResponse.getHeaders().getFirst("x-request-id"),
-                                            clientResponse.getHeaders().getFirst("x-goog-request-id")),
-                                    model,
-                                    apiKey);
-                        }
-                        try (BufferedReader reader = new BufferedReader(
-                                new InputStreamReader(
-                                        clientResponse.getBody(), StandardCharsets.UTF_8))) {
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                if (!line.startsWith("data:")) continue;
-                                String data = line.substring(5).trim();
-                                if (data.isEmpty() || "[DONE]".equals(data)) continue;
-                                String delta = extractStreamDelta(data);
-                                if (!delta.isEmpty()) {
-                                    hasContent[0] = true;
-                                    onDelta.accept(delta);
-                                }
-                            }
-                        } catch (IOException exception) {
-                            throw new ResponseStatusException(
-                                    HttpStatus.BAD_GATEWAY,
-                                    "Could not read the streamed response from Google Gemini.",
-                                    exception);
-                        }
-                        return null;
-                    });
+            try {
+                streamWithModel(model, request, onDelta, hasContent);
+            } catch (GeminiHttpException exception) {
+                if (exception.status != 503 || fallbackModel.isBlank()
+                        || fallbackModel.equalsIgnoreCase(model)) {
+                    throw providerFailure(
+                            exception.status,
+                            exception.responseBody,
+                            exception.requestId,
+                            exception.model,
+                            apiKey);
+                }
+                LOG.warn(
+                        "Google Gemini primary model {} returned HTTP 503; retrying fallback model {}",
+                        safeLogValue(model, apiKey),
+                        safeLogValue(fallbackModel, apiKey));
+                streamWithModel(fallbackModel, request, onDelta, hasContent);
+            } catch (ResponseStatusException exception) {
+                throw exception;
+            }
             if (!hasContent[0]) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_GATEWAY,
@@ -149,6 +139,13 @@ public class GoogleGeminiChatService {
             }
         } catch (ResponseStatusException exception) {
             throw exception;
+        } catch (GeminiHttpException exception) {
+            throw providerFailure(
+                    exception.status,
+                    exception.responseBody,
+                    exception.requestId,
+                    exception.model,
+                    apiKey);
         } catch (RestClientResponseException exception) {
             throw providerFailure(exception);
         } catch (ResourceAccessException exception) {
@@ -159,6 +156,69 @@ public class GoogleGeminiChatService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
                     "Could not reach Google Gemini. Check the backend internet connection and retry.");
+        }
+    }
+
+    private void streamWithModel(
+            String selectedModel,
+            Map<String, Object> request,
+            Consumer<String> onDelta,
+            boolean[] hasContent) {
+        http.post()
+                .uri(ENDPOINT, selectedModel)
+                .header("x-goog-api-key", apiKey)
+                .header("Accept", MediaType.TEXT_EVENT_STREAM_VALUE)
+                .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                .body(Objects.requireNonNull(request))
+                .exchange((clientRequest, clientResponse) -> {
+                    if (!clientResponse.getStatusCode().is2xxSuccessful()) {
+                        String errorBody = new String(
+                                clientResponse.getBody().readAllBytes(),
+                                StandardCharsets.UTF_8);
+                        throw new GeminiHttpException(
+                                clientResponse.getStatusCode().value(),
+                                errorBody,
+                                firstText(
+                                        clientResponse.getHeaders().getFirst("x-request-id"),
+                                        clientResponse.getHeaders().getFirst("x-goog-request-id")),
+                                selectedModel);
+                    }
+                    try (BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(
+                                    clientResponse.getBody(), StandardCharsets.UTF_8))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            if (!line.startsWith("data:")) continue;
+                            String data = line.substring(5).trim();
+                            if (data.isEmpty() || "[DONE]".equals(data)) continue;
+                            String delta = extractStreamDelta(data);
+                            if (!delta.isEmpty()) {
+                                hasContent[0] = true;
+                                onDelta.accept(delta);
+                            }
+                        }
+                    } catch (IOException exception) {
+                        throw new ResponseStatusException(
+                                HttpStatus.BAD_GATEWAY,
+                                "Could not read the streamed response from Google Gemini.",
+                                exception);
+                    }
+                    return null;
+                });
+    }
+
+    private static final class GeminiHttpException extends RuntimeException {
+        private final int status;
+        private final String responseBody;
+        private final String requestId;
+        private final String model;
+
+        private GeminiHttpException(
+                int status, String responseBody, String requestId, String model) {
+            this.status = status;
+            this.responseBody = responseBody;
+            this.requestId = requestId;
+            this.model = model;
         }
     }
 
@@ -231,6 +291,11 @@ public class GoogleGeminiChatService {
             return new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "Google Gemini usage is currently rate-limited. Wait briefly and try again.");
+        }
+        if (status == 503) {
+            return new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Google Gemini is temporarily under high demand. Please retry in a moment.");
         }
         if (status == 404 && (providerCode.equalsIgnoreCase("NOT_FOUND")
                 || normalizedError.contains("model"))) {

@@ -6,7 +6,8 @@ from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 ROOT = Path(__file__).resolve().parent.parent
 
 PROVIDER_SETTINGS = frozenset({
-    "GEMINI_API_KEY", "GEMINI_MODEL", "SERPAPI_KEY", "GOOGLE_PLACES_API_KEY",
+    "GEMINI_API_KEY", "GEMINI_MODEL", "GEMINI_FALLBACK_MODEL",
+    "GEMINI_READ_TIMEOUT_SECONDS", "SERPAPI_KEY", "GOOGLE_PLACES_API_KEY",
     "GEOAPIFY_API_KEY", "OPENTRIPMAP_API_KEY",
 })
 

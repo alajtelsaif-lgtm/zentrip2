@@ -106,14 +106,20 @@ and saved preferences are sent as `systemInstruction`. The app sends up to 10
 recent messages per user and chat session and allows up to 512 generated tokens.
 Replies follow the latest user message's language, with the app language as a
 fallback. Configure `GEMINI_API_KEY` in Replit Secrets or `backend/.env`;
-`GEMINI_MODEL` defaults to `gemini-3.8-flash`. The key is sent from the backend
+`GEMINI_MODEL` defaults to `gemini-flash-lite-latest`, with
+`GEMINI_FALLBACK_MODEL` set to `gemini-3.5-flash-lite` for temporary provider
+overload. Both model IDs were checked against this Google AI Studio project and
+returned successful streaming responses. A provider read timeout of 35 seconds
+prevents unbounded waiting before error handling or fallback. The key is sent from the backend
 in Google's `x-goog-api-key` header and is never included in the Flutter app or
 URL. A missing key returns a configuration error instead of a simulated AI reply.
 Restart Spring Boot after changing settings.
 
 ```dotenv
 GEMINI_API_KEY=your_google_ai_studio_api_key
-GEMINI_MODEL=gemini-3.8-flash
+GEMINI_MODEL=gemini-flash-lite-latest
+GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite
+GEMINI_READ_TIMEOUT_SECONDS=35
 ```
 
 Gemini streaming requests use

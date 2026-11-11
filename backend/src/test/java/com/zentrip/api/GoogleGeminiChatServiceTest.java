@@ -25,12 +25,16 @@ import org.springframework.web.server.ResponseStatusException;
 
 class GoogleGeminiChatServiceTest {
     private static final String GEMINI_STREAM_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:streamGenerateContent?alt=sse";
+    private static final String GEMINI_FALLBACK_STREAM_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:streamGenerateContent?alt=sse";
+    private static final String GEMINI_UNAVAILABLE_STREAM_URL =
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:streamGenerateContent?alt=sse";
 
     @Test
     void requiresAConfiguredGoogleAiStudioKeyInsteadOfReturningFakeAiText() {
         GoogleGeminiChatService service = new GoogleGeminiChatService(
-                RestClient.builder().build(), "", "gemini-3.8-flash");
+                RestClient.builder().build(), "", "gemini-flash-lite-latest");
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -61,7 +65,7 @@ class GoogleGeminiChatServiceTest {
                         """, MediaType.TEXT_EVENT_STREAM));
 
         GoogleGeminiChatService service = new GoogleGeminiChatService(
-                builder.build(), "test-gemini-key", "gemini-3.8-flash");
+                builder.build(), "test-gemini-key", "gemini-flash-lite-latest");
         List<String> chunks = new ArrayList<>();
         service.streamReply(List.of(
                 new GoogleGeminiChatService.ChatTurn("user", "Hello"),
@@ -72,6 +76,72 @@ class GoogleGeminiChatServiceTest {
                 chunks::add);
 
         assertEquals(List.of("Hello", " from Zen"), chunks);
+        server.verify();
+    }
+
+    @Test
+    void retriesWithVerifiedFallbackWhenPrimaryModelIsOverloaded() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(GEMINI_STREAM_URL))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {"error":{"code":503,"status":"UNAVAILABLE",
+                                "message":"The model is experiencing high demand."}}
+                                """));
+        server.expect(requestTo(GEMINI_FALLBACK_STREAM_URL))
+                .andExpect(header("x-goog-api-key", "test-gemini-key"))
+                .andRespond(withSuccess("""
+                        data: {"candidates":[{"content":{"parts":[{"text":"Recovered reply"}],"role":"model"},"finishReason":"STOP"}]}
+
+                        """, MediaType.TEXT_EVENT_STREAM));
+
+        GoogleGeminiChatService service = new GoogleGeminiChatService(
+                builder.build(),
+                "test-gemini-key",
+                "gemini-flash-lite-latest",
+                "gemini-3.5-flash-lite");
+        List<String> chunks = new ArrayList<>();
+        service.streamReply(
+                List.of(new GoogleGeminiChatService.ChatTurn("user", "Hello")),
+                "en",
+                "",
+                chunks::add);
+
+        assertEquals(List.of("Recovered reply"), chunks);
+        server.verify();
+    }
+
+    @Test
+    void explainsWhenBothGeminiModelsAreOverloaded() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        for (String url : List.of(GEMINI_STREAM_URL, GEMINI_FALLBACK_STREAM_URL)) {
+            server.expect(requestTo(url))
+                    .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body("""
+                                    {"error":{"code":503,"status":"UNAVAILABLE",
+                                    "message":"The model is experiencing high demand."}}
+                                    """));
+        }
+
+        GoogleGeminiChatService service = new GoogleGeminiChatService(
+                builder.build(),
+                "test-gemini-key",
+                "gemini-flash-lite-latest",
+                "gemini-3.5-flash-lite");
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.streamReply(
+                        List.of(new GoogleGeminiChatService.ChatTurn("user", "Hello")),
+                        "en",
+                        "",
+                        ignored -> {}));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exception.getStatusCode());
+        assertTrue(exception.getReason().contains("temporarily under high demand"));
         server.verify();
     }
 
@@ -90,7 +160,7 @@ class GoogleGeminiChatServiceTest {
                                 """));
 
         GoogleGeminiChatService service = new GoogleGeminiChatService(
-                builder.build(), "test-gemini-key", "gemini-3.8-flash");
+                builder.build(), "test-gemini-key", "gemini-flash-lite-latest");
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
                 () -> service.streamReply(
@@ -118,7 +188,7 @@ class GoogleGeminiChatServiceTest {
                                 """));
 
         GoogleGeminiChatService service = new GoogleGeminiChatService(
-                builder.build(), "test-gemini-key", "gemini-3.8-flash");
+                builder.build(), "test-gemini-key", "gemini-flash-lite-latest");
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
                 () -> service.streamReply(
@@ -136,7 +206,7 @@ class GoogleGeminiChatServiceTest {
     void reportsUnavailableGeminiModelAsConfigurationIssue() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo(GEMINI_STREAM_URL))
+        server.expect(requestTo(GEMINI_UNAVAILABLE_STREAM_URL))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND)
                         .contentType(MediaType.APPLICATION_JSON)
                         .body("""

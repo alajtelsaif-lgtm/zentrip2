@@ -101,11 +101,13 @@ class ConnectionSettingsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "test.env"
             path.write_text('export GEMINI_API_KEY="example#key" # comment\n'
-                            "SERPAPI_KEY='another-example'\nGEMINI_MODEL=example-model # comment\n")
+                            "SERPAPI_KEY='another-example'\nGEMINI_MODEL=example-model # comment\n"
+                            "GEMINI_FALLBACK_MODEL=example-fallback\n")
             result = provider_environment({"ZENTRIP_PROVIDER_ENV_FILE": str(path)})
         self.assertEqual(result["GEMINI_API_KEY"], "example#key")
         self.assertEqual(result["SERPAPI_KEY"], "another-example")
         self.assertEqual(result["GEMINI_MODEL"], "example-model")
+        self.assertEqual(result["GEMINI_FALLBACK_MODEL"], "example-fallback")
 
     def test_invalid_provider_file_does_not_expose_its_contents(self):
         with tempfile.TemporaryDirectory() as folder:
