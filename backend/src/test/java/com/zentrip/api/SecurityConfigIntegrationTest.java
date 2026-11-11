@@ -7,6 +7,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
@@ -21,6 +24,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 @SpringBootTest(properties = {
         "app.cors.allowed-origins=https://app.zentrip.example",
@@ -42,6 +48,9 @@ class SecurityConfigIntegrationTest {
 
     @MockBean
     private OpenTripMapAttractionService openTripMapAttractionService;
+
+    @MockBean
+    private GoogleGeminiChatService geminiChatService;
 
     @Test
     void placeSuggestionsArePublicAndDoNotRequireALogin() throws Exception {
@@ -189,5 +198,39 @@ class SecurityConfigIntegrationTest {
         mockMvc.perform(get("/api/bookings")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void authenticatedZenChatCanCompleteAsyncErrorStreamDispatch() throws Exception {
+        String token = "customer-zen-async-test-token";
+        when(jdbcTemplate.queryForList(
+                contains("FROM api_tokens t"),
+                eq(TokenAuthFilter.sha256(token)),
+                any(Timestamp.class)))
+                .thenReturn(List.of(Map.of("user_id", 31L, "role", "customer")));
+        when(jdbcTemplate.queryForList(any(String.class), eq(31L), eq("zen-async"), eq(10)))
+                .thenReturn(List.of());
+        when(jdbcTemplate.queryForList(any(String.class), eq(31L)))
+                .thenReturn(List.of());
+        org.mockito.Mockito.doThrow(new ResponseStatusException(
+                HttpStatus.SERVICE_UNAVAILABLE, "The configured Gemini model is unavailable."))
+                .when(geminiChatService)
+                .streamReply(any(), eq("en"), any(String.class), any());
+
+        MvcResult started = mockMvc.perform(post("/api/ai/chat")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("""
+                                {"message":"Plan a trip","session_id":"zen-async",
+                                 "request_id":"request-async","language":"en"}
+                                """))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(started))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("event: error")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "The configured Gemini model is unavailable.")));
     }
 }

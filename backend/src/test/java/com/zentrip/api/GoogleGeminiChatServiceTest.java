@@ -25,12 +25,12 @@ import org.springframework.web.server.ResponseStatusException;
 
 class GoogleGeminiChatServiceTest {
     private static final String GEMINI_STREAM_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:streamGenerateContent?alt=sse";
 
     @Test
     void requiresAConfiguredGoogleAiStudioKeyInsteadOfReturningFakeAiText() {
         GoogleGeminiChatService service = new GoogleGeminiChatService(
-                RestClient.builder().build(), "", "gemini-2.5-flash");
+                RestClient.builder().build(), "", "gemini-3.8-flash");
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -61,7 +61,7 @@ class GoogleGeminiChatServiceTest {
                         """, MediaType.TEXT_EVENT_STREAM));
 
         GoogleGeminiChatService service = new GoogleGeminiChatService(
-                builder.build(), "test-gemini-key", "gemini-2.5-flash");
+                builder.build(), "test-gemini-key", "gemini-3.8-flash");
         List<String> chunks = new ArrayList<>();
         service.streamReply(List.of(
                 new GoogleGeminiChatService.ChatTurn("user", "Hello"),
@@ -90,7 +90,7 @@ class GoogleGeminiChatServiceTest {
                                 """));
 
         GoogleGeminiChatService service = new GoogleGeminiChatService(
-                builder.build(), "test-gemini-key", "gemini-2.5-flash");
+                builder.build(), "test-gemini-key", "gemini-3.8-flash");
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
                 () -> service.streamReply(
@@ -118,7 +118,7 @@ class GoogleGeminiChatServiceTest {
                                 """));
 
         GoogleGeminiChatService service = new GoogleGeminiChatService(
-                builder.build(), "test-gemini-key", "gemini-2.5-flash");
+                builder.build(), "test-gemini-key", "gemini-3.8-flash");
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
                 () -> service.streamReply(
@@ -129,6 +129,34 @@ class GoogleGeminiChatServiceTest {
 
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, exception.getStatusCode());
         assertTrue(exception.getReason().contains("rate-limited"));
+        server.verify();
+    }
+
+    @Test
+    void reportsUnavailableGeminiModelAsConfigurationIssue() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(GEMINI_STREAM_URL))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {"error":{"code":404,"status":"NOT_FOUND",
+                                "message":"This model is no longer available. Use another model."}}
+                                """));
+
+        GoogleGeminiChatService service = new GoogleGeminiChatService(
+                builder.build(), "test-gemini-key", "gemini-3.8-flash");
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.streamReply(
+                        List.of(new GoogleGeminiChatService.ChatTurn("user", "Hello")),
+                        "en",
+                        "",
+                        ignored -> {}));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exception.getStatusCode());
+        assertTrue(exception.getReason().contains("GEMINI_MODEL"));
+        assertTrue(!exception.getReason().contains("test-gemini-key"));
         server.verify();
     }
 
