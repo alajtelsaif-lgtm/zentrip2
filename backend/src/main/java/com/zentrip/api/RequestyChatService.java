@@ -3,6 +3,7 @@ package com.zentrip.api;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -229,6 +230,16 @@ public class RequestyChatService {
                 safeLogValue(providerCode, apiKey),
                 safeLogValue(providerMessage, apiKey),
                 safeLogValue(providerRequestId, apiKey));
+        String normalizedProviderError =
+                (providerCode + " " + providerMessage).toLowerCase(Locale.ROOT);
+        if ((status == 401 || status == 403)
+                && (normalizedProviderError.contains("invalid authorization token")
+                        || normalizedProviderError.contains("invalid api key")
+                        || normalizedProviderError.contains("invalid token"))) {
+            return new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Requesty rejected the configured API token. Replace REQUESTY_API_KEY in Replit Secrets with an active key from the correct Requesty account.");
+        }
         if (status == 429) {
             return new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,

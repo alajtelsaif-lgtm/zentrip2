@@ -91,6 +91,31 @@ class RequestyChatServiceTest {
     }
 
     @Test
+    void identifiesAnInvalidRequestyTokenAsASecretConfigurationIssue() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("https://router.requesty.ai/v1/chat/completions"))
+                .andRespond(withStatus(HttpStatus.FORBIDDEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"message\":\"Invalid authorization token\"}"));
+
+        RequestyChatService service = new RequestyChatService(
+                builder.build(), "test-secret", "google/gemma-4-31b-it");
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.streamReply(
+                        List.of(new RequestyChatService.ChatTurn("user", "Hello")),
+                        "en",
+                        "",
+                        ignored -> {}));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exception.getStatusCode());
+        assertTrue(exception.getReason().contains("Replace REQUESTY_API_KEY"));
+        assertTrue(!exception.getReason().contains("test-secret"));
+        server.verify();
+    }
+
+    @Test
     void systemInstructionUsesAppLanguageOnlyAsFallback() {
         String instruction = RequestyChatService.systemInstruction("ar");
 
