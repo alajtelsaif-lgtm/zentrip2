@@ -81,7 +81,7 @@ public class AiChatController {
     }
 
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public ResponseEntity<?> chat(
+    public ResponseEntity<StreamingResponseBody> chat(
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) {
         long userId = requireUserId(request);
@@ -91,21 +91,22 @@ public class AiChatController {
         String language = "ar".equalsIgnoreCase(text(body.get("language"))) ? "ar" : "en";
 
         if (message.isBlank() || message.length() > MAX_MESSAGE_LENGTH) {
-            return ResponseEntity.unprocessableEntity().body(Map.of(
-                    "message", "The message is required and must be 4000 characters or fewer."));
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "The message is required and must be 4000 characters or fewer.");
         }
         if (!sessionId.matches("[A-Za-z0-9_-]{1,100}")) {
-            return ResponseEntity.unprocessableEntity().body(Map.of(
-                    "message", "A valid session_id is required."));
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "A valid session_id is required.");
         }
         if (!requestId.matches("[A-Za-z0-9_-]{1,100}")) {
-            return ResponseEntity.unprocessableEntity().body(Map.of(
-                    "message", "A valid request_id is required."));
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "A valid request_id is required.");
         }
 
         String cancellationKey = cancellationKey(userId, sessionId, requestId);
         if (consumeCancellation(cancellationKey)) {
-            return ResponseEntity.noContent().build();
+            return ResponseEntity.noContent().<StreamingResponseBody>build();
         }
 
         List<Map<String, Object>> rows;

@@ -18,7 +18,11 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -26,6 +30,9 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -124,6 +131,42 @@ class AiChatControllerTest {
                 any());
         verify(jdbc).update(anyString(), eq(42L), eq("chat-1"), eq("Plan a trip"),
                 eq(42L), eq("chat-1"), eq("إليك خطة سفر"));
+    }
+
+    @Test
+    void sendsStreamingResponseThroughMvcWithoutConverterError() throws Exception {
+        when(jdbc.queryForList(anyString(), eq(42L), eq("mvc-chat"), eq(10)))
+                .thenReturn(List.of());
+        when(jdbc.queryForList(anyString(), eq(42L))).thenReturn(List.of());
+        doAnswer(invocation -> {
+            java.util.function.Consumer<String> onDelta = invocation.getArgument(3);
+            onDelta.accept("Zen reply");
+            return null;
+        }).when(requesty).streamReply(anyList(), eq("en"), anyString(), any());
+
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        MvcResult started = mockMvc.perform(post("/api/ai/chat")
+                        .requestAttr("authUserId", 42L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM)
+                        .content("""
+                                {
+                                  "message": "Hello",
+                                  "session_id": "mvc-chat",
+                                  "request_id": "mvc-request",
+                                  "language": "en"
+                                }
+                                """))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        MvcResult completed = mockMvc.perform(asyncDispatch(started)).andReturn();
+
+        assertEquals(200, completed.getResponse().getStatus());
+        assertEquals(MediaType.TEXT_EVENT_STREAM_VALUE, completed.getResponse().getContentType());
+        assertTrue(completed.getResponse().getContentAsString().contains("event: token"));
+        assertTrue(completed.getResponse().getContentAsString().contains("\"text\":\"Zen reply\""));
+        assertTrue(completed.getResponse().getContentAsString().contains("event: done"));
     }
 
     @Test
