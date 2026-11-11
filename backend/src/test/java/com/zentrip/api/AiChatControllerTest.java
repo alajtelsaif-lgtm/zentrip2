@@ -38,7 +38,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 class AiChatControllerTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    private final RequestyChatService requesty = mock(RequestyChatService.class);
+    private final GoogleGeminiChatService gemini = mock(GoogleGeminiChatService.class);
     private final PlatformTransactionManager transactionManager =
             new PlatformTransactionManager() {
                 @Override
@@ -53,17 +53,17 @@ class AiChatControllerTest {
                 public void rollback(TransactionStatus status) {}
             };
     private final AiChatController controller =
-            new AiChatController(jdbc, requesty, transactionManager);
+            new AiChatController(jdbc, gemini, transactionManager);
 
     @Test
-        void rejectsUnauthenticatedRequestsBeforeCallingRequesty() {
+        void rejectsUnauthenticatedRequestsBeforeCallingGemini() {
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class, () -> controller.chat(
                 Map.of("message", "Plan a trip", "session_id", "chat-1"),
                 new MockHttpServletRequest()));
 
         assertEquals(401, exception.getStatusCode().value());
-        verifyNoInteractions(jdbc, requesty);
+        verifyNoInteractions(jdbc, gemini);
     }
 
     @Test
@@ -84,7 +84,7 @@ class AiChatControllerTest {
             onDelta.accept("إليك ");
             onDelta.accept("خطة سفر");
             return null;
-        }).when(requesty).streamReply(anyList(), eq("ar"), anyString(), any());
+        }).when(gemini).streamReply(anyList(), eq("ar"), anyString(), any());
         when(jdbc.update(anyString(), eq(42L), eq("chat-1"), eq("Plan a trip"),
                 eq(42L), eq("chat-1"), eq("إليك خطة سفر"))).thenReturn(2);
         when(jdbc.update(anyString(), eq(42L), eq("chat-1"), eq(42L), eq("chat-1"), eq(40)))
@@ -114,10 +114,10 @@ class AiChatControllerTest {
         assertTrue(stream.contains("\"text\":\"إليك \""));
         assertTrue(stream.contains("\"text\":\"خطة سفر\""));
         assertTrue(stream.contains("event: done"));
-        verify(requesty).streamReply(eq(List.of(
-                new RequestyChatService.ChatTurn("user", "I like beaches"),
-                new RequestyChatService.ChatTurn("model", "I can help with that."),
-                new RequestyChatService.ChatTurn("user", "Plan a trip"))), eq("ar"),
+        verify(gemini).streamReply(eq(List.of(
+                new GoogleGeminiChatService.ChatTurn("user", "I like beaches"),
+                new GoogleGeminiChatService.ChatTurn("model", "I can help with that."),
+                new GoogleGeminiChatService.ChatTurn("user", "Plan a trip"))), eq("ar"),
                 org.mockito.ArgumentMatchers.argThat(context ->
                         context.contains("budget level=budget")
                                 && context.contains("interests=food,beaches")
@@ -142,7 +142,7 @@ class AiChatControllerTest {
             java.util.function.Consumer<String> onDelta = invocation.getArgument(3);
             onDelta.accept("Zen reply");
             return null;
-        }).when(requesty).streamReply(anyList(), eq("en"), anyString(), any());
+        }).when(gemini).streamReply(anyList(), eq("en"), anyString(), any());
 
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
         MvcResult started = mockMvc.perform(post("/api/ai/chat")
@@ -175,7 +175,7 @@ class AiChatControllerTest {
             java.util.function.Consumer<String> onDelta = invocation.getArgument(3);
             onDelta.accept("Hello from Zen.");
             return null;
-        }).when(requesty).streamReply(anyList(), eq("en"), anyString(), any());
+        }).when(gemini).streamReply(anyList(), eq("en"), anyString(), any());
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute("authUserId", 42L);
         ResponseEntity<?> response = controller.chat(Map.of(
@@ -197,7 +197,7 @@ class AiChatControllerTest {
     void convertsUnexpectedProviderErrorsIntoStreamErrorsInsteadOfHttp500()
             throws Exception {
         org.mockito.Mockito.doThrow(new IllegalStateException("provider parser failure"))
-                .when(requesty).streamReply(anyList(), eq("en"), anyString(), any());
+                .when(gemini).streamReply(anyList(), eq("en"), anyString(), any());
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute("authUserId", 42L);
         ResponseEntity<?> response = controller.chat(Map.of(
@@ -229,7 +229,7 @@ class AiChatControllerTest {
                                 "language", "en"), request);
 
                 assertEquals(204, response.getStatusCode().value());
-                verifyNoInteractions(jdbc, requesty);
+                verifyNoInteractions(jdbc, gemini);
         }
 
     @Test
@@ -243,7 +243,7 @@ class AiChatControllerTest {
             java.util.function.Consumer<String> onDelta = invocation.getArgument(3);
             onDelta.accept("The trip plan is ready.");
             return null;
-        }).when(requesty).streamReply(anyList(), eq("en"), anyString(), any());
+        }).when(gemini).streamReply(anyList(), eq("en"), anyString(), any());
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute("authUserId", 42L);

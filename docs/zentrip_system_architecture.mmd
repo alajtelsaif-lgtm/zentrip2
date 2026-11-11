@@ -35,7 +35,7 @@ flowchart LR
         otm["OpenTripMap<br/>Tourist places and details"]
         geo["Geoapify<br/>Geocoding and airport lookup"]
         serp["SerpAPI<br/>Nearby / map search"]
-        requesty["Requesty<br/>AI chat completion stream"]
+        gemini["Google Gemini API<br/>Zen AI response stream"]
         frank["Frankfurter<br/>Exchange-rate lookup"]
         optional["Optional / operational<br/>Google Places sync (not configured) · OurAirports import"]
     end
@@ -45,7 +45,7 @@ flowchart LR
     services -->|place search / detail| otm
     services -->|geocode / airport fallback| geo
     services -->|map search| serp
-    services -->|chat stream| requesty
+    services -->|chat stream · API key header| gemini
     services -->|rates| frank
     services -.-> optional
 
@@ -69,7 +69,7 @@ flowchart LR
     class traveler actor
     class flutter,features,state,api,local client
     class ingress,security,controllers,services,payment,persistence backend
-    class duffel,liteapi,otm,geo,serp,requesty,frank,optional,osm provider
+    class duffel,liteapi,otm,geo,serp,gemini,frank,optional,osm provider
     class postgres data
     class dataNote note
 

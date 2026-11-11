@@ -98,17 +98,28 @@ The script creates a fresh disposable PostgreSQL cluster on loopback, loads `sch
 
 For Supabase, apply the migration files manually and in order using a database owner; the backend does not migrate production automatically. Back up first. If the configured JDBC login is not `postgres`, grant `zentrip_api_runtime` to that login. Confirm the runtime role is `NOLOGIN NOBYPASSRLS` and that request connections can switch to it.
 
-Zen AI uses the authenticated `POST /api/ai/chat` endpoint. The Java backend streams Requesty's OpenAI-compatible chat-completions response to the app as server-sent events, so text appears as soon as the provider generates it. The app sends up to 10 recent messages per user and chat session and allows up to 512 generated tokens. Replies follow the latest user message's language, with the app language as a fallback. Set `REQUESTY_API_KEY` and `REQUESTY_MODEL` in `backend/.env`; a lower-latency model available to your Requesty account may improve the time to the first token and total response time. Restart the backend after changing these settings. Never place the key in Flutter code or commit it to Git.
-
-For example, if this model is available in your Requesty account:
+Zen AI uses the authenticated `POST /api/ai/chat` endpoint. The Java backend
+streams Google's Gemini `streamGenerateContent` response to the app as
+server-sent events, so text appears as it is generated. Conversation turns are
+translated to Gemini's `contents` format, while the travel-assistant guidance
+and saved preferences are sent as `systemInstruction`. The app sends up to 10
+recent messages per user and chat session and allows up to 512 generated tokens.
+Replies follow the latest user message's language, with the app language as a
+fallback. Configure `GEMINI_API_KEY` in Replit Secrets or `backend/.env`;
+`GEMINI_MODEL` defaults to `gemini-2.5-flash`. The key is sent from the backend
+in Google's `x-goog-api-key` header and is never included in the Flutter app or
+URL. A missing key returns a configuration error instead of a simulated AI reply.
+Restart Spring Boot after changing settings.
 
 ```dotenv
-AI_PROVIDER=requesty
-REQUESTY_API_KEY=your_requesty_key
-REQUESTY_MODEL=google/gemma-4-31b-it
+GEMINI_API_KEY=your_google_ai_studio_api_key
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
-Requesty chat completions are sent to `https://router.requesty.ai/v1/chat/completions`. Confirm the exact model identifier in the Requesty model library. Restart Spring Boot after changing these settings.
+Gemini streaming requests use
+`https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse`.
+Confirm the chosen model is available to the Google AI Studio project associated
+with the key.
 
 Users can edit their personalization profile under **Profile → Travel Preferences**. The authenticated `GET` and `PUT /api/preferences/travel` endpoints store budget level, travel pace, trip length, party size, interests, and preferred destination per account. Zen loads that profile for each chat response; users can still override it in their latest message.
 

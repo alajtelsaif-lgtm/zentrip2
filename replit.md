@@ -54,10 +54,11 @@ its original bootstrap behavior.
 ## External features
 
 Core app startup does not require optional provider keys. AI chat requires
-`REQUESTY_API_KEY`; map search uses `SERPAPI_KEY`; Google Places synchronization
-uses `GOOGLE_PLACES_API_KEY`. Email recovery requires the SMTP and password-reset
-settings documented in `backend/README.md`. Missing configuration must be reported
-explicitly, not replaced with invented credentials or simulated success.
+`GEMINI_API_KEY` from Google AI Studio; map search uses `SERPAPI_KEY`; Google
+Places synchronization uses `GOOGLE_PLACES_API_KEY`. Email recovery requires the
+SMTP and password-reset settings documented in `backend/README.md`. Missing
+configuration must be reported explicitly, not replaced with invented credentials
+or simulated success.
 
 Payments in the imported project are mock payments, not real charges.
 Profile photos use `backend/uploads`; durable production storage needs a separate review.
@@ -101,7 +102,7 @@ automatically injected into this Java process. Configure the keys above in this
 Replit project's Secrets for the corresponding features to work.
 
 For local preview only, `ZENTRIP_PROVIDER_ENV_FILE` can select an ignored uploaded
-environment file. The launcher reads only `REQUESTY_API_KEY`, `REQUESTY_MODEL`,
+environment file. The launcher reads only `GEMINI_API_KEY`, `GEMINI_MODEL`,
 `SERPAPI_KEY`, and `GOOGLE_PLACES_API_KEY`; existing environment variables take
 precedence. It does not apply database, admin, partner, or service-role values
 from that file. Uploaded `.env` files are excluded from Git and publishing.

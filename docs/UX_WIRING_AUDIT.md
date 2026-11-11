@@ -32,7 +32,7 @@ Static inventory: 28 named routes, 5 AppShell tabs, 67 classes named as screens/
 | UX-04 | Low | Invalid arguments could crash two named routes. | `/trip-details` and `/package-detail` previously cast `RouteSettings.arguments` directly to their model types. They now return Home if the expected model is absent or has the wrong type. | Test |
 | UX-05 | Low | Attraction detail’s map action is an announced placeholder. | The control reports “Map view is coming soon”; it does not open a map. This is not a silent dead button, but the map action is not implemented. | Code-read only |
 | UX-06 | Low | Some route/API code is not called by the current UI. | The `/login-success` route has no call site. The client’s `/hotels/locations` method has no screen caller (hotel search uses destination suggestions instead). The backend also exposes a transfers list endpoint with no dedicated client call; trip history currently reads `trips` and `bookings`. | Code-read only |
-| UX-07 | Medium | Provider behavior is not live-verified in this audit. | Duffel, LiteAPI, OpenTripMap, Geoapify, SerpAPI, and Requesty have code paths and contract/unit tests, but this audit made no external provider search calls. Thus account permissions, current quotas, and live response quality remain unverified. | Not verified |
+| UX-07 | Medium | Provider behavior is not live-verified in this audit. | Duffel, LiteAPI, OpenTripMap, Geoapify, SerpAPI, and Google Gemini have code paths and contract/unit tests, but this audit made no external provider search calls. Thus account permissions, current quotas, and live response quality remain unverified. | Not verified |
 | UX-08 | Medium | Full signed-in flows and user-specific dashboards were not browser-tested. | The browser preview was unauthenticated. Creating a production test user or booking was avoided to protect real data. Widget/backend tests were used instead. | Not verified |
 | UX-09 | Low | Firebase push delivery is not confirmed. | The token registration client/server route exists, but a live FCM registration/delivery was not attempted in the browser/device audit. | Not verified |
 | UX-10 | Low | Icon-button accessibility is not verified globally. | There are tooltips and semantic labels in shared navigation, but no automated accessibility scan or screen-reader/device test was run across every icon action. | Not verified |
@@ -117,7 +117,7 @@ The AppShell tab widgets are `HomeScreen`, `NearbyScreen` (`lib/features/nearby/
 |---|---|---|
 | Home tab | Flight search form; Hotels/Cars/Transfers shortcuts; offer/destination cards; pull-to-refresh | Widget-tested home navigation/layout |
 | Nearby tab | Location permission/retry/settings action; local search; category chips; place cards; map open | Controller/map viewport tests; not live geolocation/API tested |
-| Zen AI tab | Suggested prompt chips, message entry/send, cancel in-flight response, conversation history/new conversation | Code-read only; Requesty server contract tested, not live AI |
+| Zen AI tab | Suggested prompt chips, message entry/send, cancel in-flight response, conversation history/new conversation | Code-read only; Gemini server contract tested, not live AI |
 | My Trips tab | Flight/booking segments, refresh, trip/booking cards, detail/cancel actions | Controller-tested source merge/failure/refresh; browser session not available |
 | Profile tab | Profile/edit, favorites, settings, travel preferences, password, notification settings, currency, language, appearance, terms/privacy, logout | Code-read only; route/session behavior not browser-tested |
 | Flight choose-fare screen | Fare cards, selected fare, continue/back | Widget-tested as part of flight reference flow |
@@ -168,7 +168,7 @@ The AppShell tab widgets are `HomeScreen`, `NearbyScreen` (`lib/features/nearby/
 | OpenTripMap | Attraction search/details/destination suggestions | API key configured | `OpenTripMapAttractionServiceTest`, attraction controller tests; no live request |
 | Geoapify | Airport/geocoding fallback when the local airport directory does not resolve a query | API key configured | Airport directory/controller contract tests; no live request |
 | SerpAPI | `/maps/search`, used by Nearby for category/location searches | Key configured | API/controller code path; no live request |
-| Requesty | AI chat streaming and cancellation through Spring | Key and model configured | `RequestyChatServiceTest`; no live chat in an authenticated browser |
+| Google Gemini | AI chat streaming and cancellation through Spring | `GEMINI_API_KEY` is not configured in the current environment | `GoogleGeminiChatServiceTest`; live chat is not yet verified |
 | Google Places | Optional partner-listing rating enrichment | `GOOGLE_PLACES_API_KEY` was not configured in the environment | Startup/per-listing sync code checks for key; live enrichment not available or verified |
 | Exchange-rate service | `/exchange-rates` used by flight/hotel `PriceComparison` | Server service and endpoint are wired; separate currency preference still uses fixed mock rates | Backend service/controller and Flutter price-comparison tests |
 | Weather/visa | Package detail calls client methods, but there are no corresponding server routes/providers in production mode | Sample-only methods return failure when mock mode is off | Code-read only; destination row degrades to unavailable/partial |
@@ -190,7 +190,7 @@ No active HotelBeds or RapidAPI integration was found in the current source; hot
 | Car rental | Search/detail/booking routes read; model/location tests exist | Full UI flow and booking persistence in browser |
 | Transfers | Search, map picker, vehicle selection, submit, and API wiring read | No screen-level end-to-end test or signed-in browser run |
 | Packages/attractions | Attraction search/map/controller and visit-ranking tests; package navigation read | Package booking and all detail actions in a signed-in browser; live weather/visa |
-| Zen AI | Streaming/cancellation code and Requesty contract test | Live prompt/reply/history browser flow |
+| Zen AI | Gemini streaming contract and cancellation tests | Live prompt/reply/history browser flow after configuring the Google AI Studio key |
 | Profile/settings | Route and persistence code read | Signed-in browser; restart persistence; notifications/device permission |
 | Admin/partner | Role route tests and backend/model tests | CRUD, ownership, and dashboard data in signed-in browser accounts |
 

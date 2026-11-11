@@ -55,17 +55,17 @@ public class AiChatController {
             });
 
     private final JdbcTemplate jdbc;
-    private final RequestyChatService requesty;
+    private final GoogleGeminiChatService gemini;
     private final TransactionTemplate transaction;
     private final Map<String, Long> cancelledRequests = new ConcurrentHashMap<>();
 
     @Autowired
     public AiChatController(
             JdbcTemplate jdbc,
-            RequestyChatService requesty,
+            GoogleGeminiChatService gemini,
             ObjectProvider<PlatformTransactionManager> transactionManagers) {
         this.jdbc = jdbc;
-        this.requesty = requesty;
+        this.gemini = gemini;
         PlatformTransactionManager transactionManager = transactionManagers.getIfAvailable();
         this.transaction = transactionManager == null
                 ? null : new TransactionTemplate(transactionManager);
@@ -73,10 +73,10 @@ public class AiChatController {
 
     AiChatController(
             JdbcTemplate jdbc,
-            RequestyChatService requesty,
+            GoogleGeminiChatService gemini,
             PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
-        this.requesty = requesty;
+        this.gemini = gemini;
         this.transaction = new TransactionTemplate(transactionManager);
     }
 
@@ -123,12 +123,12 @@ public class AiChatController {
         }
         Collections.reverse(rows);
 
-        List<RequestyChatService.ChatTurn> turns = new ArrayList<>();
+        List<GoogleGeminiChatService.ChatTurn> turns = new ArrayList<>();
         for (Map<String, Object> row : rows) {
-            turns.add(new RequestyChatService.ChatTurn(
+            turns.add(new GoogleGeminiChatService.ChatTurn(
                     text(row.get("role")), text(row.get("content"))));
         }
-        turns.add(new RequestyChatService.ChatTurn("user", message));
+        turns.add(new GoogleGeminiChatService.ChatTurn("user", message));
 
         String context;
         try {
@@ -163,7 +163,7 @@ public class AiChatController {
         private final String sessionId;
         private final String message;
         private final String cancellationKey;
-        private final List<RequestyChatService.ChatTurn> turns;
+        private final List<GoogleGeminiChatService.ChatTurn> turns;
         private final String language;
         private final String context;
 
@@ -172,7 +172,7 @@ public class AiChatController {
                 String sessionId,
                 String message,
                 String cancellationKey,
-                List<RequestyChatService.ChatTurn> turns,
+                List<GoogleGeminiChatService.ChatTurn> turns,
                 String language,
                 String context) {
             this.userId = userId;
@@ -204,7 +204,7 @@ public class AiChatController {
             String sessionId,
             String message,
             String cancellationKey,
-            List<RequestyChatService.ChatTurn> turns,
+            List<GoogleGeminiChatService.ChatTurn> turns,
             String language,
             String context) throws IOException {
         StringBuilder reply = new StringBuilder();
@@ -216,7 +216,7 @@ public class AiChatController {
                 STREAM_HEARTBEAT_INTERVAL_SECONDS,
                 TimeUnit.SECONDS);
         try {
-            requesty.streamReply(turns, language, context, delta -> {
+            gemini.streamReply(turns, language, context, delta -> {
                 if (outputFailed.get()) {
                     throw new UncheckedIOException(new IOException("Zen chat client disconnected"));
                 }

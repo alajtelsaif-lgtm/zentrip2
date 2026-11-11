@@ -38,7 +38,7 @@ The development server starts, the Flutter checks pass, and the complete backend
 | Hotel search | Destination catalog/autocomplete → LiteAPI rates plus partner inventory → normalized hotel results and details | Search/data integration exists. LiteAPI is read-only in Zentrip; booking uses the simulated partner flow. |
 | My Trips/history | Customer token → `/trips` and `/bookings` → Flutter merges the two sources | The existing tests cover merged data and error refresh behavior. The endpoint returns are not paginated. |
 | Tourist places | Flutter search/map → OpenTripMap, Geoapify geocoding where needed, landmark catalog/cache | Nearby endpoint is allowlisted; provider requests are cached and paced to avoid repeated bursts. |
-| AI assistant | Chat screen → authenticated `/ai/chat` SSE stream → Requesty | Backend streaming integration exists; the live provider/account was not tested. |
+| AI assistant | Chat screen → authenticated `/ai/chat` SSE stream → Google Gemini | Backend uses Gemini's native streaming API; the current Replit environment has no Gemini key configured, so live provider behavior is not yet verified. |
 | Admin/partner management | Client route guard → role-protected `/admin/**` or `/partner/**` endpoints | Both client and server checks exist. PostgreSQL RLS enforcement has a migration gap described below. |
 | Car rental and transfers search | Car/transfers screens → partner inventory | No unsupported search endpoints or fake live fallback results; empty states explain when partner listings are absent. |
 
@@ -178,7 +178,7 @@ All provider credentials are referenced as backend configuration/secrets. Their 
 | LiteAPI | Hotel rates through `POST /hotels/rates` at `https://api.liteapi.travel/v3.0`, using `X-API-Key` | Hotel information/prices only. Booking remains the local simulated partner flow; no LiteAPI prebook/book/cancel integration exists. |
 | OpenTripMap | Tourist places, place details, and destination/geoname data at `https://api.opentripmap.com/0.1` | Backend caches search results for 24 hours, details for 7 days, and suggestions for 15 minutes. The code uses English results for Arabic searches because the provider does not document Arabic output. |
 | Geoapify | Airport/location lookup and geocoding at `https://api.geoapify.com` | API key is sent as a query parameter. In-memory lookup caches last 30 minutes; configured connect/read timeouts are 3/5 seconds. |
-| Requesty | AI chat at `https://router.requesty.ai/v1/chat/completions` | Backend bearer key; default model is `google/gemma-4-31b-it`; configured read timeout is 120 seconds. |
+| Google Gemini | AI chat at `https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse` | Backend sends `GEMINI_API_KEY` in `x-goog-api-key`; default model is `gemini-2.5-flash`; configured read timeout is 120 seconds. |
 | Frankfurter | USD exchange-rate lookup at `https://api.frankfurter.dev/v2/rates?base=USD` | No key. Success results cache for 6 hours; failures are cached for 5 minutes to avoid repeated provider calls. |
 | SerpAPI | Google Maps search through `https://serpapi.com/search.json` | `SERPAPI_KEY` is added by the server as a query parameter. Avoid logging full request URLs because query strings contain the key. |
 | Google Places | Optional backend rating/place synchronization at `https://places.googleapis.com/v1` | Uses `GOOGLE_PLACES_API_KEY`. Startup logs reported the key was not configured, so this optional sync was skipped in the observed run. |
@@ -230,7 +230,7 @@ The recent booking-history implementation returns customer-scoped booking/trip d
 1. Production Supabase may not yet have the new RLS and push-token migrations; verify after backup before rollout.
 2. Cross-origin browser requests are blocked unless exact origins are configured through `CORS_ALLOWED_ORIGINS`; production web deployments must set that allowlist.
 3. The Flutter bearer token is persisted with `SharedPreferences`, not a platform secure-storage plugin. Consider secure storage for production mobile builds and define backup behavior.
-4. SerpAPI, Geoapify, and OpenTripMap use query-string API keys. Keep full URLs out of logs, exceptions, analytics, and request tracing. Duffel, LiteAPI, Requesty, Google Places, and Anthropic use headers.
+4. SerpAPI, Geoapify, and OpenTripMap use query-string API keys. Keep full URLs out of logs, exceptions, analytics, and request tracing. Duffel, LiteAPI, Google Gemini, Google Places, and Anthropic use headers.
 5. The code enables OpenTripMap's free-plan mode while `app.commercial-use` defaults to true. Startup warns that the free plan is non-commercial. Confirm licensing or switch to an appropriate plan before commercial operation.
 6. CORS is exact-origin by default; upload URLs are also exposed as static resources. Confirm upload access/content-type policy before accepting arbitrary public uploads.
 7. Password reset delivery depends on mail configuration (`MAIL_ENABLED` defaults false). Production recovery must be tested with actual SMTP configuration; the API returning success alone does not prove the user received a code.
@@ -279,7 +279,7 @@ The recent booking-history implementation returns customer-scoped booking/trip d
 
 1. After backup, apply the documented migration chain in Supabase SQL Editor; confirm RLS is enabled on the core tables and the runtime role can be assumed.
 2. Check the production JDBC login's `rolsuper`/`rolbypassrls` attributes and grant `zentrip_api_runtime` membership if the login is not `postgres`. This work did not inspect production role flags or change production data.
-3. Validate the live Duffel, LiteAPI, OpenTripMap, Geoapify, Requesty, and SerpAPI credentials with safe provider requests. Secret values were not accessed.
+3. Validate the live Duffel, LiteAPI, OpenTripMap, Geoapify, Google Gemini, and SerpAPI credentials with safe provider requests. Secret values were not accessed.
 4. Verify outbound email/password-reset delivery. Keep Google/Apple sign-in disabled until the missing server route and provider configuration are implemented. Configure Firebase client/Admin SDK before enabling push delivery.
 5. Test affected flows in a signed-in browser/device session, including admin, partner, flight checkout, hotel detail, Arabic RTL, nearby attractions, partner-only cars/transfers, and destination-info unavailable/sample states.
 6. Do not accept real payment or promise a confirmed external airline/hotel reservation until provider booking and payment integrations are implemented and reconciled.

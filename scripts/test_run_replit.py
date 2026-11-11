@@ -78,11 +78,11 @@ class ConnectionSettingsTest(unittest.TestCase):
     def test_provider_file_does_not_import_database_or_admin_settings(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "test.env"
-            path.write_text("REQUESTY_API_KEY=example\nSUPABASE_DB_URL=other\n"
+            path.write_text("GEMINI_API_KEY=example\nSUPABASE_DB_URL=other\n"
                             "APP_ADMIN_EMAIL=other@example.invalid\nDB_SCHEMA_INIT=always\n"
                             "SUPABASE_SERVICE_ROLE_KEY=not-for-this-process\n")
             result = provider_environment({"ZENTRIP_PROVIDER_ENV_FILE": str(path)})
-        self.assertEqual(result["REQUESTY_API_KEY"], "example")
+        self.assertEqual(result["GEMINI_API_KEY"], "example")
         self.assertNotIn("SUPABASE_DB_URL", result)
         self.assertNotIn("APP_ADMIN_EMAIL", result)
         self.assertNotIn("DB_SCHEMA_INIT", result)
@@ -91,26 +91,26 @@ class ConnectionSettingsTest(unittest.TestCase):
     def test_existing_provider_secrets_take_precedence(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "test.env"
-            path.write_text("REQUESTY_API_KEY=file-example\n")
+            path.write_text("GEMINI_API_KEY=file-example\n")
             result = provider_environment({
-                "ZENTRIP_PROVIDER_ENV_FILE": str(path), "REQUESTY_API_KEY": "environment-example"
+                "ZENTRIP_PROVIDER_ENV_FILE": str(path), "GEMINI_API_KEY": "environment-example"
             })
-        self.assertEqual(result["REQUESTY_API_KEY"], "environment-example")
+        self.assertEqual(result["GEMINI_API_KEY"], "environment-example")
 
     def test_provider_file_supports_quotes_comments_and_exports(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "test.env"
-            path.write_text('export REQUESTY_API_KEY="example#key" # comment\n'
-                            "SERPAPI_KEY='another-example'\nREQUESTY_MODEL=example/model # comment\n")
+            path.write_text('export GEMINI_API_KEY="example#key" # comment\n'
+                            "SERPAPI_KEY='another-example'\nGEMINI_MODEL=example-model # comment\n")
             result = provider_environment({"ZENTRIP_PROVIDER_ENV_FILE": str(path)})
-        self.assertEqual(result["REQUESTY_API_KEY"], "example#key")
+        self.assertEqual(result["GEMINI_API_KEY"], "example#key")
         self.assertEqual(result["SERPAPI_KEY"], "another-example")
-        self.assertEqual(result["REQUESTY_MODEL"], "example/model")
+        self.assertEqual(result["GEMINI_MODEL"], "example-model")
 
     def test_invalid_provider_file_does_not_expose_its_contents(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "test.env"
-            path.write_text('REQUESTY_API_KEY="example-secret\n')
+            path.write_text('GEMINI_API_KEY="example-secret\n')
             with self.assertRaisesRegex(ValueError, "^A provider setting has invalid quoting.$"):
                 provider_environment({"ZENTRIP_PROVIDER_ENV_FILE": str(path)})
 

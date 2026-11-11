@@ -370,7 +370,7 @@ LEGACY_PAGES = [
         [
             node("ai-prompt", 180, 260, 230, 88, "Enter chat prompt", "user", font=18),
             node("ai-endpoint", 490, 260, 260, 88, "POST /api/ai/chat\nstreaming response", "api", font=17),
-            node("ai-provider", 830, 260, 220, 88, "Requesty provider", "api", font=18),
+            node("ai-provider", 830, 260, 220, 88, "Google Gemini API", "api", font=18),
             node("ai-reply", 1120, 260, 230, 88, "Read streamed reply", "system", font=18),
             node("ai-local", 1510, 205, 280, 88, "Flutter SharedPreferences\nlocal chat history", "success", font=17),
             node("ai-server", 1510, 345, 280, 88, "Supabase ai_chat_messages\nserver-side history", "success", font=17),

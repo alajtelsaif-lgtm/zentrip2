@@ -232,7 +232,7 @@ def make_svg() -> str:
         ("OpenTripMap", "Tourist places", "landmark", None),
         ("Geoapify", "Geocoding · airports", "pin", None),
         ("SerpAPI", "Nearby · maps", "map", None),
-        ("Requesty", "Zen AI", "chat", None),
+        ("Google Gemini", "Zen AI · streamed replies", "chat", None),
         ("Frankfurter", "Currency rates", "currency", None),
         ("Optional", "Google Places off · airport import", "plus", "OPTIONAL"),
     ]

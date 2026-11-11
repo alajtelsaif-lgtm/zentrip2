@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** Real HTTP-controller/JDBC checks against a disposable, loopback-only PostgreSQL database. */
 @SpringBootTest(properties = {
         "app.bootstrap.enabled=false", "spring.sql.init.mode=never",
-        "google.places.api-key=", "serpapi.key=", "requesty.api-key=",
+        "google.places.api-key=", "serpapi.key=", "gemini.api-key=",
         "landmarks.duplicate-verifier.api-key=",
         "spring.datasource.hikari.data-source-properties.prepareThreshold=0"
 })

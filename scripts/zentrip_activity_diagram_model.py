@@ -599,7 +599,7 @@ PAGES = [
             _c("from_ai", "J", "entry"),
             _n("prompt", "Enter a Zen AI prompt", "user"),
             _n("chat", "POST /api/ai/chat<br/>streaming response", "api"),
-            _n("provider", "Requesty model"),
+            _n("provider", "Google Gemini API"),
             _n("server_history", "Persist ai_chat_messages<br/>Supabase history", "api"),
             _n("local_history", "Flutter SharedPreferences<br/>save chat transcript"),
             _c("from_trips", "K", "entry"),
