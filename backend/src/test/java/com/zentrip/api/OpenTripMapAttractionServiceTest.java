@@ -134,6 +134,86 @@ class OpenTripMapAttractionServiceTest {
     }
 
     @Test
+    void deduplicatesRedCastleAliasesByWikidataAndWikipediaIdentity() {
+        RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder)
+                .ignoreExpectOrder(true)
+                .build();
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/geoname")))
+                .andRespond(withSuccess(
+                        """
+                        {"name":"Tripoli","country":"LY","lat":32.89,"lon":13.19}
+                        """, APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/radius")))
+                .andRespond(withSuccess(
+                        """
+                        [
+                          {"xid":"N1108492326","name":"Red Castle Museum",
+                           "kinds":"museums,history_museums","rate":"3",
+                           "point":{"lat":32.8959236,"lon":13.1811113}},
+                          {"xid":"N2302350868","name":"Saray al Hamra",
+                           "kinds":"museums,history_museums","rate":"3",
+                           "point":{"lat":32.8964005,"lon":13.1805429}},
+                          {"xid":"N3300000001","name":"Qasr al Hamra alias",
+                           "kinds":"museums,history_museums","rate":"2",
+                           "point":{"lat":32.896,"lon":13.181}},
+                          {"xid":"W100827834","name":"The Red Castle",
+                           "kinds":"historic,fortifications","rate":"3",
+                           "point":{"lat":32.8959846,"lon":13.1805553}}
+                        ]
+                        """, APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/N1108492326")))
+                .andRespond(withSuccess(
+                        """
+                        {"xid":"N1108492326","name":"Red Castle Museum",
+                         "kinds":"museums,history_museums","rate":"3",
+                         "point":{"lat":32.8959236,"lon":13.1811113},
+                         "wikidata":"Q2498401","wikipedia":"en:Red_Castle_Museum",
+                         "image":"https://images.example/red-castle.jpg"}
+                        """, APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/N2302350868")))
+                .andRespond(withSuccess(
+                        """
+                        {"xid":"N2302350868","name":"Saray al Hamra",
+                         "kinds":"museums,history_museums","rate":"3",
+                         "point":{"lat":32.8964005,"lon":13.1805429},
+                         "wikidata":"Q2498401","wikipedia":"en:Red_Castle_Museum",
+                         "image":"https://images.example/red-castle.jpg"}
+                        """, APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/N3300000001")))
+                .andRespond(withSuccess(
+                        """
+                        {"xid":"N3300000001","name":"Qasr al Hamra alias",
+                         "kinds":"museums,history_museums","rate":"2",
+                         "point":{"lat":32.896,"lon":13.181},
+                         "wikipedia":"en:Red_Castle_Museum",
+                         "image":"https://images.example/red-castle.jpg"}
+                        """, APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/W100827834")))
+                .andRespond(withSuccess(
+                        """
+                        {"xid":"W100827834","name":"The Red Castle",
+                         "kinds":"historic,fortifications","rate":"3",
+                         "point":{"lat":32.8959846,"lon":13.1805553},
+                         "wikidata":"Q11283904",
+                         "wikipedia":"en:Red_Castle_of_Tripoli"}
+                        """, APPLICATION_JSON));
+
+        OpenTripMapAttractionService.SearchOutcome result =
+                service("test-key", builder)
+                        .searchAttractionsWithStatus("Tripoli", "LY", "en");
+
+        assertEquals(2, result.places().size());
+        assertEquals(2, result.droppedByReason().get("duplicate"));
+        assertEquals(1, result.places().stream()
+                .filter(place -> "Q2498401".equals(place.get("wikidata_id")))
+                .count());
+        assertTrue(result.places().stream()
+                .anyMatch(place -> "Q11283904".equals(place.get("wikidata_id"))));
+        server.verify();
+    }
+
+    @Test
     void mapsArabicRequestsToTheDocumentedEnglishEndpoint() {
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

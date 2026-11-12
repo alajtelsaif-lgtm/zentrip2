@@ -1099,6 +1099,7 @@ public class OpenTripMapAttractionService implements LandmarkProvider {
             double lon = number(candidate.get("longitude")) == null
                     ? 0 : number(candidate.get("longitude"));
             boolean duplicate = unique.stream().anyMatch(existing -> {
+                if (sharesProviderIdentity(existing, candidate)) return true;
                 Double existingLatitude = number(existing.get("latitude"));
                 Double existingLongitude = number(existing.get("longitude"));
                 String existingName = duplicateNameKey(
@@ -1120,6 +1121,48 @@ public class OpenTripMapAttractionService implements LandmarkProvider {
             }
         }
         return unique;
+    }
+
+    private static boolean sharesProviderIdentity(
+            Map<String, Object> left, Map<String, Object> right) {
+        String leftWikidataId = clean(text(left.get("wikidata_id")));
+        String rightWikidataId = clean(text(right.get("wikidata_id")));
+        if (leftWikidataId != null
+                && rightWikidataId != null
+                && leftWikidataId.equalsIgnoreCase(rightWikidataId)) {
+            return true;
+        }
+
+        String leftWikipediaPage = wikipediaPageKey(left.get("wikipedia_url"));
+        String rightWikipediaPage = wikipediaPageKey(right.get("wikipedia_url"));
+        return leftWikipediaPage != null
+                && rightWikipediaPage != null
+                && leftWikipediaPage.equals(rightWikipediaPage);
+    }
+
+    private static String wikipediaPageKey(Object rawValue) {
+        String value = clean(text(rawValue));
+        if (value == null) return null;
+        try {
+            URI uri = URI.create(value);
+            String host = uri.getHost();
+            String path = uri.getPath();
+            if (host == null || path == null) return null;
+            String normalizedHost = host.toLowerCase(Locale.ROOT)
+                    .replaceFirst("^www\\.", "");
+            if (!normalizedHost.equals("wikipedia.org")
+                    && !normalizedHost.endsWith(".wikipedia.org")) {
+                return null;
+            }
+            int articleStart = path.toLowerCase(Locale.ROOT).indexOf("/wiki/");
+            if (articleStart < 0) return null;
+            String pageName = duplicateNameKey(
+                    path.substring(articleStart + "/wiki/".length()), List.of());
+            if (pageName.isBlank()) return null;
+            return normalizedHost + "|" + pageName;
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     private static String duplicateNameKey(String name, List<?> tags) {
