@@ -450,7 +450,7 @@ class FlightPriceBreakdown extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         fontSize: 15)),
               ),
-              Text('${_currencyPrefix}${totalPrice.toStringAsFixed(2)}',
+              Text('$_currencyPrefix${totalPrice.toStringAsFixed(2)}',
                   style: const TextStyle(
                       color: _navy, fontWeight: FontWeight.w900, fontSize: 18)),
             ],
@@ -471,8 +471,7 @@ class FlightPriceBreakdown extends StatelessWidget {
               child: Text(title,
                   style: const TextStyle(color: _muted, fontSize: 13)),
             ),
-            Text(
-                '$_currencyPrefix${convertAmount(amount).toStringAsFixed(2)}',
+            Text('$_currencyPrefix${convertAmount(amount).toStringAsFixed(2)}',
                 style:
                     const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
           ],

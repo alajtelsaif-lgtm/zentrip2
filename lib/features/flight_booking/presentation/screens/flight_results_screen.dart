@@ -616,8 +616,7 @@ class _FlightCardState extends State<_FlightCard> {
                     Text(
                       widget.comparisonPrice == null
                           ? l10n.priceUnavailable
-                          : formatProviderMoney(
-                              widget.comparisonPrice!,
+                          : formatProviderMoney(widget.comparisonPrice!,
                               widget.comparisonCurrency),
                       textAlign: TextAlign.end,
                       style: const TextStyle(

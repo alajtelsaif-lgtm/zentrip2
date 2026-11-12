@@ -169,7 +169,7 @@ void main() {
     await tester.pumpWidget(_app(controller: controller));
     await tester.pumpAndSettle();
 
-    expect(find.text('EUR 240.00'), findsWidgets);
+    expect(find.text('€240.00'), findsWidgets);
     expect(find.textContaining('Available seats'), findsNothing);
     expect(find.text('Business'), findsNothing);
     expect(find.text('Lite'), findsNothing);

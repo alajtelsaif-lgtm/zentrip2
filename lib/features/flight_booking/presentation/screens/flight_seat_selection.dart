@@ -551,26 +551,26 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
     final bool paid;
     if (paymentLauncher == null) {
       final payment = await PaymentCheckoutScreen.start(
-            context,
-            amountUsd: bookingTotal,
-            currencyCode: isDuffel ? widget.flight.priceCurrencyCode : 'USD',
-            description: widget.packageOffer == null
-                ? '${widget.flight.flightNumber} seat booking'
-                : '${widget.packageOffer!.title} · ${widget.flight.flightNumber}',
-            referenceId: requestReference,
-          );
+        context,
+        amountUsd: bookingTotal,
+        currencyCode: _currencyCode,
+        description: widget.packageOffer == null
+            ? '${widget.flight.flightNumber} seat booking'
+            : '${widget.packageOffer!.title} · ${widget.flight.flightNumber}',
+        referenceId: requestReference,
+      );
       paymentAttemptId = payment?.attemptId;
       paid = payment?.paid == true;
     } else {
       paid = await paymentLauncher(
-            context,
-            amount: bookingTotal,
-            currencyCode: isDuffel ? widget.flight.priceCurrencyCode : 'USD',
-            description: widget.packageOffer == null
-                ? '${widget.flight.flightNumber} seat booking'
-                : '${widget.packageOffer!.title} · ${widget.flight.flightNumber}',
-            referenceId: requestReference,
-          );
+        context,
+        amount: bookingTotal,
+        currencyCode: _currencyCode,
+        description: widget.packageOffer == null
+            ? '${widget.flight.flightNumber} seat booking'
+            : '${widget.packageOffer!.title} · ${widget.flight.flightNumber}',
+        referenceId: requestReference,
+      );
     }
     if (!mounted) return;
     if (!paid) {

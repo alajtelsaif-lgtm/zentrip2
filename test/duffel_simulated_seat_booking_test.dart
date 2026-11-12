@@ -112,7 +112,7 @@ void main() {
     expect(savedTrip?.isSimulated, isTrue);
     expect(savedTrip?.bookingRef, startsWith('ZT-SIM-DUF-'));
     expect(find.text('Simulation'), findsOneWidget);
-    expect(find.text('EUR 240.00'), findsOneWidget);
+    expect(find.text('€240.00'), findsOneWidget);
   });
 
   testWidgets('failed Duffel simulator payment does not save a trip',

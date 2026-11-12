@@ -90,7 +90,8 @@ void main() {
     c.dispose();
   });
 
-  test('flight search breakdown matches partner checkout estimate and preserves'
+  test(
+      'flight search breakdown matches partner checkout estimate and preserves'
       ' Duffel inclusive total', () {
     final partner = FlightPriceBreakdown.forSearch(
       flight: flight('partner-1', 100, 'USD'),
@@ -207,7 +208,8 @@ void main() {
     expect(c.results.map((f) => f.id), ['eur', 'usd']);
     c.setMaxBudget(null);
     await c.search(flightParams(cabin: 'business'));
-    expect(c.comparisonPrice(original[0]), 174); // Includes partner tax and fee.
+    expect(
+        c.comparisonPrice(original[0]), 174); // Includes partner tax and fee.
     expect(original[0].economyPrice, 90);
     expect(original[1].economyPrice, 60);
     expect(original[1].priceCurrencyCode, 'EUR');

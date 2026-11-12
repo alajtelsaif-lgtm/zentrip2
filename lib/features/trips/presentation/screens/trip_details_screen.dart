@@ -143,7 +143,8 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       children: [
                         _DetailRow(l10n.bookingRef, trip.bookingRef!,
                             Icons.confirmation_num_rounded),
-                        if (trip.bookingDisplayAmount != null || trip.price != null)
+                        if (trip.bookingDisplayAmount != null ||
+                            trip.price != null)
                           _DetailRow(
                               l10n.tripsTotalPrice,
                               trip.isSimulated
@@ -151,7 +152,8 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                   : '\$${(trip.bookingDisplayAmount ?? trip.price!).toStringAsFixed(2)}',
                               Icons.attach_money_rounded),
                         if (trip.selectedSeats.isNotEmpty)
-                          _DetailRow(l10n.tripSeatsLabel,
+                          _DetailRow(
+                              l10n.tripSeatsLabel,
                               trip.selectedSeats.join(', '),
                               Icons.airline_seat_recline_normal_rounded),
                         if (trip.extras.isNotEmpty)
@@ -189,12 +191,12 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                   subtitle: trip.flightNumber,
                                   refCode:
                                       trip.bookingRef ?? trip.id.toString(),
-                                   details: [
-                                     if (trip.selectedSeats.isNotEmpty)
-                                       '${l10n.tripSeatsLabel}: ${trip.selectedSeats.join(', ')}',
-                                     if (trip.extras.isNotEmpty)
-                                       '${l10n.tripExtrasLabel}: ${trip.extras.join(', ')}',
-                                   ],
+                                  details: [
+                                    if (trip.selectedSeats.isNotEmpty)
+                                      '${l10n.tripSeatsLabel}: ${trip.selectedSeats.join(', ')}',
+                                    if (trip.extras.isNotEmpty)
+                                      '${l10n.tripExtrasLabel}: ${trip.extras.join(', ')}',
+                                  ],
                                 ))),
                     icon: const Icon(Icons.qr_code_rounded, size: 16),
                     label: FittedBox(

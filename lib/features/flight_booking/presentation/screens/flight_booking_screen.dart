@@ -192,10 +192,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                   l10n.flightTaxesFees,
                   _formatPrice(flight, breakdown.taxesAndFees ?? 0),
                 ),
-                _InfoRow(
-                    l10n.flightServiceFee,
-                    _formatPrice(
-                        flight, breakdown.serviceFee ?? 0)),
+                _InfoRow(l10n.flightServiceFee,
+                    _formatPrice(flight, breakdown.serviceFee ?? 0)),
               ],
               const Divider(),
               _InfoRow(l10n.flightTotal, _formatPrice(flight, totalPrice),

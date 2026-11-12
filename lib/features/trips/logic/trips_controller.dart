@@ -125,8 +125,9 @@ class TripsController extends ChangeNotifier {
         status: resolveStatus(t.status, start, end, now),
         imageUrl: coverForCity(t.destinationCode),
         price: t.bookingDisplayAmount ?? t.price,
-        priceCurrencyCode:
-            t.bookingDisplayAmount == null ? t.priceCurrencyCode : t.bookingCurrencyCode,
+        priceCurrencyCode: t.bookingDisplayAmount == null
+            ? t.priceCurrencyCode
+            : t.bookingCurrencyCode,
         isSimulated: t.isSimulated,
         reference: t.bookingRef ?? t.flightNumber,
         flight: t,

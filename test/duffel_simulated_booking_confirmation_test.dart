@@ -77,7 +77,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ZT-D-TEST'), findsOneWidget);
-      expect(find.text('EUR 125.00'), findsOneWidget);
+      expect(find.text('€125.00'), findsOneWidget);
       expect(find.text('Simulation'), findsOneWidget);
       expect(find.text('—'), findsOneWidget);
     },
