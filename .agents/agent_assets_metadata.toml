@@ -420,3 +420,59 @@ mtime_ms = 1794504179427
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/1a8deff8-fc36-4035-95ea-b41bb4c678d9/e0fef678-98e5-4476-b6c9-1c3910e7ab6d"
 storage_version_token = "1794504228342801"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "5twzxcPtwsj6hrxd0pKhY"
+uri = "file://generated-artifacts/app-screenshots/onboarding.jpg"
+type = "image"
+title = "Zentrip — Onboarding"
+description = "Mobile screenshot from the clean preview."
+logical_id = "60eb3a02-0a4b-4534-ab76-88d4732120bc"
+content_hash = "sha256:993a350573a58286e3781add90d5c33c463d34bb13f58b2d24c1113496bc7aff"
+size = 9781
+mtime_ms = 1794506681111
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/60eb3a02-0a4b-4534-ab76-88d4732120bc/4bb69494-d277-4e43-9748-adf8b664023d"
+storage_version_token = "1794507078717782"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "TE7HtMYeGwjDSe3OK8enN"
+uri = "file://generated-artifacts/app-screenshots/login.jpg"
+type = "image"
+title = "Zentrip — Login"
+description = "Mobile screenshot from the clean preview."
+logical_id = "e67e5a49-774a-4add-8f18-d73d53ed6d9b"
+content_hash = "sha256:b3a82115016eee2449ae17398c01072f7633aa7680e442dc22970cf2ec6a6cd1"
+size = 24858
+mtime_ms = 1794506690651
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/e67e5a49-774a-4add-8f18-d73d53ed6d9b/77f722c2-a33c-4a97-8e3f-5209b80a2e75"
+storage_version_token = "1794507079530458"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "RI2qxJ-1170IIN1NL2wp6"
+uri = "file://generated-artifacts/app-screenshots/register.jpg"
+type = "image"
+title = "Zentrip — Create account"
+description = "Mobile screenshot from the clean preview."
+logical_id = "17328276-9e9d-4f08-9038-8600fc674b31"
+content_hash = "sha256:6803308fa66fd4a2aa091f48a102306c7a199a1074d3dad719158f83c2f34629"
+size = 32343
+mtime_ms = 1794506700415
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/17328276-9e9d-4f08-9038-8600fc674b31/14193f9f-e275-425d-a590-2cf15bf204d7"
+storage_version_token = "1794507080272011"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "eguj2Xjfh9ondHzpN4IZE"
+uri = "file://generated-artifacts/app-screenshots/forgot-password.jpg"
+type = "image"
+title = "Zentrip — Forgot password"
+description = "Mobile screenshot from the clean preview."
+logical_id = "e9304888-cddd-4559-99ae-ae1b06464e97"
+content_hash = "sha256:0af3841f75e48a1827b8545c5c499659f5154970d98911c1e355d0a225263849"
+size = 28508
+mtime_ms = 1794506709451
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/e9304888-cddd-4559-99ae-ae1b06464e97/44e8fd9d-b77d-4f2a-b4eb-c58016d1fd5a"
+storage_version_token = "1794507080848460"
+content_type = "image/jpeg"
