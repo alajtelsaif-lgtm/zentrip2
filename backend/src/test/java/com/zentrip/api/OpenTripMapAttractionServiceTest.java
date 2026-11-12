@@ -379,6 +379,12 @@ class OpenTripMapAttractionServiceTest {
         assertRejected("DAS18", "museums", "no_identity");
         assertRejected("Ordinary building", "buildings", "type");
         assertRejected("Battle of Tripoli", "battlefields,historic", "event");
+        assertRejected("First Battle of Tripoli Harbor",
+                "battlefields,historic,historical_places", "event");
+        assertRejected("Second Battle of Tripoli Harbor",
+                "battlefields,historic,historical_places", "event");
+        assertRejected("1st Battle of Tripoli Harbor",
+                "battlefields,historic,historical_places", "event");
         var farAway = candidate("Far Museum", "museums", 42.3, 12.5, "3");
         assertEquals("location", OpenTripMapAttractionService.isRealLandmark(
                 farAway, ROME, null, null, null, null).reason());

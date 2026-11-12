@@ -1033,7 +1033,10 @@ public class OpenTripMapAttractionService implements LandmarkProvider {
     private static boolean isHistoricalEvent(Candidate candidate) {
         Set<String> kinds = new LinkedHashSet<>(splitKinds(candidate.kinds()));
         return kinds.contains("battlefields")
-                && normalize(candidate.name()).matches("^(the )?battle of\\b.*");
+                && normalize(candidate.name()).matches(
+                        "^(?:the )?(?:(?:first|second|third|fourth|fifth|sixth|"
+                                + "seventh|eighth|ninth|tenth|\\d+(?:st|nd|rd|th)) )?"
+                                + "battle of\\b.*");
     }
 
     private static String categoryForKinds(String kindsValue) {
