@@ -10,6 +10,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_booking_model.dart';
 import '../../../../models/flight_model.dart';
 import 'flight_primary_button.dart';
+import 'flight_checkout_shared_components.dart';
 
 class BookingConfirmedScreen extends StatefulWidget {
   final FlightBookingDraft draft;
@@ -63,6 +64,8 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
         extras: widget.draft.extras,
         paymentAttemptId: widget.draft.paymentAttemptId,
         packageOfferId: widget.draft.packageOffer?.id,
+        bookingCurrencyCode: widget.draft.currencyCode,
+        bookingDisplayAmount: widget.draft.totalPrice,
       );
       if (!mounted) return;
       if (result.isFailure || result.data == null) {
@@ -201,6 +204,7 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
             seats: seats,
             seatClass: widget.draft.seatClass,
             totalPrice: confirmation.totalPrice,
+            currencyCode: confirmation.trip.bookingCurrencyCode,
             passengerName: passengerName,
           ),
           if (widget.draft.packageOffer case final offer?) ...[
@@ -273,6 +277,7 @@ class FlightTicketCard extends StatelessWidget {
   final List<String> seats;
   final String seatClass;
   final double totalPrice;
+  final String currencyCode;
   final String? passengerName;
 
   const FlightTicketCard({
@@ -282,6 +287,7 @@ class FlightTicketCard extends StatelessWidget {
     required this.seats,
     required this.seatClass,
     required this.totalPrice,
+    required this.currencyCode,
     this.passengerName,
   });
 
@@ -518,8 +524,7 @@ class FlightTicketCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     _TicketDetail(
                       label: l10n.flightTotal,
-                      value:
-                          '${flight.isDuffelOffer ? '${flight.priceCurrencyCode} ' : '\$'}${totalPrice.toStringAsFixed(2)}',
+                      value: checkoutMoney(currencyCode, totalPrice),
                       valueSize: 17,
                       alignEnd: true,
                     ),

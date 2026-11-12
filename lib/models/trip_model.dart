@@ -22,6 +22,8 @@ class TripModel {
   final String source;
   final String? sourceOfferId;
   final String priceCurrencyCode;
+  final double? bookingDisplayAmount;
+  final String bookingCurrencyCode;
   final bool isSimulated;
   final List<String> selectedSeats;
   final List<String> extras;
@@ -50,10 +52,12 @@ class TripModel {
     this.source = 'partner',
     this.sourceOfferId,
     this.priceCurrencyCode = 'USD',
+    this.bookingDisplayAmount,
+    String? bookingCurrencyCode,
     this.isSimulated = false,
     this.selectedSeats = const [],
     this.extras = const [],
-  });
+  }) : bookingCurrencyCode = bookingCurrencyCode ?? priceCurrencyCode;
 
   static int _intFromDynamic(dynamic value, [int fallback = 0]) {
     if (value == null) return fallback;
@@ -119,6 +123,13 @@ class TripModel {
         sourceOfferId: json['duffel_offer_id']?.toString(),
         priceCurrencyCode:
             (json['price_currency'] ?? 'USD').toString().toUpperCase(),
+        bookingDisplayAmount: json['booking_display_amount'] == null
+            ? null
+            : _doubleFromDynamic(json['booking_display_amount']),
+        bookingCurrencyCode:
+            (json['booking_currency'] ?? json['price_currency'] ?? 'USD')
+                .toString()
+                .toUpperCase(),
         isSimulated: _boolFromDynamic(json['is_simulated'], false),
         selectedSeats: _stringList(json['selected_seats']),
         extras: _stringList(json['extras']),
@@ -157,6 +168,8 @@ class TripModel {
         'source': source,
         'duffel_offer_id': sourceOfferId,
         'price_currency': priceCurrencyCode,
+        'booking_display_amount': bookingDisplayAmount,
+        'booking_currency': bookingCurrencyCode,
         'is_simulated': isSimulated,
         'selected_seats': selectedSeats,
         'extras': extras,
@@ -171,6 +184,8 @@ class TripModel {
     String? source,
     String? sourceOfferId,
     String? priceCurrencyCode,
+    double? bookingDisplayAmount,
+    String? bookingCurrencyCode,
     bool? isSimulated,
     List<String>? selectedSeats,
     List<String>? extras,
@@ -199,6 +214,8 @@ class TripModel {
         source: source ?? this.source,
         sourceOfferId: sourceOfferId ?? this.sourceOfferId,
         priceCurrencyCode: priceCurrencyCode ?? this.priceCurrencyCode,
+        bookingDisplayAmount: bookingDisplayAmount ?? this.bookingDisplayAmount,
+        bookingCurrencyCode: bookingCurrencyCode ?? this.bookingCurrencyCode,
         isSimulated: isSimulated ?? this.isSimulated,
         selectedSeats: selectedSeats ?? this.selectedSeats,
         extras: extras ?? this.extras,

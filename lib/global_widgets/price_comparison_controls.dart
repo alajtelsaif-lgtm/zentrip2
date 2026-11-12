@@ -11,6 +11,7 @@ class PriceComparisonControls extends StatelessWidget {
   final bool showBudget;
   final double? budget;
   final ValueChanged<double?>? onBudgetChanged;
+  final ValueChanged<String>? onCurrencyChanged;
 
   const PriceComparisonControls({
     super.key,
@@ -20,6 +21,7 @@ class PriceComparisonControls extends StatelessWidget {
     this.showBudget = false,
     this.budget,
     this.onBudgetChanged,
+    this.onCurrencyChanged,
   });
 
   @override
@@ -77,7 +79,10 @@ class PriceComparisonControls extends StatelessWidget {
                   onChanged: comparison.isLoading
                       ? null
                       : (value) {
-                          if (value != null) comparison.setCurrency(value);
+                          if (value != null) {
+                            comparison.setCurrency(value);
+                            onCurrencyChanged?.call(value);
+                          }
                         },
                 ),
               ),

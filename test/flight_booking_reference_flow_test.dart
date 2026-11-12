@@ -162,6 +162,8 @@ void main() {
         priceCurrencyCode: 'EUR',
         priceIsTotal: true,
       );
+    // Keep the provider's quote currency selected for this currency-preservation case.
+    controller.comparison.setCurrency('EUR');
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(_app(controller: controller));

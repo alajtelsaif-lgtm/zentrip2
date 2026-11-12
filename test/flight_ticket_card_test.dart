@@ -40,6 +40,7 @@ void main() {
             seats: const ['4A', '4B'],
             seatClass: 'economy',
             totalPrice: 213.60,
+            currencyCode: 'USD',
             passengerName: 'Arya Pratama Wijaya',
           ),
         ),

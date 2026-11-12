@@ -73,11 +73,14 @@ class FlightFareCard extends StatelessWidget {
     this.showAvailability = true,
   });
 
-  String get _currencyPrefix => currencyCode == 'USD' ? '\$' : '$currencyCode ';
+  String get _currencyPrefix => switch (currencyCode.toUpperCase()) {
+        'USD' => '\$',
+        'EUR' => '€',
+        'GBP' => '£',
+        _ => '$currencyCode ',
+      };
 
-  String get _price => fare.price == fare.price.truncateToDouble()
-      ? fare.price.toStringAsFixed(0)
-      : fare.price.toStringAsFixed(2);
+  String get _price => fare.price.toStringAsFixed(2);
 
   @override
   Widget build(BuildContext context) {
@@ -387,6 +390,15 @@ class FlightPriceBreakdown extends StatelessWidget {
   final Set<String> selectedSeats;
   final Set<String> selectedExtras;
   final double totalPrice;
+  final String currencyCode;
+  final double Function(double) convertAmount;
+
+  String get _currencyPrefix => switch (currencyCode.toUpperCase()) {
+        'USD' => '\$',
+        'EUR' => '€',
+        'GBP' => '£',
+        _ => '$currencyCode ',
+      };
 
   const FlightPriceBreakdown({
     super.key,
@@ -396,7 +408,11 @@ class FlightPriceBreakdown extends StatelessWidget {
     required this.selectedSeats,
     required this.selectedExtras,
     required this.totalPrice,
-  });
+    this.currencyCode = 'USD',
+    double Function(double)? convertAmount,
+  }) : convertAmount = convertAmount ?? _identity;
+
+  static double _identity(double value) => value;
 
   @override
   Widget build(BuildContext context) {
@@ -434,7 +450,7 @@ class FlightPriceBreakdown extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         fontSize: 15)),
               ),
-              Text('\$${totalPrice.toStringAsFixed(2)}',
+              Text('${_currencyPrefix}${totalPrice.toStringAsFixed(2)}',
                   style: const TextStyle(
                       color: _navy, fontWeight: FontWeight.w900, fontSize: 18)),
             ],
@@ -455,7 +471,8 @@ class FlightPriceBreakdown extends StatelessWidget {
               child: Text(title,
                   style: const TextStyle(color: _muted, fontSize: 13)),
             ),
-            Text('\$${amount.toStringAsFixed(2)}',
+            Text(
+                '$_currencyPrefix${convertAmount(amount).toStringAsFixed(2)}',
                 style:
                     const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
           ],

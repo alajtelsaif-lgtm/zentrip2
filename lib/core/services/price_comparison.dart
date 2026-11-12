@@ -4,6 +4,11 @@ import '../../models/exchange_rates.dart';
 /// Shared by result controllers; no booking or settlement code depends on this.
 class PriceComparison extends ChangeNotifier {
   static const List<String> supportedCurrencies = ['USD', 'EUR', 'GBP'];
+  static const Map<String, double> fallbackUnitsPerUsd = {
+    'USD': 1,
+    'EUR': 0.92,
+    'GBP': 0.79,
+  };
 
   final Future<ExchangeRates> Function() loadRates;
   final DateTime Function() clock;
@@ -13,8 +18,14 @@ class PriceComparison extends ChangeNotifier {
   bool failed = false;
   bool _disposed = false;
 
-  PriceComparison({required this.loadRates, DateTime Function()? clock})
-      : clock = clock ?? DateTime.now;
+  PriceComparison({
+    required this.loadRates,
+    DateTime Function()? clock,
+    String initialCurrency = 'USD',
+  })  : clock = clock ?? DateTime.now,
+        currency = supportedCurrencies.contains(initialCurrency.toUpperCase())
+            ? initialCurrency.toUpperCase()
+            : 'USD';
 
   Future<void> refresh() async {
     if (isLoading || _disposed) return;
@@ -50,8 +61,14 @@ class PriceComparison extends ChangeNotifier {
 
   double? convert(double amount, String from) {
     if (!amount.isFinite || amount < 0) return null;
-    if (from == currency) return amount;
-    return rates?.convert(amount, from, currency, clock().toUtc());
+    final source = from.trim().toUpperCase();
+    if (source == currency) return amount;
+    final live = rates?.convert(amount, source, currency, clock().toUtc());
+    if (rates != null) return live;
+    final sourceRate = fallbackUnitsPerUsd[source];
+    final targetRate = fallbackUnitsPerUsd[currency];
+    if (sourceRate == null || targetRate == null) return null;
+    return amount / sourceRate * targetRate;
   }
 
   /// Unknown prices always go last, even in descending order.

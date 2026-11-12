@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/currency_service.dart';
 import '../../../../core/utils/money_format.dart';
 import '../../../../features/price_alerts/logic/price_alerts_store.dart';
 import '../../../../global_widgets/price_comparison_controls.dart';
@@ -77,6 +78,7 @@ class _FlightResultsScreenState extends State<FlightResultsScreen> {
                 comparison: ctrl.comparison,
                 sourceCurrencies: ctrl.sourceCurrencies,
                 unpricedCount: ctrl.unpricedCount,
+                onCurrencyChanged: CurrencyService.instance.selectCode,
                 showBudget: true,
                 budget: ctrl.maxBudget,
                 onBudgetChanged: ctrl.setMaxBudget,
@@ -612,10 +614,11 @@ class _FlightCardState extends State<_FlightCard> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      originalAmount == null
+                      widget.comparisonPrice == null
                           ? l10n.priceUnavailable
                           : formatProviderMoney(
-                              originalAmount!, flight.priceCurrencyCode),
+                              widget.comparisonPrice!,
+                              widget.comparisonCurrency),
                       textAlign: TextAlign.end,
                       style: const TextStyle(
                           fontSize: 17,
@@ -630,9 +633,9 @@ class _FlightCardState extends State<_FlightCard> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      widget.comparisonPrice == null
-                          ? '${l10n.comparisonEstimate}: ${l10n.priceUnavailable}'
-                          : '${l10n.comparisonEstimate}: ${formatProviderMoney(widget.comparisonPrice!, widget.comparisonCurrency)}',
+                      originalAmount == null
+                          ? '${l10n.providerPrice}: ${l10n.priceUnavailable}'
+                          : '${l10n.providerPrice}: ${formatProviderMoney(originalAmount!, flight.priceCurrencyCode)}',
                       textAlign: TextAlign.end,
                       style: const TextStyle(
                           fontSize: 12,

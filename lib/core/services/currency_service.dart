@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api_service.dart';
+
 /// تحويل وعرض الأسعار بعملات متعددة. كل الأسعار في التطبيق (Flight/Hotel/
 /// Car/Package/BookingModel) متخزنة بالدولار (USD) كوحدة أساسية داخلية،
 /// وده بيتحوّل للعرض بس حسب العملة المختارة.
@@ -21,10 +23,9 @@ class CurrencyService extends ChangeNotifier {
     Currency('GBP', '£', 'جنيه إسترليني'),
   ];
 
-  /// دفتر أسعار الصرف — 1 USD = كام من العملة دي. لوضع المحاكاة بس؛ الأسعار
-  /// الحقيقية بتتغيّر يوميًا فمحتاجة مصدر حي (exchangerate-api.com مثلاً).
-  static const bool useMockMode = true;
-  static const _mockRates = {
+  /// Fallback quotes are used only when the cached Frankfurter service cannot
+  /// provide a current rate. They are indicative, not settlement rates.
+  static const _fallbackRates = {
     'USD': 1.0,
     'EUR': 0.92,
     'GBP': 0.79,
@@ -34,7 +35,7 @@ class CurrencyService extends ChangeNotifier {
   Currency _selected = supported.first;
   Currency get selected => _selected;
 
-  Map<String, double> _rates = Map.of(_mockRates);
+  Map<String, double> _rates = Map.of(_fallbackRates);
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -47,14 +48,26 @@ class CurrencyService extends ChangeNotifier {
   }
 
   Future<void> _loadRates() async {
-    if (useMockMode) {
-      _rates = Map.of(_mockRates);
-      notifyListeners();
-      return;
+    try {
+      final latest = await ApiService.instance.exchangeRates();
+      final liveRates = <String, double>{'USD': 1};
+      for (final entry in latest.rates.entries) {
+        liveRates[entry.key] = entry.value.unitsPerUsd;
+      }
+      _rates = liveRates;
+    } catch (_) {
+      _rates = Map.of(_fallbackRates);
     }
-    // TODO: عند التفعيل — نداء حقيقي لـ exchangerate-api.com أو مصدر مماثل،
-    // وتحديث _rates بالأسعار الحية، مع الاحتفاظ بـ _mockRates كـ fallback
-    // لو النداء فشل (مفيش إنترنت مثلاً).
+    notifyListeners();
+  }
+
+  Future<void> selectCode(String code) async {
+    final normalized = code.trim().toUpperCase();
+    final currency = supported.firstWhere(
+      (item) => item.code == normalized,
+      orElse: () => throw ArgumentError.value(code, 'currency'),
+    );
+    await setCurrency(currency);
   }
 
   Future<void> setCurrency(Currency c) async {

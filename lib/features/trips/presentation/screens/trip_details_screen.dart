@@ -143,12 +143,12 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       children: [
                         _DetailRow(l10n.bookingRef, trip.bookingRef!,
                             Icons.confirmation_num_rounded),
-                        if (trip.price != null)
+                        if (trip.bookingDisplayAmount != null || trip.price != null)
                           _DetailRow(
                               l10n.tripsTotalPrice,
                               trip.isSimulated
-                                  ? '${trip.priceCurrencyCode} ${trip.price!.toStringAsFixed(2)}'
-                                  : '\$${trip.price!.toStringAsFixed(0)}',
+                                  ? '${trip.bookingDisplayAmount == null ? trip.priceCurrencyCode : trip.bookingCurrencyCode} ${(trip.bookingDisplayAmount ?? trip.price!).toStringAsFixed(2)}'
+                                  : '\$${(trip.bookingDisplayAmount ?? trip.price!).toStringAsFixed(2)}',
                               Icons.attach_money_rounded),
                         if (trip.selectedSeats.isNotEmpty)
                           _DetailRow(l10n.tripSeatsLabel,

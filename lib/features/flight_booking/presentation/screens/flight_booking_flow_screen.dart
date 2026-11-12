@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../../core/services/currency_service.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
 import '../../../../models/flight_seat_map.dart';
@@ -45,6 +46,7 @@ class _FlightBookingFlowScreenState extends State<FlightBookingFlowScreen> {
   FlightSearchParams? get _params => _controller?.searchParams;
   int get _passengerCount => (_params?.passengers ?? 1).clamp(1, 9);
   String get _seatClass => _params?.seatClass ?? 'economy';
+  String get _currency => _controller?.comparison.currency ?? 'USD';
 
   @override
   void didChangeDependencies() {
@@ -53,6 +55,7 @@ class _FlightBookingFlowScreenState extends State<FlightBookingFlowScreen> {
     _initialized = true;
     final args = ModalRoute.of(context)?.settings.arguments;
     _controller = widget.controller ?? (args is FlightController ? args : null);
+    _controller?.comparison.addListener(_currencyChanged);
     final flight = _flight;
     if (flight == null) {
       _loadError = AppLocalizations.of(context).flightSearchError;
@@ -60,6 +63,16 @@ class _FlightBookingFlowScreenState extends State<FlightBookingFlowScreen> {
       return;
     }
     _loadFareData();
+  }
+
+  void _currencyChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller?.comparison.removeListener(_currencyChanged);
+    super.dispose();
   }
 
   Future<void> _loadFareData() async {
@@ -168,7 +181,7 @@ class _FlightBookingFlowScreenState extends State<FlightBookingFlowScreen> {
     return null;
   }
 
-  double get _totalPrice {
+  double get _sourceTotalPrice {
     final flight = _flight;
     final fare = _selectedFare;
     final map = _seatMap;
@@ -181,6 +194,16 @@ class _FlightBookingFlowScreenState extends State<FlightBookingFlowScreen> {
           0;
     }
     return fare.price * _passengerCount * (1 + map.taxRate) + map.bookingFee;
+  }
+
+  double get _totalPrice {
+    final flight = _flight;
+    if (flight == null) return 0;
+    final converted = _controller?.comparison.convert(
+      _sourceTotalPrice,
+      flight.isDuffelOffer ? flight.priceCurrencyCode : 'USD',
+    );
+    return converted ?? _sourceTotalPrice;
   }
 
   void _continueToPassengers() {
@@ -205,6 +228,7 @@ class _FlightBookingFlowScreenState extends State<FlightBookingFlowScreen> {
           rowCount: map.rowCount,
           initialSeatMap: flight.isDuffelOffer ? null : map,
           initialFareId: fare.id,
+          comparison: _controller?.comparison,
           passengers: List.unmodifiable(_passengers),
           reviewFlowEnabled: true,
           packageOffer: widget.packageOffer,
@@ -247,14 +271,15 @@ class _FlightBookingFlowScreenState extends State<FlightBookingFlowScreen> {
         onRetry: _loadFareData,
       );
     }
-    final currency = flight.isDuffelOffer ? flight.priceCurrencyCode : 'USD';
     if (_step == 0) {
       return FlightChooseFareScreen(
         flight: flight,
+        comparison: _controller!.comparison,
+        onCurrencyChanged: CurrencyService.instance.selectCode,
         fares: _seatMap!.fares,
         selectedFareId: _selectedFareId,
         passengerCount: _passengerCount,
-        currencyCode: currency,
+        currencyCode: _currency,
         totalPrice: _totalPrice,
         showAvailability: !flight.isDuffelOffer,
         onFareSelected: (fare) => setState(() => _selectedFareId = fare.id),
@@ -264,9 +289,11 @@ class _FlightBookingFlowScreenState extends State<FlightBookingFlowScreen> {
     }
     return FlightPassengersScreen(
       flight: flight,
+      comparison: _controller!.comparison,
+      onCurrencyChanged: CurrencyService.instance.selectCode,
       passengers: _passengers,
       fareLabel: _selectedFare?.label ?? '',
-      currencyCode: currency,
+      currencyCode: _currency,
       totalPrice: _totalPrice,
       onPassengerChanged: _updatePassenger,
       onContinue:

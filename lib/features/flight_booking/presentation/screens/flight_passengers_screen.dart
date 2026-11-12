@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/price_comparison.dart';
+import '../../../../global_widgets/flight_currency_selector.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
 import 'flight_checkout_shared_components.dart';
@@ -58,6 +60,8 @@ class FlightPassengersScreen extends StatelessWidget {
   final List<FlightCheckoutPassenger> passengers;
   final String fareLabel;
   final String currencyCode;
+  final PriceComparison comparison;
+  final ValueChanged<String> onCurrencyChanged;
   final double totalPrice;
   final ValueChanged<FlightPassengerUpdate> onPassengerChanged;
   final VoidCallback? onContinue;
@@ -69,6 +73,8 @@ class FlightPassengersScreen extends StatelessWidget {
     required this.passengers,
     required this.fareLabel,
     required this.currencyCode,
+    required this.comparison,
+    required this.onCurrencyChanged,
     required this.totalPrice,
     required this.onPassengerChanged,
     required this.onContinue,
@@ -95,6 +101,11 @@ class FlightPassengersScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 11, 16, 18),
         children: [
           CheckoutRouteCaption(flight: flight),
+          FlightCurrencySelector(
+            comparison: comparison,
+            onChanged: onCurrencyChanged,
+          ),
+          const SizedBox(height: 10),
           const SizedBox(height: 14),
           Text(labels.whosFlying,
               style: const TextStyle(

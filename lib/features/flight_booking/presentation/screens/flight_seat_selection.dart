@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/services/api_result.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../../core/services/currency_service.dart';
+import '../../../../core/services/price_comparison.dart';
+import '../../../../global_widgets/flight_currency_selector.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../global_widgets/payment_checkout_screen.dart';
 import '../../../../models/flight_booking_model.dart';
@@ -48,6 +51,7 @@ class FlightSeatSelectionScreen extends StatefulWidget {
   final FlightTripCreator? tripCreator;
   final FlightSeatMap? initialSeatMap;
   final String? initialFareId;
+  final PriceComparison? comparison;
   final List<FlightCheckoutPassenger> passengers;
   final bool reviewFlowEnabled;
   final TravelPackage? packageOffer;
@@ -65,6 +69,7 @@ class FlightSeatSelectionScreen extends StatefulWidget {
     this.tripCreator,
     this.initialSeatMap,
     this.initialFareId,
+    this.comparison,
     this.passengers = const [],
     this.reviewFlowEnabled = false,
     this.packageOffer,
@@ -92,6 +97,13 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
   bool _reviewPushed = false;
   bool _seatsSkipped = false;
   Timer? _refreshTimer;
+  String get _sourceCurrency =>
+      widget.flight.isDuffelOffer ? widget.flight.priceCurrencyCode : 'USD';
+  String get _currencyCode => widget.comparison?.currency ?? _sourceCurrency;
+
+  double _toDisplay(double amount, [String? sourceCurrency]) =>
+      widget.comparison?.convert(amount, sourceCurrency ?? _sourceCurrency) ??
+      amount;
 
   String? get _flightId {
     final id = widget.flight.partnerListingId?.toString() ??
@@ -117,19 +129,13 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
     return map.cabins.first;
   }
 
-  double get _totalPrice {
-    final hotelStayTotal = widget.packageOffer == null
-        ? 0.0
-        : widget.packageOffer!.hotelPricePerNight *
-            widget.packageOffer!.durationNights *
-            widget.passengerCount;
+  double get _sourceFlightTotalPrice {
     if (widget.flight.isDuffelOffer) {
-      return (widget.flight.comparisonTotal(
+      return widget.flight.comparisonTotal(
             passengers: widget.passengerCount,
             seatClass: widget.seatClass,
           ) ??
-          0) +
-          hotelStayTotal;
+          0;
     }
     final map = _seatMap;
     final fare = _fare;
@@ -145,12 +151,17 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
     final subtotal = fare.price * widget.passengerCount +
         premiumCount * map.extraLegroomFee +
         extras;
-    return subtotal * (1 + map.taxRate) + map.bookingFee + hotelStayTotal;
+    return subtotal * (1 + map.taxRate) + map.bookingFee;
   }
+
+  double get _totalPrice =>
+      _toDisplay(_sourceFlightTotalPrice) +
+      _toDisplay(_packageStayTotal, 'USD');
 
   @override
   void initState() {
     super.initState();
+    widget.comparison?.addListener(_currencyChanged);
     WidgetsBinding.instance.addObserver(this);
     final initialMap = widget.initialSeatMap;
     if (initialMap != null) {
@@ -170,10 +181,15 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
     );
   }
 
+  void _currencyChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
     _refreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    widget.comparison?.removeListener(_currencyChanged);
     super.dispose();
   }
 
@@ -370,9 +386,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
           passengers: widget.passengers,
           seats: _selectedSeats.toList()..sort(),
           fareLabel: fare.label,
-          currencyCode: widget.flight.isDuffelOffer
-              ? widget.flight.priceCurrencyCode
-              : 'USD',
+          currencyCode: _currencyCode,
           totalPrice: _totalPrice,
           priceLines: _reviewPriceLines(map, fare),
           acceptedFareRules: _acceptedFareRules,
@@ -395,12 +409,12 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       return [
         FlightPriceLine(
           label: AppLocalizations.of(context).flightTicketPrice,
-          amount: _totalPrice - _packageStayTotal,
+          amount: _toDisplay(_sourceFlightTotalPrice),
         ),
         if (_packageStayTotal > 0)
           FlightPriceLine(
             label: AppLocalizations.of(context).packageStayTotal,
-            amount: _packageStayTotal,
+            amount: _toDisplay(_packageStayTotal, 'USD'),
           ),
       ];
     }
@@ -418,29 +432,29 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
     return [
       FlightPriceLine(
         label: AppLocalizations.of(context).flightTicketPrice,
-        amount: fareAmount,
+        amount: _toDisplay(fareAmount),
       ),
       if (seatAmount > 0)
-        FlightPriceLine(label: labels.seats, amount: seatAmount),
+        FlightPriceLine(label: labels.seats, amount: _toDisplay(seatAmount)),
       if (extrasAmount > 0)
         FlightPriceLine(
           label: AppLocalizations.of(context).flightServiceFee,
-          amount: extrasAmount,
+          amount: _toDisplay(extrasAmount),
         ),
       if (tax > 0)
         FlightPriceLine(
           label: AppLocalizations.of(context).flightTaxesFees,
-          amount: tax,
+          amount: _toDisplay(tax),
         ),
       if (map.bookingFee > 0)
         FlightPriceLine(
           label: AppLocalizations.of(context).flightServiceFee,
-          amount: map.bookingFee,
+          amount: _toDisplay(map.bookingFee),
         ),
       if (_packageStayTotal > 0)
         FlightPriceLine(
           label: AppLocalizations.of(context).packageStayTotal,
-          amount: _packageStayTotal,
+          amount: _toDisplay(_packageStayTotal, 'USD'),
         ),
     ];
   }
@@ -598,12 +612,14 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         airlineLogoUrl: widget.flight.airlineLogoUrl,
         isDirect: widget.flight.isDirect,
         seatClass: fare.id,
-        price: bookingTotal,
+        price: _sourceFlightTotalPrice,
         bookingRef: requestReference,
         passengerCount: widget.passengerCount,
         source: 'duffel',
         sourceOfferId: widget.flight.duffelOfferId ?? widget.flight.id,
         priceCurrencyCode: widget.flight.priceCurrencyCode,
+        bookingDisplayAmount: bookingTotal,
+        bookingCurrencyCode: _currencyCode,
         isSimulated: true,
         selectedSeats: selectedSeats,
         extras: selectedExtras,
@@ -638,6 +654,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         seats: selectedSeats,
         returnDate: widget.returnDate,
         totalPrice: bookingTotal,
+        currencyCode: _currencyCode,
         extras: selectedExtras,
         paymentAttemptId: paymentAttemptId,
         packageOffer: widget.packageOffer,
@@ -662,6 +679,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       seats: selectedSeats,
       returnDate: widget.returnDate,
       totalPrice: bookingTotal,
+      currencyCode: _currencyCode,
       extras: selectedExtras,
       paymentAttemptId: paymentAttemptId,
       packageOffer: widget.packageOffer,
@@ -704,6 +722,13 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
                     padding: const EdgeInsets.fromLTRB(16, 7, 16, 20),
                     children: [
                       FlightSelectionHeader(flight: widget.flight),
+                      if (widget.comparison != null) ...[
+                        FlightCurrencySelector(
+                          comparison: widget.comparison!,
+                          onChanged: CurrencyService.instance.selectCode,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       if (widget.flight.isDuffelOffer) ...[
                         const SizedBox(height: 8),
                         Text(
@@ -741,9 +766,8 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 728),
                 child: FlightPrimaryButton(
-                  label: widget.flight.isDuffelOffer
-                      ? '${AppLocalizations.of(context).flightContinueToPayment} · ${widget.flight.priceCurrencyCode} ${_totalPrice.toStringAsFixed(2)}'
-                      : 'Proceed to Payment · \$${_totalPrice.toStringAsFixed(2)}',
+                  label:
+                      'Proceed to Payment · ${checkoutMoney(_currencyCode, _totalPrice)}',
                   icon: Icons.lock_rounded,
                   loading: _submitting,
                   onPressed: _seatMap != null &&
@@ -792,6 +816,11 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
                     children: [
+                      if (widget.comparison != null)
+                        FlightCurrencySelector(
+                          comparison: widget.comparison!,
+                          onChanged: CurrencyService.instance.selectCode,
+                        ),
                       if (widget.flight.isDuffelOffer) ...[
                         Text(
                           AppLocalizations.of(context)

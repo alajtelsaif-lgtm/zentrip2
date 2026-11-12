@@ -4,6 +4,7 @@ import 'package:zentrip/core/constants/app_colors.dart';
 import 'package:zentrip/core/services/api_result.dart';
 import 'package:zentrip/features/flight_booking/presentation/screens/flight_seat_selection.dart';
 import 'package:zentrip/features/flight_booking/presentation/screens/flight_primary_button.dart';
+import 'package:zentrip/l10n/app_localizations.dart';
 import 'package:zentrip/models/flight_model.dart';
 import 'package:zentrip/models/flight_seat_map.dart';
 
@@ -243,6 +244,8 @@ Widget _app({
   int passengerCount = 1,
 }) =>
     MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: FlightSeatSelectionScreen(
         flight: FlightModel(
           id: '81',

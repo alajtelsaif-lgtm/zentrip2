@@ -8,6 +8,7 @@ import 'package:zentrip/features/flight_booking/logic/flight_controller.dart';
 import 'package:zentrip/features/hotel_booking/logic/hotel_controller.dart';
 import 'package:zentrip/models/exchange_rates.dart';
 import 'package:zentrip/models/flight_model.dart';
+import 'package:zentrip/models/flight_price_breakdown.dart';
 import 'package:zentrip/models/hotel_model.dart';
 
 final now = DateTime.utc(2026, 11, 1, 12);
@@ -75,6 +76,41 @@ void main() {
     );
     expect(c.currencies, ['USD', 'EUR', 'GBP']);
     expect(() => c.setCurrency('LYD'), throwsArgumentError);
+  });
+
+  test('Frankfurter failure uses explicit USD-pivot display fallback rates',
+      () async {
+    final c = comparison(load: () async => throw StateError('offline'));
+    await c.refresh();
+    c.setCurrency('EUR');
+    expect(c.convert(100, 'USD'), closeTo(92, 0.001));
+    c.setCurrency('GBP');
+    expect(c.convert(100, 'USD'), closeTo(79, 0.001));
+    expect(c.failed, isTrue);
+    c.dispose();
+  });
+
+  test('flight search breakdown matches partner checkout estimate and preserves'
+      ' Duffel inclusive total', () {
+    final partner = FlightPriceBreakdown.forSearch(
+      flight: flight('partner-1', 100, 'USD'),
+      passengers: 2,
+      seatClass: 'economy',
+    );
+    expect(partner.subtotal, 200);
+    expect(partner.taxesAndFees, 24);
+    expect(partner.serviceFee, 12);
+    expect(partner.total, 236);
+    expect(partner.providerTotalIncludesFees, isFalse);
+
+    final duffel = FlightPriceBreakdown.forSearch(
+      flight: flight('duffel-1', 236, 'EUR', total: true),
+      passengers: 2,
+      seatClass: 'economy',
+    );
+    expect(duffel.total, 236);
+    expect(duffel.taxesAndFees, isNull);
+    expect(duffel.providerTotalIncludesFees, isTrue);
   });
   test('USD pivot conversion, identity and full-precision comparison',
       () async {
@@ -163,7 +199,7 @@ void main() {
         comparison: comparison(), searchFlights: (_) async => original);
     await c.search(flightParams());
     expect(c.results.map((f) => f.id), ['eur', 'usd', 'unknown']);
-    expect(c.comparisonPrice(original[0]), 180);
+    expect(c.comparisonPrice(original[0]), 213.6);
     expect(c.comparisonPrice(original[1]), 120);
     c.setMaxBudget(150);
     expect(c.results.map((f) => f.id), ['eur']);
@@ -171,7 +207,7 @@ void main() {
     expect(c.results.map((f) => f.id), ['eur', 'usd']);
     c.setMaxBudget(null);
     await c.search(flightParams(cabin: 'business'));
-    expect(c.comparisonPrice(original[0]), 150); // 300 USD -> 150 EUR
+    expect(c.comparisonPrice(original[0]), 174); // Includes partner tax and fee.
     expect(original[0].economyPrice, 90);
     expect(original[1].economyPrice, 60);
     expect(original[1].priceCurrencyCode, 'EUR');
@@ -258,7 +294,7 @@ void main() {
         city: 'Tunis',
         checkIn: now,
         checkOut: now.add(const Duration(days: 1))));
-    expect(c.results.map((h) => h.id), ['usd']);
+    expect(c.results.map((h) => h.id).toSet(), {'eur', 'usd'});
     pending.complete(rates());
     await Future<void>.delayed(Duration.zero);
     expect(c.results.map((h) => h.id).toSet(), {'eur', 'usd'});

@@ -1315,6 +1315,8 @@ class ApiService {
     List<String> extras = const [],
     int? paymentAttemptId,
     String? packageOfferId,
+    String bookingCurrencyCode = 'USD',
+    double? bookingDisplayAmount,
   }) async {
     final result = await _request(() async {
       final response = await _dio.post(
@@ -1324,6 +1326,9 @@ class ApiService {
           'seats': seats,
           'seat_class': seatClass,
           'extras': extras,
+          'booking_currency': bookingCurrencyCode.toUpperCase(),
+          if (bookingDisplayAmount != null)
+            'booking_display_amount': bookingDisplayAmount,
           if (packageOfferId != null && packageOfferId.isNotEmpty)
             'offer_id': packageOfferId,
           if (paymentAttemptId != null) 'payment_attempt_id': paymentAttemptId,

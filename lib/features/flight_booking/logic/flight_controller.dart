@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/currency_service.dart';
 import '../../../core/services/price_comparison.dart';
 import '../../../models/flight_model.dart';
+import '../../../models/flight_price_breakdown.dart';
 
 class FlightSearchParams {
   final String originCode;
@@ -45,7 +47,10 @@ class FlightController extends ChangeNotifier {
 
   FlightController({PriceComparison? comparison, this.searchFlights})
       : comparison = comparison ??
-            PriceComparison(loadRates: ApiService.instance.exchangeRates) {
+            PriceComparison(
+              loadRates: ApiService.instance.exchangeRates,
+              initialCurrency: CurrencyService.instance.selected.code,
+            ) {
     this.comparison.addListener(_comparisonChanged);
   }
 
@@ -58,13 +63,19 @@ class FlightController extends ChangeNotifier {
     // A Partner listing has no return leg. Do not rank its one-way price
     // against a Duffel round-trip total.
     if (searchParams?.isRoundTrip == true && !flight.isDuffelOffer) return null;
-    final total = flight.comparisonTotal(
+    if (flight.comparisonTotal(
+          passengers: searchParams?.passengers ?? 1,
+          seatClass: searchParams?.seatClass ?? 'economy',
+        ) ==
+        null) {
+      return null;
+    }
+    final total = FlightPriceBreakdown.forSearch(
+      flight: flight,
       passengers: searchParams?.passengers ?? 1,
       seatClass: searchParams?.seatClass ?? 'economy',
-    );
-    return total == null
-        ? null
-        : comparison.convert(total, flight.priceCurrencyCode);
+    ).total;
+    return comparison.convert(total, flight.priceCurrencyCode);
   }
 
   void setMaxBudget(double? value) {

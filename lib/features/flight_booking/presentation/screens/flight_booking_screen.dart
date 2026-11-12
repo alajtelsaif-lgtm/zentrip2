@@ -5,6 +5,7 @@ import '../../../../core/services/api_service.dart';
 import '../../../../global_widgets/booking_load_error.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
+import '../../../../models/flight_price_breakdown.dart';
 import '../../logic/flight_controller.dart';
 import 'flight_primary_button.dart';
 import 'seat_selection16line_screen.dart';
@@ -71,14 +72,17 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       'first' => flight?.firstPrice ?? flight?.economyPrice ?? 0,
       _ => flight?.economyPrice ?? 0,
     };
+    final breakdown = flight == null
+        ? null
+        : FlightPriceBreakdown.forSearch(
+            flight: flight,
+            passengers: passengerCount,
+            seatClass: seatClass,
+          );
     final basePrice = flight?.isDuffelOffer == true
         ? flight!.economyPrice
         : fare * passengerCount;
-    final totalPrice = flight?.isDuffelOffer == true
-        ? flight!.comparisonTotal(
-                passengers: passengerCount, seatClass: seatClass) ??
-            0
-        : basePrice * 1.12 + 12;
+    final totalPrice = breakdown?.total ?? 0;
     final user = ApiService.instance.currentUser;
     if (flight == null) return const BookingLoadError();
 
@@ -182,13 +186,16 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               else ...[
                 _InfoRow(
                   l10n.flightTicketPrice,
-                  _formatPrice(flight, fare * passengerCount),
+                  _formatPrice(flight, breakdown!.subtotal),
                 ),
                 _InfoRow(
                   l10n.flightTaxesFees,
-                  _formatPrice(flight, fare * passengerCount * 0.12),
+                  _formatPrice(flight, breakdown.taxesAndFees ?? 0),
                 ),
-                _InfoRow(l10n.flightServiceFee, _formatPrice(flight, 12)),
+                _InfoRow(
+                    l10n.flightServiceFee,
+                    _formatPrice(
+                        flight, breakdown.serviceFee ?? 0)),
               ],
               const Divider(),
               _InfoRow(l10n.flightTotal, _formatPrice(flight, totalPrice),

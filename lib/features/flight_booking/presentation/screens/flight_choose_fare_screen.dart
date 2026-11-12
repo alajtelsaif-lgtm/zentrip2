@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/price_comparison.dart';
+import '../../../../global_widgets/flight_currency_selector.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
 import '../../../../models/flight_seat_map.dart';
@@ -12,6 +14,8 @@ class FlightChooseFareScreen extends StatelessWidget {
   final String? selectedFareId;
   final int passengerCount;
   final String currencyCode;
+  final PriceComparison comparison;
+  final ValueChanged<String> onCurrencyChanged;
   final double? totalPrice;
   final bool showAvailability;
   final ValueChanged<FlightSeatFare> onFareSelected;
@@ -25,6 +29,8 @@ class FlightChooseFareScreen extends StatelessWidget {
     required this.selectedFareId,
     required this.passengerCount,
     required this.currencyCode,
+    required this.comparison,
+    required this.onCurrencyChanged,
     required this.onFareSelected,
     required this.onContinue,
     this.totalPrice,
@@ -61,6 +67,10 @@ class FlightChooseFareScreen extends StatelessWidget {
         children: [
           CheckoutRouteCaption(flight: flight),
           const SizedBox(height: 18),
+          FlightCurrencySelector(
+            comparison: comparison,
+            onChanged: onCurrencyChanged,
+          ),
           Text(labels.chooseYourFare,
               style: const TextStyle(
                   color: AppColors.textPrimary,
@@ -89,6 +99,10 @@ class FlightChooseFareScreen extends StatelessWidget {
                             child: _FareChoiceCard(
                               fare: fare,
                               currencyCode: currencyCode,
+                              comparison: comparison,
+                              sourceCurrencyCode: flight.isDuffelOffer
+                                  ? flight.priceCurrencyCode
+                                  : 'USD',
                               selected: fare.id == selectedFareId,
                               showAvailability: showAvailability,
                               onTap: () => onFareSelected(fare),
@@ -119,7 +133,16 @@ class FlightChooseFareScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   CheckoutDataRow(
                     label: labels.farePrice,
-                    value: checkoutMoney(currencyCode, selected.price),
+                    value: checkoutMoney(
+                      currencyCode,
+                      comparison.convert(
+                            selected.price,
+                            flight.isDuffelOffer
+                                ? flight.priceCurrencyCode
+                                : 'USD',
+                          ) ??
+                          selected.price,
+                    ),
                   ),
                   if (showAvailability)
                     CheckoutDataRow(
@@ -140,6 +163,8 @@ class FlightChooseFareScreen extends StatelessWidget {
 class _FareChoiceCard extends StatelessWidget {
   final FlightSeatFare fare;
   final String currencyCode;
+  final PriceComparison comparison;
+  final String sourceCurrencyCode;
   final bool selected;
   final bool showAvailability;
   final VoidCallback onTap;
@@ -147,6 +172,8 @@ class _FareChoiceCard extends StatelessWidget {
   const _FareChoiceCard({
     required this.fare,
     required this.currencyCode,
+    required this.comparison,
+    required this.sourceCurrencyCode,
     required this.selected,
     required this.showAvailability,
     required this.onTap,
@@ -194,7 +221,11 @@ class _FareChoiceCard extends StatelessWidget {
               FittedBox(
                 alignment: AlignmentDirectional.centerStart,
                 child: Text(
-                  checkoutMoney(currencyCode, fare.price),
+                  checkoutMoney(
+                    currencyCode,
+                    comparison.convert(fare.price, sourceCurrencyCode) ??
+                        fare.price,
+                  ),
                   style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,

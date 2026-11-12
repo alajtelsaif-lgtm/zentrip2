@@ -1265,6 +1265,8 @@ public class ApiController {
                    details ->> 'source' AS source,
                    details ->> 'duffel_offer_id' AS duffel_offer_id,
                    details ->> 'price_currency' AS price_currency,
+                   details ->> 'booking_currency' AS booking_currency,
+                   details ->> 'booking_display_amount' AS booking_display_amount,
                    details ->> 'is_simulated' AS is_simulated,
                    ARRAY(SELECT jsonb_array_elements_text(COALESCE(
                        details -> 'selected_seats', details -> 'seat_numbers',
@@ -1311,6 +1313,24 @@ public class ApiController {
         BigDecimal price = partnerBookingPrice(
                 attribution, "flight", departure, arrival, decimal(body.get("price")));
         Map<String, Object> providerDetails = new java.util.HashMap<>();
+        String bookingCurrency = value(
+                body,
+                "booking_currency",
+                "duffel".equalsIgnoreCase(value(body, "source", ""))
+                        ? value(body, "price_currency", "USD") : "USD")
+                .trim().toUpperCase(Locale.ROOT);
+        if (!bookingCurrency.matches("[A-Z]{3}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "Invalid booking_currency");
+        }
+        BigDecimal bookingDisplayAmount = body.get("booking_display_amount") == null
+                ? price : decimal(body.get("booking_display_amount"));
+        if (bookingDisplayAmount.signum() < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "Invalid booking_display_amount");
+        }
+        providerDetails.put("booking_currency", bookingCurrency);
+        providerDetails.put("booking_display_amount", bookingDisplayAmount);
         if ("duffel".equalsIgnoreCase(value(body, "source", ""))) {
             providerDetails.put("source", "duffel");
             providerDetails.put(
@@ -1521,6 +1541,18 @@ public class ApiController {
             totalPrice = totalPrice.add(packageStayTotal)
                     .setScale(2, RoundingMode.HALF_UP);
         }
+        String bookingCurrency = value(body, "booking_currency", "USD")
+                .trim().toUpperCase(Locale.ROOT);
+        if (!bookingCurrency.matches("[A-Z]{3}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "Invalid booking_currency");
+        }
+        BigDecimal bookingDisplayAmount = body.get("booking_display_amount") == null
+                ? totalPrice : decimal(body.get("booking_display_amount"));
+        if (bookingDisplayAmount.signum() < 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "Invalid booking_display_amount");
+        }
 
         reserveFlightSeats(flightId, seats.size());
         String reference = "ZT-" + UUID.randomUUID().toString()
@@ -1536,6 +1568,8 @@ public class ApiController {
         details.put("passenger_count", seats.size());
         details.put("seat_numbers", seats);
         details.put("extras", extras);
+        details.put("booking_currency", bookingCurrency);
+        details.put("booking_display_amount", bookingDisplayAmount);
         if (packageOffer != null) {
             details.put("offer_id", packageOfferId);
             details.put("package_title", text(packageOffer.get("title")));
@@ -2053,6 +2087,8 @@ public class ApiController {
                        details ->> 'source' AS source,
                        details ->> 'duffel_offer_id' AS duffel_offer_id,
                        details ->> 'price_currency' AS price_currency,
+                       details ->> 'booking_currency' AS booking_currency,
+                       details ->> 'booking_display_amount' AS booking_display_amount,
                        details ->> 'is_simulated' AS is_simulated,
                        details ->> 'refund_status' AS refund_status,
                        details ->> 'refund_method' AS refund_method

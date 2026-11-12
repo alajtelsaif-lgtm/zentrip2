@@ -115,10 +115,11 @@ void main() {
       final l10n = AppLocalizations.of(
           tester.element(find.byType(PriceComparisonControls)));
       final budget = find.byType(TextFormField);
-      await tester.enterText(budget, '100');
+      await tester.enterText(budget, '200');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
-      expect(ctrl.results, isEmpty);
+      // The total EUR quote converts to a USD amount within this budget.
+      expect(ctrl.results.length, 1);
       expect(find.byType(PriceComparisonControls), findsOneWidget);
       await tester.tap(find.byTooltip(l10n.clearBudget));
       await tester.pumpAndSettle();
@@ -170,7 +171,8 @@ void main() {
       ctrl.setFilter(HotelFilter.budget);
       await tester.pumpWidget(_app(const HotelResultsScreen(), ctrl, locale));
       await tester.pumpAndSettle();
-      expect(ctrl.results, isEmpty);
+      // The fallback comparison rate keeps the hotel filterable during outage.
+      expect(ctrl.results.length, 1);
       expect(find.byType(PriceComparisonControls), findsOneWidget);
       expect(tester.takeException(), isNull);
       final l10n = AppLocalizations.of(

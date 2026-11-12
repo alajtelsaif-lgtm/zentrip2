@@ -569,7 +569,12 @@ InputDecoration checkoutInputDecoration(String label, IconData icon) =>
     );
 
 String checkoutMoney(String currency, double value) =>
-    '$currency ${value.toStringAsFixed(2)}';
+    '${switch (currency.toUpperCase()) {
+      'USD' => '\$',
+      'EUR' => '€',
+      'GBP' => '£',
+      _ => '$currency ',
+    }}${value.toStringAsFixed(2)}';
 
 String checkoutClock(DateTime value) =>
     '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
