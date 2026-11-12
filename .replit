@@ -57,6 +57,10 @@ externalPort = 3001
 localPort = 8090
 externalPort = 3003
 
+[[ports]]
+localPort = 8091
+externalPort = 3002
+
 [postMerge]
 path = "scripts/build-replit.sh"
 timeoutMs = 600000

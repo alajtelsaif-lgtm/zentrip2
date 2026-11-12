@@ -1,0 +1,805 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2824" height="2134" viewBox="0 0 2824 2134">
+<defs><filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#0f172a" flood-opacity=".10"/></filter></defs>
+<rect width="100%" height="100%" fill="#F4F7FB"/>
+<text x="1412.0" y="42" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="bold" fill="#142A43">Zentrip Supabase ERD — Chen Notation</text>
+<text x="1412.0" y="70" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#5B6B7F">All live public-schema columns shown as oval attributes • PK underlined • FK marked • relationships on companion sheet</text>
+<rect x="48" y="105" width="520" height="34" rx="10" fill="#17324D"/>
+<text x="308.0" y="127" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#FFFFFF">Core identity</text>
+<rect x="600" y="105" width="520" height="34" rx="10" fill="#285A72"/>
+<text x="860.0" y="127" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#FFFFFF">User data &amp; access</text>
+<rect x="1152" y="105" width="520" height="34" rx="10" fill="#465A88"/>
+<text x="1412.0" y="127" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#FFFFFF">Partner &amp; search catalog</text>
+<rect x="1704" y="105" width="520" height="34" rx="10" fill="#6F4A70"/>
+<text x="1964.0" y="127" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#FFFFFF">Attractions</text>
+<rect x="2256" y="105" width="520" height="34" rx="10" fill="#3C5965"/>
+<text x="2516.0" y="127" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#FFFFFF">Trips &amp; transactions</text>
+<path d="M308.0,209 V404" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M64,229 H552" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M135.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M304.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M473.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M64,287 H552" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M135.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M304.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M473.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M64,345 H552" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M135.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M304.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M473.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M64,403 H552" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M135.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M304.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M473.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M308.0,534 V671" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M64,554 H552" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M135.0,554 V561" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M304.0,554 V561" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M473.0,554 V561" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M64,612 H552" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M135.0,612 V619" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M304.0,612 V619" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M473.0,612 V619" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M64,670 H552" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M135.0,670 V677" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M860.0,209 V288" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M616,229 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1025.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M616,287 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M860.0,418 V555" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M616,438 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,438 V445" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,438 V445" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1025.0,438 V445" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M616,496 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,496 V503" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,496 V503" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1025.0,496 V503" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M616,554 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,554 V561" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,554 V561" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M860.0,685 V764" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M616,705 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,705 V712" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,705 V712" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1025.0,705 V712" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M616,763 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,763 V770" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,763 V770" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M860.0,894 V973" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M616,914 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,914 V921" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,914 V921" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1025.0,914 V921" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M616,972 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,972 V979" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,972 V979" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M860.0,1103 V1240" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M616,1123 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,1123 V1130" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,1123 V1130" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1025.0,1123 V1130" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M616,1181 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,1181 V1188" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,1181 V1188" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1025.0,1181 V1188" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M616,1239 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,1239 V1246" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,1239 V1246" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M860.0,1370 V1449" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M616,1390 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,1390 V1397" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,1390 V1397" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1025.0,1390 V1397" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M616,1448 H1104" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M687.0,1448 V1455" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M856.0,1448 V1455" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1025.0,1448 V1455" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1412.0,209 V578" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M1168,229 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,287 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,345 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,403 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,461 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,461 V468" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,461 V468" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,461 V468" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,519 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,519 V526" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,519 V526" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,519 V526" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,577 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,577 V584" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,577 V584" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,577 V584" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1412.0,708 V1077" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M1168,728 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,728 V735" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,728 V735" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,728 V735" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,786 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,786 V793" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,786 V793" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,786 V793" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,844 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,844 V851" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,844 V851" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,844 V851" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,902 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,902 V909" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,902 V909" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,902 V909" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,960 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,960 V967" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,960 V967" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,960 V967" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,1018 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,1018 V1025" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,1018 V1025" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,1018 V1025" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,1076 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,1076 V1083" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,1076 V1083" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1412.0,1207 V1228" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M1168,1227 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,1227 V1234" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,1227 V1234" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,1227 V1234" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1412.0,1358 V1669" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M1168,1378 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,1378 V1385" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,1378 V1385" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,1378 V1385" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,1436 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,1436 V1443" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,1436 V1443" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,1436 V1443" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,1494 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,1494 V1501" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,1494 V1501" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,1494 V1501" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,1552 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,1552 V1559" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,1552 V1559" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,1552 V1559" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,1610 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,1610 V1617" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,1610 V1617" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1577.0,1610 V1617" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1168,1668 H1656" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1239.0,1668 V1675" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1408.0,1668 V1675" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1964.0,209 V520" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M1720,229 H2208" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1791.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1960.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2129.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1720,287 H2208" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1791.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1960.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2129.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1720,345 H2208" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1791.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1960.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2129.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1720,403 H2208" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1791.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1960.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2129.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1720,461 H2208" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1791.0,461 V468" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1960.0,461 V468" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2129.0,461 V468" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1720,519 H2208" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1791.0,519 V526" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1960.0,519 V526" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1964.0,650 V671" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M1720,670 H2208" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1791.0,670 V677" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1960.0,670 V677" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1964.0,801 V822" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M1720,821 H2208" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1791.0,821 V828" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M1960.0,821 V828" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2129.0,821 V828" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2516.0,209 V694" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M2272,229 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,229 V236" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,287 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,287 V294" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,345 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,345 V352" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,403 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,403 V410" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,461 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,461 V468" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,461 V468" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,461 V468" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,519 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,519 V526" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,519 V526" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,519 V526" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,577 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,577 V584" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,577 V584" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,577 V584" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,635 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,635 V642" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,635 V642" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,635 V642" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,693 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,693 V700" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2516.0,824 V1135" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M2272,844 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,844 V851" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,844 V851" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,844 V851" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,902 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,902 V909" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,902 V909" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,902 V909" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,960 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,960 V967" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,960 V967" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,960 V967" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,1018 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1018 V1025" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1018 V1025" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,1018 V1025" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,1076 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1076 V1083" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1076 V1083" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,1076 V1083" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,1134 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1134 V1141" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2516.0,1265 V1402" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M2272,1285 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1285 V1292" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1285 V1292" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,1285 V1292" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,1343 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1343 V1350" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1343 V1350" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,1343 V1350" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,1401 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1401 V1408" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1401 V1408" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,1401 V1408" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2516.0,1532 V1785" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M2272,1552 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1552 V1559" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1552 V1559" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,1552 V1559" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,1610 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1610 V1617" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1610 V1617" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,1610 V1617" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,1668 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1668 V1675" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1668 V1675" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,1668 V1675" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,1726 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1726 V1733" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1726 V1733" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2681.0,1726 V1733" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2272,1784 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1784 V1791" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1784 V1791" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2516.0,1915 V1936" fill="none" stroke="#AAB8C8" stroke-width="1.1"/>
+<path d="M2272,1935 H2760" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2343.0,1935 V1942" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<path d="M2512.0,1935 V1942" fill="none" stroke="#AAB8C8" stroke-width="1.0"/>
+<rect x="213.0" y="165" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="308.0" y="193" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">USERS</text>
+<ellipse cx="135.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="135.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="135.0" y="259" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="304.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="304.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">name</text>
+<ellipse cx="473.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="473.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">email</text>
+<ellipse cx="135.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="135.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">phone</text>
+<ellipse cx="304.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="304.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">email_verified_at</text>
+<ellipse cx="473.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="473.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">password</text>
+<ellipse cx="135.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="135.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">role</text>
+<ellipse cx="304.0" cy="364.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="304.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">partner_id</text>
+<text x="304.0" y="375" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="473.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="473.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">remember_token</text>
+<ellipse cx="135.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="135.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="304.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="304.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<ellipse cx="473.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="473.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">auth_user_id</text>
+<rect x="213.0" y="490" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="308.0" y="518" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">PARTNERS</text>
+<ellipse cx="135.0" cy="573.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="135.0" y="569" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="135.0" y="584" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="304.0" cy="573.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="304.0" y="569" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">slug</text>
+<ellipse cx="473.0" cy="573.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="473.0" y="569" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">name</text>
+<ellipse cx="135.0" cy="631.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="135.0" y="627" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">service_type</text>
+<ellipse cx="304.0" cy="631.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="304.0" y="627" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">status</text>
+<ellipse cx="473.0" cy="631.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="473.0" y="627" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="135.0" cy="689.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="135.0" y="685" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="765.0" y="165" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="860.0" y="193" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">USER_PROFILES</text>
+<ellipse cx="687.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">user_id</text>
+<text x="687.0" y="259" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK/FK</text>
+<ellipse cx="856.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">photo_url</text>
+<ellipse cx="1025.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1025.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="687.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="765.0" y="374" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="860.0" y="402" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">TRAVEL_PREFERENCES</text>
+<ellipse cx="687.0" cy="457.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="453" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">user_id</text>
+<text x="687.0" y="468" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK/FK</text>
+<ellipse cx="856.0" cy="457.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="453" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">budget_level</text>
+<ellipse cx="1025.0" cy="457.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1025.0" y="453" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">travel_pace</text>
+<ellipse cx="687.0" cy="515.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="511" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">trip_duration_days</text>
+<ellipse cx="856.0" cy="515.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="511" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">travelers</text>
+<ellipse cx="1025.0" cy="515.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1025.0" y="511" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">interests</text>
+<ellipse cx="687.0" cy="573.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="569" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">preferred_destination</text>
+<ellipse cx="856.0" cy="573.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="569" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="765.0" y="641" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="860.0" y="669" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">API_TOKENS</text>
+<ellipse cx="687.0" cy="724.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="720" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="687.0" y="735" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="856.0" cy="724.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="720" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">user_id</text>
+<text x="856.0" y="735" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="1025.0" cy="724.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1025.0" y="720" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">token_hash</text>
+<ellipse cx="687.0" cy="782.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="778" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">expires_at</text>
+<ellipse cx="856.0" cy="782.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="778" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<rect x="765.0" y="850" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="860.0" y="878" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">PASSWORD_RESET_CODES</text>
+<ellipse cx="687.0" cy="933.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="929" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">email</text>
+<text x="687.0" y="944" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="856.0" cy="933.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="929" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">code_hash</text>
+<ellipse cx="1025.0" cy="933.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1025.0" y="929" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="687.0" cy="991.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="987" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">expires_at</text>
+<ellipse cx="856.0" cy="991.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="987" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">attempts</text>
+<rect x="765.0" y="1059" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="860.0" y="1087" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">USER_REVIEWS</text>
+<ellipse cx="687.0" cy="1142.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="1138" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="687.0" y="1153" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="856.0" cy="1142.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="1138" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">user_id</text>
+<text x="856.0" y="1153" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="1025.0" cy="1142.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1025.0" y="1138" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">item_id</text>
+<ellipse cx="687.0" cy="1200.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="1196" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">item_type</text>
+<ellipse cx="856.0" cy="1200.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="1196" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">rating</text>
+<ellipse cx="1025.0" cy="1200.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1025.0" y="1196" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">comment</text>
+<ellipse cx="687.0" cy="1258.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="1254" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="856.0" cy="1258.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="1254" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="765.0" y="1326" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="860.0" y="1354" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">AI_CHAT_MESSAGES</text>
+<ellipse cx="687.0" cy="1409.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="1405" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="687.0" y="1420" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="856.0" cy="1409.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="1405" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">user_id</text>
+<text x="856.0" y="1420" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="1025.0" cy="1409.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1025.0" y="1405" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">session_id</text>
+<ellipse cx="687.0" cy="1467.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="687.0" y="1463" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">role</text>
+<ellipse cx="856.0" cy="1467.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="856.0" y="1463" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">content</text>
+<ellipse cx="1025.0" cy="1467.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1025.0" y="1463" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<rect x="1317.0" y="165" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="1412.0" y="193" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">PARTNER_LISTINGS</text>
+<ellipse cx="1239.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="1239.0" y="259" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="1408.0" cy="248.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">partner_id</text>
+<text x="1408.0" y="259" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="1577.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">type</text>
+<ellipse cx="1239.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">title</text>
+<ellipse cx="1408.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">city</text>
+<ellipse cx="1577.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">country</text>
+<ellipse cx="1239.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">description</text>
+<ellipse cx="1408.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">image_url</text>
+<ellipse cx="1577.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">price</text>
+<ellipse cx="1239.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">active</text>
+<ellipse cx="1408.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">attributes</text>
+<ellipse cx="1577.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">location_name</text>
+<ellipse cx="1239.0" cy="480.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="476" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">google_maps_url</text>
+<ellipse cx="1408.0" cy="480.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="476" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">place_id</text>
+<ellipse cx="1577.0" cy="480.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="476" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">google_rating</text>
+<ellipse cx="1239.0" cy="538.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="534" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">google_review_count</text>
+<ellipse cx="1408.0" cy="538.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="534" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">amenities</text>
+<ellipse cx="1577.0" cy="538.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="534" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">tax_and_fees_percentage</text>
+<ellipse cx="1239.0" cy="596.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="592" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">available_rooms</text>
+<ellipse cx="1408.0" cy="596.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="592" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="1577.0" cy="596.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="592" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="1317.0" y="664" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="1412.0" y="692" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">OFFERS</text>
+<ellipse cx="1239.0" cy="747.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="743" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="1239.0" y="758" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="1408.0" cy="747.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="743" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">title</text>
+<ellipse cx="1577.0" cy="747.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="743" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">location</text>
+<ellipse cx="1239.0" cy="805.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="801" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">country</text>
+<ellipse cx="1408.0" cy="805.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="801" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">destination_code</text>
+<ellipse cx="1577.0" cy="805.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="801" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">description</text>
+<ellipse cx="1239.0" cy="863.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="859" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">image_url</text>
+<ellipse cx="1408.0" cy="863.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="859" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">price_per_person</text>
+<ellipse cx="1577.0" cy="863.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="859" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">flight_price_per_person</text>
+<ellipse cx="1239.0" cy="921.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="917" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">hotel_price_per_night</text>
+<ellipse cx="1408.0" cy="921.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="917" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">duration_nights</text>
+<ellipse cx="1577.0" cy="921.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="917" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">rating</text>
+<ellipse cx="1239.0" cy="979.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="975" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">review_count</text>
+<ellipse cx="1408.0" cy="979.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="975" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">highlights</text>
+<ellipse cx="1577.0" cy="979.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="975" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">is_featured</text>
+<ellipse cx="1239.0" cy="1037.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="1033" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">category</text>
+<ellipse cx="1408.0" cy="1037.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="1033" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">is_active</text>
+<ellipse cx="1577.0" cy="1037.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="1033" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">sort_order</text>
+<ellipse cx="1239.0" cy="1095.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="1091" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="1408.0" cy="1095.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="1091" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="1317.0" y="1163" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="1412.0" y="1191" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">OFFER_CATALOG_METADATA</text>
+<ellipse cx="1239.0" cy="1246.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="1242" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">offer_id</text>
+<text x="1239.0" y="1257" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK/FK</text>
+<ellipse cx="1408.0" cy="1246.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="1242" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">badge</text>
+<ellipse cx="1577.0" cy="1246.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="1242" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="1317.0" y="1314" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="1412.0" y="1342" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">AIRPORTS</text>
+<ellipse cx="1239.0" cy="1397.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="1393" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">code</text>
+<text x="1239.0" y="1408" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="1408.0" cy="1397.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="1393" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">city</text>
+<ellipse cx="1577.0" cy="1397.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="1393" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">airport_name</text>
+<ellipse cx="1239.0" cy="1455.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="1451" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">country</text>
+<ellipse cx="1408.0" cy="1455.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="1451" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">region</text>
+<ellipse cx="1577.0" cy="1455.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="1451" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">icao_code</text>
+<ellipse cx="1239.0" cy="1513.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="1509" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">latitude</text>
+<ellipse cx="1408.0" cy="1513.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="1509" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">longitude</text>
+<ellipse cx="1577.0" cy="1513.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="1509" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">airport_type</text>
+<ellipse cx="1239.0" cy="1571.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="1567" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">is_major</text>
+<ellipse cx="1408.0" cy="1571.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="1567" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">scheduled_service</text>
+<ellipse cx="1577.0" cy="1571.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="1567" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">iso_country</text>
+<ellipse cx="1239.0" cy="1629.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="1625" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">keywords</text>
+<ellipse cx="1408.0" cy="1629.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="1625" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">wikipedia_link</text>
+<ellipse cx="1577.0" cy="1629.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1577.0" y="1625" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">source_id</text>
+<ellipse cx="1239.0" cy="1687.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1239.0" y="1683" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">source_provider</text>
+<ellipse cx="1408.0" cy="1687.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1408.0" y="1683" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="1869.0" y="165" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="1964.0" y="193" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">TOURIST_MONUMENTS</text>
+<ellipse cx="1791.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="1791.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="1791.0" y="259" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="1960.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1960.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">title</text>
+<ellipse cx="2129.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2129.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">location</text>
+<ellipse cx="1791.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1791.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">category_tag</text>
+<ellipse cx="1960.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1960.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">category</text>
+<ellipse cx="2129.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2129.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">rating</text>
+<ellipse cx="1791.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1791.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">review_count</text>
+<ellipse cx="1960.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1960.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">description</text>
+<ellipse cx="2129.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2129.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">working_hours</text>
+<ellipse cx="1791.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1791.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">best_time_to_visit</text>
+<ellipse cx="1960.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1960.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">entry_fee</text>
+<ellipse cx="2129.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2129.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">image_url</text>
+<ellipse cx="1791.0" cy="480.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1791.0" y="476" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">tags</text>
+<ellipse cx="1960.0" cy="480.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1960.0" y="476" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">is_active</text>
+<ellipse cx="2129.0" cy="480.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2129.0" y="476" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">sort_order</text>
+<ellipse cx="1791.0" cy="538.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1791.0" y="534" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="1960.0" cy="538.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1960.0" y="534" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="1869.0" y="606" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="1964.0" y="634" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">ATTRACTION_VISIT_COUNTS</text>
+<ellipse cx="1791.0" cy="689.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="1791.0" y="685" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">attraction_id</text>
+<text x="1791.0" y="700" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK/FK</text>
+<ellipse cx="1960.0" cy="689.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="1960.0" y="685" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">visit_count</text>
+<rect x="1869.0" y="757" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="1964.0" y="785" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">ATTRACTION_VISIT_DEDUP</text>
+<ellipse cx="1791.0" cy="840.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="1791.0" y="836" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">attraction_id</text>
+<text x="1791.0" y="851" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK/FK</text>
+<ellipse cx="1960.0" cy="840.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="1960.0" y="836" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">visitor_hash</text>
+<text x="1960.0" y="851" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="2129.0" cy="840.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2129.0" y="836" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">counted_at</text>
+<rect x="2421.0" y="165" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="2516.0" y="193" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">TRIPS</text>
+<ellipse cx="2343.0" cy="248.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="2343.0" y="259" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="2512.0" cy="248.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">user_id</text>
+<text x="2512.0" y="259" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2681.0" cy="248.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="244" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">partner_id</text>
+<text x="2681.0" y="259" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2343.0" cy="306.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">partner_listing_id</text>
+<text x="2343.0" y="317" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2512.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">title</text>
+<ellipse cx="2681.0" cy="306.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="302" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">destination</text>
+<ellipse cx="2343.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">start_date</text>
+<ellipse cx="2512.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">end_date</text>
+<ellipse cx="2681.0" cy="364.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="360" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">details</text>
+<ellipse cx="2343.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">origin_code</text>
+<ellipse cx="2512.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">origin_city</text>
+<ellipse cx="2681.0" cy="422.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="418" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">destination_code</text>
+<ellipse cx="2343.0" cy="480.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="476" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">destination_city</text>
+<ellipse cx="2512.0" cy="480.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="476" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">departure_date</text>
+<ellipse cx="2681.0" cy="480.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="476" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">return_date</text>
+<ellipse cx="2343.0" cy="538.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="534" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">flight_number</text>
+<ellipse cx="2512.0" cy="538.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="534" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">airline</text>
+<ellipse cx="2681.0" cy="538.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="534" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">airline_logo_url</text>
+<ellipse cx="2343.0" cy="596.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="592" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">is_direct</text>
+<ellipse cx="2512.0" cy="596.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="592" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">seat_class</text>
+<ellipse cx="2681.0" cy="596.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="592" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">price</text>
+<ellipse cx="2343.0" cy="654.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="650" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">booking_ref</text>
+<ellipse cx="2512.0" cy="654.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="650" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">status</text>
+<ellipse cx="2681.0" cy="654.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="650" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="2343.0" cy="712.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="708" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="2421.0" y="780" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="2516.0" y="808" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">BOOKINGS</text>
+<ellipse cx="2343.0" cy="863.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="859" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="2343.0" y="874" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="2512.0" cy="863.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="859" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">user_id</text>
+<text x="2512.0" y="874" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2681.0" cy="863.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="859" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">partner_id</text>
+<text x="2681.0" y="874" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2343.0" cy="921.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="917" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">partner_listing_id</text>
+<text x="2343.0" y="932" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2512.0" cy="921.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="917" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">trip_id</text>
+<text x="2512.0" y="932" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2681.0" cy="921.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="917" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">type</text>
+<ellipse cx="2343.0" cy="979.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="975" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">status</text>
+<ellipse cx="2512.0" cy="979.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="975" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">total_amount</text>
+<ellipse cx="2681.0" cy="979.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="975" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">details</text>
+<ellipse cx="2343.0" cy="1037.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1033" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">title</text>
+<ellipse cx="2512.0" cy="1037.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1033" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">subtitle</text>
+<ellipse cx="2681.0" cy="1037.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="1033" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">date</text>
+<ellipse cx="2343.0" cy="1095.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1091" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">price</text>
+<ellipse cx="2512.0" cy="1095.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1091" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">ref_code</text>
+<ellipse cx="2681.0" cy="1095.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="1091" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="2343.0" cy="1153.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1149" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="2421.0" y="1221" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="2516.0" y="1249" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">FLIGHT_SEAT_HOLDS</text>
+<ellipse cx="2343.0" cy="1304.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1300" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">flight_listing_id</text>
+<text x="2343.0" y="1315" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK/FK</text>
+<ellipse cx="2512.0" cy="1304.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1300" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">seat_number</text>
+<text x="2512.0" y="1315" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="2681.0" cy="1304.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="1300" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">user_id</text>
+<text x="2681.0" y="1315" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2343.0" cy="1362.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1358" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">trip_id</text>
+<text x="2343.0" y="1373" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2512.0" cy="1362.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1358" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">status</text>
+<ellipse cx="2681.0" cy="1362.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="1358" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">booking_ref</text>
+<ellipse cx="2343.0" cy="1420.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1416" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">expires_at</text>
+<ellipse cx="2512.0" cy="1420.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1416" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="2681.0" cy="1420.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="1416" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="2421.0" y="1488" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="2516.0" y="1516" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">TRANSFERS</text>
+<ellipse cx="2343.0" cy="1571.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1567" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">id</text>
+<text x="2343.0" y="1582" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK</text>
+<ellipse cx="2512.0" cy="1571.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1567" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">user_id</text>
+<text x="2512.0" y="1582" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2681.0" cy="1571.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="1567" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">partner_id</text>
+<text x="2681.0" y="1582" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2343.0" cy="1629.0" rx="77.0" ry="22.0" fill="#EFF6FF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1625" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">partner_listing_id</text>
+<text x="2343.0" y="1640" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">FK</text>
+<ellipse cx="2512.0" cy="1629.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1625" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">provider_name</text>
+<ellipse cx="2681.0" cy="1629.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="1625" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">vehicle_type</text>
+<ellipse cx="2343.0" cy="1687.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1683" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">pickup_location</text>
+<ellipse cx="2512.0" cy="1687.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1683" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">dropoff_location</text>
+<ellipse cx="2681.0" cy="1687.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="1683" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">pickup_time</text>
+<ellipse cx="2343.0" cy="1745.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1741" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">price</text>
+<ellipse cx="2512.0" cy="1745.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1741" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">passengers</text>
+<ellipse cx="2681.0" cy="1745.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2681.0" y="1741" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">status</text>
+<ellipse cx="2343.0" cy="1803.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1799" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">created_at</text>
+<ellipse cx="2512.0" cy="1803.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1799" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">updated_at</text>
+<rect x="2421.0" y="1871" width="190" height="44" fill="#FFFFFF" stroke="#203B57" stroke-width="2"/>
+<text x="2516.0" y="1899" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#17324D">TRANSFER_SCHEDULES</text>
+<ellipse cx="2343.0" cy="1954.0" rx="77.0" ry="22.0" fill="#FFF7DE" stroke="#263E58" stroke-width="1.5"/>
+<text x="2343.0" y="1950" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A" text-decoration="underline">transfer_id</text>
+<text x="2343.0" y="1965" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="bold" fill="#52657B">PK/FK</text>
+<ellipse cx="2512.0" cy="1954.0" rx="77.0" ry="22.0" fill="#FFFFFF" stroke="#263E58" stroke-width="1.5"/>
+<text x="2512.0" y="1950" text-anchor="middle" font-family="Consolas,monospace" font-size="11.5" font-weight="normal" fill="#1F344A">duration_minutes</text>
+<rect x="48" y="2028" width="2728" height="72" rx="10" fill="#FFFFFF" stroke="#CBD5E1"/>
+<text x="64" y="2050" text-anchor="start" font-family="Arial,sans-serif" font-size="11" font-weight="normal" fill="#40536B">PK = primary key (underlined) • FK = actual foreign-key column • all 204 live columns are included; data types are in the companion physical ERD.</text>
+<text x="64" y="2071" text-anchor="start" font-family="Arial,sans-serif" font-size="11" font-weight="normal" fill="#40536B">The relationship sheet uses one diamond per live foreign key. No relationship is inferred for users.auth_user_id or user_reviews.item_id.</text>
+<text x="64" y="2092" text-anchor="start" font-family="Arial,sans-serif" font-size="11" font-weight="normal" fill="#40536B">Read-only Supabase public schema snapshot: 20 application tables, 204 columns, 24 foreign keys; flyway_schema_history omitted.</text>
+</svg>

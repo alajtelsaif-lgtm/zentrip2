@@ -1,0 +1,393 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2356" height="2199" viewBox="0 0 2356 2199">
+<defs><filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#0f172a" flood-opacity=".10"/></filter></defs>
+<rect width="100%" height="100%" fill="#F4F7FB"/>
+<text x="1178.0" y="42" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="bold" fill="#142A43">Zentrip Supabase ERD — Relationships</text>
+<text x="1178.0" y="70" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#5B6B7F">Chen notation • rectangles = entities • ellipses = key fields • diamonds = actual database relationships</text>
+<rect x="50" y="162" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,239 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,239 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,207 V216" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,261 V270" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="188" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="192" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="288" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="292" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">user_id (FK)</text>
+<rect x="70" y="216" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="244" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USERS</text>
+<rect x="920" y="216" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="244" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">AI_CHAT_MESSAGES</text>
+<polygon points="605.0,209 702,239 605.0,269 508,239" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="236" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">SENDS MESSAGE</text>
+<text x="605.0" y="250" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="50" y="324" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,401 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,401 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,369 V378" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,423 V432" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="350" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="354" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="450" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="454" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">user_id (FK)</text>
+<rect x="70" y="378" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="406" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USERS</text>
+<rect x="920" y="378" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="406" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">API_TOKENS</text>
+<polygon points="605.0,371 702,401 605.0,431 508,401" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="398" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">OWNS TOKEN</text>
+<text x="605.0" y="412" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="50" y="486" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,563 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,563 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,531 V540" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,585 V594" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="512" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="516" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="612" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="616" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58" text-decoration="underline">attraction_id (PK/FK)</text>
+<rect x="70" y="540" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="568" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TOURIST_MONUMENTS</text>
+<rect x="920" y="540" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="568" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">ATTRACTION_VISIT_COUNTS</text>
+<polygon points="605.0,533 702,563 605.0,593 508,563" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="560" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">HAS VISIT COUNT</text>
+<text x="605.0" y="574" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : 1</text>
+<rect x="50" y="648" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,725 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,725 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,693 V702" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,747 V756" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="674" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="678" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="774" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="778" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58" text-decoration="underline">attraction_id (PK/FK)</text>
+<rect x="70" y="702" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="730" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TOURIST_MONUMENTS</text>
+<rect x="920" y="702" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="730" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">ATTRACTION_VISIT_DEDUP</text>
+<polygon points="605.0,695 702,725 605.0,755 508,725" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="722" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">DEDUPLICATES VISITS</text>
+<text x="605.0" y="736" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="50" y="810" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,887 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,887 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,855 V864" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,909 V918" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="836" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="840" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="936" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="940" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">partner_id (FK)</text>
+<rect x="70" y="864" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="892" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">PARTNERS</text>
+<rect x="920" y="864" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="892" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">BOOKINGS</text>
+<polygon points="605.0,857 702,887 605.0,917 508,887" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="884" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">HANDLED BY</text>
+<text x="605.0" y="898" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="50" y="972" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,1049 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,1049 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,1017 V1026" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,1071 V1080" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="998" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="1002" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="1098" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="1102" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">partner_listing_id (FK)</text>
+<rect x="70" y="1026" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="1054" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">PARTNER_LISTINGS</text>
+<rect x="920" y="1026" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="1054" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">BOOKINGS</text>
+<polygon points="605.0,1019 702,1049 605.0,1079 508,1049" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="1046" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">USES LISTING</text>
+<text x="605.0" y="1060" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="50" y="1134" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,1211 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,1211 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,1179 V1188" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,1233 V1242" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="1160" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="1164" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="1260" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="1264" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">trip_id (FK)</text>
+<rect x="70" y="1188" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="1216" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRIPS</text>
+<rect x="920" y="1188" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="1216" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">BOOKINGS</text>
+<polygon points="605.0,1181 702,1211 605.0,1241 508,1211" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="1208" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">FOR TRIP</text>
+<text x="605.0" y="1222" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="50" y="1296" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,1373 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,1373 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,1341 V1350" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,1395 V1404" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="1322" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="1326" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="1422" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="1426" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">user_id (FK)</text>
+<rect x="70" y="1350" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="1378" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USERS</text>
+<rect x="920" y="1350" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="1378" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">BOOKINGS</text>
+<polygon points="605.0,1343 702,1373 605.0,1403 508,1373" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="1370" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">PLACES BOOKING</text>
+<text x="605.0" y="1384" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="50" y="1458" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,1535 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,1535 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,1503 V1512" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,1557 V1566" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="1484" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="1488" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="1584" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="1588" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58" text-decoration="underline">flight_listing_id (PK/FK)</text>
+<rect x="70" y="1512" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="1540" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">PARTNER_LISTINGS</text>
+<rect x="920" y="1512" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="1540" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">FLIGHT_SEAT_HOLDS</text>
+<polygon points="605.0,1505 702,1535 605.0,1565 508,1535" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="1532" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">HOLDS SEAT ON</text>
+<text x="605.0" y="1546" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="50" y="1620" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,1697 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,1697 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,1665 V1674" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,1719 V1728" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="1646" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="1650" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="1746" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="1750" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">trip_id (FK)</text>
+<rect x="70" y="1674" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="1702" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRIPS</text>
+<rect x="920" y="1674" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="1702" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">FLIGHT_SEAT_HOLDS</text>
+<polygon points="605.0,1667 702,1697 605.0,1727 508,1697" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="1694" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">FOR TRIP</text>
+<text x="605.0" y="1708" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="50" y="1782" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,1859 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,1859 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,1827 V1836" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,1881 V1890" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="1808" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="1812" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="1908" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="1912" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">user_id (FK)</text>
+<rect x="70" y="1836" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="1864" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USERS</text>
+<rect x="920" y="1836" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="1864" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">FLIGHT_SEAT_HOLDS</text>
+<polygon points="605.0,1829 702,1859 605.0,1889 508,1859" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="1856" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">USER HOLDS SEAT</text>
+<text x="605.0" y="1870" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="50" y="1944" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M290,2021 H508" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M702,2021 H920" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M180.0,1989 V1998" stroke="#263E58" stroke-width="1.2"/>
+<path d="M1030.0,2043 V2052" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="180.0" cy="1970" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="180.0" y="1974" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="1030.0" cy="2070" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="1030.0" y="2074" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58" text-decoration="underline">offer_id (PK/FK)</text>
+<rect x="70" y="1998" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="180.0" y="2026" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">OFFERS</text>
+<rect x="920" y="1998" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1030.0" y="2026" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">OFFER_CATALOG_METADATA</text>
+<polygon points="605.0,1991 702,2021 605.0,2051 508,2021" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="605.0" y="2018" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">HAS METADATA</text>
+<text x="605.0" y="2032" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : 1</text>
+<rect x="1196" y="162" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,239 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,239 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,207 V216" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,261 V270" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="188" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="192" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="288" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="292" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">partner_id (FK)</text>
+<rect x="1216" y="216" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="244" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">PARTNERS</text>
+<rect x="2066" y="216" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="244" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">PARTNER_LISTINGS</text>
+<polygon points="1751.0,209 1848,239 1751.0,269 1654,239" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="236" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">OFFERS LISTING</text>
+<text x="1751.0" y="250" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="1196" y="324" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,401 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,401 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,369 V378" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,423 V432" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="350" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="354" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="450" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="454" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58" text-decoration="underline">transfer_id (PK/FK)</text>
+<rect x="1216" y="378" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="406" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRANSFERS</text>
+<rect x="2066" y="378" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="406" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRANSFER_SCHEDULES</text>
+<polygon points="1751.0,371 1848,401 1751.0,431 1654,401" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="398" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">HAS SCHEDULE</text>
+<text x="1751.0" y="412" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : 1</text>
+<rect x="1196" y="486" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,563 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,563 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,531 V540" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,585 V594" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="512" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="516" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="612" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="616" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">partner_id (FK)</text>
+<rect x="1216" y="540" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="568" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">PARTNERS</text>
+<rect x="2066" y="540" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="568" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRANSFERS</text>
+<polygon points="1751.0,533 1848,563 1751.0,593 1654,563" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="560" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">PROVIDED BY</text>
+<text x="1751.0" y="574" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="1196" y="648" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,725 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,725 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,693 V702" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,747 V756" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="674" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="678" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="774" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="778" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">partner_listing_id (FK)</text>
+<rect x="1216" y="702" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="730" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">PARTNER_LISTINGS</text>
+<rect x="2066" y="702" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="730" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRANSFERS</text>
+<polygon points="1751.0,695 1848,725 1751.0,755 1654,725" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="722" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">USES LISTING</text>
+<text x="1751.0" y="736" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="1196" y="810" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,887 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,887 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,855 V864" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,909 V918" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="836" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="840" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="936" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="940" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">user_id (FK)</text>
+<rect x="1216" y="864" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="892" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USERS</text>
+<rect x="2066" y="864" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="892" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRANSFERS</text>
+<polygon points="1751.0,857 1848,887 1751.0,917 1654,887" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="884" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">REQUESTS TRANSFER</text>
+<text x="1751.0" y="898" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="1196" y="972" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,1049 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,1049 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,1017 V1026" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,1071 V1080" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="998" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="1002" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="1098" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="1102" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58" text-decoration="underline">user_id (PK/FK)</text>
+<rect x="1216" y="1026" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="1054" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USERS</text>
+<rect x="2066" y="1026" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="1054" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRAVEL_PREFERENCES</text>
+<polygon points="1751.0,1019 1848,1049 1751.0,1079 1654,1049" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="1046" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">HAS PREFERENCES</text>
+<text x="1751.0" y="1060" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : 1</text>
+<rect x="1196" y="1134" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,1211 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,1211 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,1179 V1188" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,1233 V1242" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="1160" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="1164" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="1260" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="1264" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">partner_id (FK)</text>
+<rect x="1216" y="1188" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="1216" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">PARTNERS</text>
+<rect x="2066" y="1188" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="1216" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRIPS</text>
+<polygon points="1751.0,1181 1848,1211 1751.0,1241 1654,1211" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="1208" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">PARTNER MANAGES</text>
+<text x="1751.0" y="1222" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="1196" y="1296" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,1373 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,1373 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,1341 V1350" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,1395 V1404" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="1322" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="1326" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="1422" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="1426" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">partner_listing_id (FK)</text>
+<rect x="1216" y="1350" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="1378" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">PARTNER_LISTINGS</text>
+<rect x="2066" y="1350" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="1378" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRIPS</text>
+<polygon points="1751.0,1343 1848,1373 1751.0,1403 1654,1373" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="1370" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">LINKED LISTING</text>
+<text x="1751.0" y="1384" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="1196" y="1458" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,1535 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,1535 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,1503 V1512" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,1557 V1566" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="1484" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="1488" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="1584" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="1588" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">user_id (FK)</text>
+<rect x="1216" y="1512" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="1540" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USERS</text>
+<rect x="2066" y="1512" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="1540" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">TRIPS</text>
+<polygon points="1751.0,1505 1848,1535 1751.0,1565 1654,1535" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="1532" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">OWNS TRIP</text>
+<text x="1751.0" y="1546" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="1196" y="1620" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,1697 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,1697 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,1665 V1674" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,1719 V1728" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="1646" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="1650" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="1746" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="1750" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58" text-decoration="underline">user_id (PK/FK)</text>
+<rect x="1216" y="1674" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="1702" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USERS</text>
+<rect x="2066" y="1674" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="1702" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USER_PROFILES</text>
+<polygon points="1751.0,1667 1848,1697 1751.0,1727 1654,1697" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="1694" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">HAS PROFILE</text>
+<text x="1751.0" y="1708" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : 1</text>
+<rect x="1196" y="1782" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,1859 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,1859 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,1827 V1836" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,1881 V1890" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="1808" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="1812" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="1908" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="1912" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">user_id (FK)</text>
+<rect x="1216" y="1836" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="1864" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USERS</text>
+<rect x="2066" y="1836" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="1864" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USER_REVIEWS</text>
+<polygon points="1751.0,1829 1848,1859 1751.0,1889 1654,1859" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="1856" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">WRITES REVIEW</text>
+<text x="1751.0" y="1870" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="1196" y="1944" width="1110" height="150" rx="10" fill="#FFFFFF" stroke="#D4DDE7"/>
+<path d="M1436,2021 H1654" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1848,2021 H2066" stroke="#263E58" stroke-width="1.5" fill="none"/>
+<path d="M1326.0,1989 V1998" stroke="#263E58" stroke-width="1.2"/>
+<path d="M2176.0,2043 V2052" stroke="#263E58" stroke-width="1.2"/>
+<ellipse cx="1326.0" cy="1970" rx="72" ry="17" fill="#FFF7DE" stroke="#263E58" stroke-width="1.2"/>
+<text x="1326.0" y="1974" text-anchor="middle" font-family="Consolas,monospace" font-size="10" font-weight="normal" fill="#263E58" text-decoration="underline">id (PK)</text>
+<ellipse cx="2176.0" cy="2070" rx="82" ry="17" fill="#EFF6FF" stroke="#263E58" stroke-width="1.2"/>
+<text x="2176.0" y="2074" text-anchor="middle" font-family="Consolas,monospace" font-size="9" font-weight="normal" fill="#263E58">partner_id (FK)</text>
+<rect x="1216" y="1998" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="1326.0" y="2026" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">PARTNERS</text>
+<rect x="2066" y="1998" width="220" height="46" fill="#FFFFFF" stroke="#17324D" stroke-width="2"/>
+<text x="2176.0" y="2026" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#17324D">USERS</text>
+<polygon points="1751.0,1991 1848,2021 1751.0,2051 1654,2021" fill="#F5F8FC" stroke="#17324D" stroke-width="2"/>
+<text x="1751.0" y="2018" text-anchor="middle" font-family="Arial,sans-serif" font-size="9.5" font-weight="bold" fill="#17324D">ASSIGNED TO</text>
+<text x="1751.0" y="2032" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="normal" fill="#52657B">1 : N</text>
+<rect x="48" y="2111" width="2260" height="72" rx="10" fill="#FFFFFF" stroke="#CBD5E1"/>
+<text x="64" y="2133" text-anchor="start" font-family="Arial,sans-serif" font-size="11" font-weight="normal" fill="#40536B">Each row represents one enforced Supabase foreign key; the child FK field and referenced parent PK are shown as ovals.</text>
+<text x="64" y="2154" text-anchor="start" font-family="Arial,sans-serif" font-size="11" font-weight="normal" fill="#40536B">1:1 is used when the child foreign key is itself its sole primary key; otherwise the relationship is 1:N. No database changes were made.</text>
+</svg>

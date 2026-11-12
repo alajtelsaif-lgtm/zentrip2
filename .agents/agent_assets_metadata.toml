@@ -364,3 +364,45 @@ mtime_ms = 1794502435922
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/bfbd5389-1608-4e4d-8135-67db9f20acdc/75f1f4e3-722b-4f42-abed-3880c7be2ba6"
 storage_version_token = "1794502555612856"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "7J2KVdFinI3aU5Wbyuwfk"
+uri = "file://outputs/zentrip-supabase-chen-attributes.svg"
+type = "image"
+title = "Chen ERD — all attributes"
+description = "All 204 columns from the live Supabase public schema shown as oval attributes; primary keys are underlined and foreign keys are marked."
+logical_id = "25d85d38-751f-4124-a58d-9f16149054bc"
+content_hash = "sha256:b85ea2e32ca11d0f10f7060215611b9ae58069dadb235af152b0a32f89e93644"
+size = 88630
+mtime_ms = 1794503259376
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/25d85d38-751f-4124-a58d-9f16149054bc/18c49c32-f1c6-4690-a176-547f97b5c682"
+storage_version_token = "1794503342593973"
+content_type = "image/svg+xml"
+
+[[outputs]]
+id = "SnWLGRySMR4cBso3ydH1K"
+uri = "file://outputs/zentrip-supabase-chen-relationships.svg"
+type = "image"
+title = "Chen ERD — relationships"
+description = "All 24 enforced Supabase foreign keys shown with entity rectangles, relationship diamonds, key ovals, and cardinalities."
+logical_id = "49c498f8-9128-46ac-9cd7-501c2e0e27d1"
+content_hash = "sha256:6dd404e96ed0ccc0be12f055c9854ed12dde496797d6b556b13c5885029da5ce"
+size = 44294
+mtime_ms = 1794503259465
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/49c498f8-9128-46ac-9cd7-501c2e0e27d1/dfef5652-db1a-4746-9484-5ecb82bb82ea"
+storage_version_token = "1794503343363327"
+content_type = "image/svg+xml"
+
+[[outputs]]
+id = "QBOE0O-HwgvBrSRvDPfBk"
+uri = "file://outputs/zentrip-supabase-chen-erd.drawio"
+type = "unspecified"
+title = "Editable Chen ERD source"
+description = "Two editable diagrams.net pages: the full attribute view and the relationship map."
+logical_id = "25f43416-1fb3-4202-a407-e98247a56f19"
+content_hash = "sha256:33e965c62a4e5271c471fd666cc22ee34612da32a28229a672c45e360ca21802"
+size = 212202
+mtime_ms = 1794503259475
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/25f43416-1fb3-4202-a407-e98247a56f19/861a0cdc-cdde-4f54-89fe-daea0bfd5c30"
+storage_version_token = "1794503344110577"
+content_type = "application/octet-stream"
