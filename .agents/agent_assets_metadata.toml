@@ -406,3 +406,17 @@ mtime_ms = 1794503259475
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/25f43416-1fb3-4202-a407-e98247a56f19/861a0cdc-cdde-4f54-89fe-daea0bfd5c30"
 storage_version_token = "1794503344110577"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "O-uaAgddQEeqh2ECrwRq8"
+uri = "file://generated-artifacts/Zentrip-MySQL-to-PostgreSQL-Ar.docx"
+type = "word_document"
+title = "تقرير انتقال Zentrip إلى PostgreSQL"
+description = "ملف Word عربي منسق باتجاه RTL يشرح نطاق التغيير والعقبات التقنية والمزايا، مع توضيح ما تم اختباره وما لا تثبته السجلات عن نقل بيانات الإنتاج."
+logical_id = "1a8deff8-fc36-4035-95ea-b41bb4c678d9"
+content_hash = "sha256:c38b6b65ac8774e090c91e2a9ea907bf8db24b404147ddc5cd52673009713e8d"
+size = 16544
+mtime_ms = 1794504179427
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/1a8deff8-fc36-4035-95ea-b41bb4c678d9/e0fef678-98e5-4476-b6c9-1c3910e7ab6d"
+storage_version_token = "1794504228342801"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
