@@ -1036,7 +1036,7 @@ public class OpenTripMapAttractionService implements LandmarkProvider {
                 && normalize(candidate.name()).matches(
                         "^(?:the )?(?:(?:first|second|third|fourth|fifth|sixth|"
                                 + "seventh|eighth|ninth|tenth|\\d+(?:st|nd|rd|th)) )?"
-                                + "battle of\\b.*");
+                                + "(?:battle|action|siege) of\\b.*");
     }
 
     private static String categoryForKinds(String kindsValue) {
@@ -1097,6 +1097,8 @@ public class OpenTripMapAttractionService implements LandmarkProvider {
         for (Map<String, Object> candidate : places) {
             String name = duplicateNameKey(
                     text(candidate.get("name")), safeList(candidate.get("tags")));
+            String siteName = siteNameKey(
+                    text(candidate.get("name")), safeList(candidate.get("tags")));
             double lat = number(candidate.get("latitude")) == null
                     ? 0 : number(candidate.get("latitude"));
             double lon = number(candidate.get("longitude")) == null
@@ -1107,8 +1109,13 @@ public class OpenTripMapAttractionService implements LandmarkProvider {
                 Double existingLongitude = number(existing.get("longitude"));
                 String existingName = duplicateNameKey(
                         text(existing.get("name")), safeList(existing.get("tags")));
-                return existingName.equals(name)
-                        && existingLatitude != null && existingLongitude != null
+                String existingSiteName = siteNameKey(
+                        text(existing.get("name")), safeList(existing.get("tags")));
+                boolean sameNameOrSite = existingName.equals(name)
+                        || (siteName != null && siteName.equals(existingSiteName));
+                return sameNameOrSite
+                        && existingLatitude != null
+                        && existingLongitude != null
                         && distanceMeters(lat, lon,
                                 existingLatitude, existingLongitude) <= 100;
             });
@@ -1177,6 +1184,15 @@ public class OpenTripMapAttractionService implements LandmarkProvider {
                 .map(OpenTripMapAttractionService::text)
                 .anyMatch("bridges"::equals);
         return bridge ? key.replaceFirst("\\s+bridge$", "") : key;
+    }
+
+    private static String siteNameKey(String name, List<?> tags) {
+        String key = duplicateNameKey(name, tags)
+                .replaceFirst("^(?:the|a|an)\\s+", "")
+                .replaceFirst("\\s+(?:museum|visitor center|visitor centre)$", "")
+                .trim();
+        if (key.split("\\s+").length < 2 || GENERIC_NAMES.contains(key)) return null;
+        return key;
     }
 
     private static List<Map<String, Object>> deduplicateSuggestions(

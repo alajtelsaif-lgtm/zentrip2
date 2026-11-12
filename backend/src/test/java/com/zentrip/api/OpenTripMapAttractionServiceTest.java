@@ -134,7 +134,7 @@ class OpenTripMapAttractionServiceTest {
     }
 
     @Test
-    void deduplicatesRedCastleAliasesByWikidataAndWikipediaIdentity() {
+    void deduplicatesRedCastleSiteAliasesButKeepsNearbyLandmarks() {
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder)
                 .ignoreExpectOrder(true)
@@ -159,7 +159,10 @@ class OpenTripMapAttractionServiceTest {
                            "point":{"lat":32.896,"lon":13.181}},
                           {"xid":"W100827834","name":"The Red Castle",
                            "kinds":"historic,fortifications","rate":"3",
-                           "point":{"lat":32.8959846,"lon":13.1805553}}
+                           "point":{"lat":32.8959846,"lon":13.1805553}},
+                          {"xid":"N4400000001","name":"Arch of Marcus Aurelius",
+                           "kinds":"monuments,architecture","rate":"3",
+                           "point":{"lat":32.8962,"lon":13.1812}}
                         ]
                         """, APPLICATION_JSON));
         server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/N1108492326")))
@@ -198,17 +201,30 @@ class OpenTripMapAttractionServiceTest {
                          "wikidata":"Q11283904",
                          "wikipedia":"en:Red_Castle_of_Tripoli"}
                         """, APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/xid/N4400000001")))
+                .andRespond(withSuccess(
+                        """
+                        {"xid":"N4400000001","name":"Arch of Marcus Aurelius",
+                         "kinds":"monuments,architecture","rate":"3",
+                         "point":{"lat":32.8962,"lon":13.1812},
+                         "wikidata":"Q1228785",
+                         "wikipedia":"en:Arch_of_Marcus_Aurelius",
+                         "image":"https://images.example/arch.jpg"}
+                        """, APPLICATION_JSON));
 
         OpenTripMapAttractionService.SearchOutcome result =
                 service("test-key", builder)
                         .searchAttractionsWithStatus("Tripoli", "LY", "en");
 
         assertEquals(2, result.places().size());
-        assertEquals(2, result.droppedByReason().get("duplicate"));
+        assertEquals(3, result.droppedByReason().get("duplicate"));
         assertEquals(1, result.places().stream()
                 .filter(place -> "Q2498401".equals(place.get("wikidata_id")))
                 .count());
-        assertTrue(result.places().stream()
+        assertEquals(1, result.places().stream()
+                .filter(place -> "Q1228785".equals(place.get("wikidata_id")))
+                .count());
+        assertFalse(result.places().stream()
                 .anyMatch(place -> "Q11283904".equals(place.get("wikidata_id"))));
         server.verify();
     }
@@ -384,6 +400,8 @@ class OpenTripMapAttractionServiceTest {
         assertRejected("Second Battle of Tripoli Harbor",
                 "battlefields,historic,historical_places", "event");
         assertRejected("1st Battle of Tripoli Harbor",
+                "battlefields,historic,historical_places", "event");
+        assertRejected("Action of 1 August 1801",
                 "battlefields,historic,historical_places", "event");
         var farAway = candidate("Far Museum", "museums", 42.3, 12.5, "3");
         assertEquals("location", OpenTripMapAttractionService.isRealLandmark(
