@@ -1,33 +1,33 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../routes/app_routes.dart';
 import '../../logic/auth_controller.dart';
 import 'auth_shared.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+  final AuthController? authController;
+
+  const ForgotPasswordScreen({super.key, this.authController});
 
   @override
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final _auth = AuthController();
+  late final AuthController _auth;
   final _emailCtrl = TextEditingController();
   String? _error;
   bool _loading = false;
-  bool _sent = false;
 
-  Timer? _timer;
-  int _cooldown = 0;
+  @override
+  void initState() {
+    super.initState();
+    _auth = widget.authController ?? AuthController();
+  }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _auth.dispose();
+    if (widget.authController == null) _auth.dispose();
     _emailCtrl.dispose();
     super.dispose();
   }
@@ -36,7 +36,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim());
 
   Future<void> _send() async {
-    if (_loading || _cooldown > 0) return;
+    if (_loading) return;
     FocusScope.of(context).unfocus();
     if (!_validEmail(_emailCtrl.text)) {
       setState(() => _error = 'Enter a valid email address');
@@ -50,10 +50,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final success = await _auth.sendResetCode(email: _emailCtrl.text.trim());
 
     if (!mounted) return;
-    setState(() {
-      _loading = false;
-    });
     if (!success) {
+      setState(() => _loading = false);
       final message = _auth.errorMessage;
       if (message != null && message.isNotEmpty) {
         ScaffoldMessenger.of(context)
@@ -63,21 +61,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       return;
     }
 
-    setState(() => _sent = true);
-    _startCooldown();
-  }
-
-  void _startCooldown() {
-    _timer?.cancel();
-    setState(() => _cooldown = 30);
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_cooldown <= 1) {
-        t.cancel();
-        if (mounted) setState(() => _cooldown = 0);
-      } else {
-        if (mounted) setState(() => _cooldown--);
-      }
-    });
+    await Navigator.of(context).pushNamed(
+      AppRoutes.verifyCode,
+      arguments: _emailCtrl.text.trim(),
+    );
+    if (mounted) setState(() => _loading = false);
   }
 
   @override
@@ -85,28 +73,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return AuthScaffold(
       heroFraction: 0.40,
       signIcon: Icons.lock_reset_rounded,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        switchInCurve: Curves.easeOut,
-        transitionBuilder: (child, anim) => FadeTransition(
-          opacity: anim,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.06),
-              end: Offset.zero,
-            ).animate(anim),
-            child: child,
-          ),
-        ),
-        child: _sent ? _buildSuccess() : _buildForm(),
-      ),
+      child: _buildForm(),
     );
   }
 
-  // ── الحالة الأولى: إدخال البريد ──
   Widget _buildForm() {
     return Column(
-      key: const ValueKey('form'),
       children: [
         const AuthTitle(
           line1: 'Forgot Your Password?',
@@ -131,76 +103,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         const SizedBox(height: 18),
         AuthFooterLink(
           text: 'Remembered it?',
-          link: 'Back to login',
-          onTap: () => Navigator.of(context).maybePop(),
-        ),
-      ],
-    );
-  }
-
-  // ── الحالة الثانية: تم الإرسال ──
-  Widget _buildSuccess() {
-    return Column(
-      key: const ValueKey('success'),
-      children: [
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.6, end: 1),
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.elasticOut,
-          builder: (_, v, child) => Transform.scale(scale: v, child: child),
-          child: Container(
-            width: 84,
-            height: 84,
-            decoration: BoxDecoration(
-              color: AppColors.navy.withValues(alpha: 0.08),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.mark_email_read_outlined,
-                size: 40, color: AppColors.navy),
-          ),
-        ),
-        const SizedBox(height: 18),
-        const AuthTitle(line1: 'Check Your', line2: 'Email'),
-        const SizedBox(height: 10),
-        Text.rich(
-          TextSpan(
-            text: "We've sent a reset code to\n",
-            style: GoogleFonts.poppins(
-                fontSize: 12.5, color: AppColors.hint, height: 1.6),
-            children: [
-              TextSpan(
-                text: _emailCtrl.text.trim(),
-                style: GoogleFonts.poppins(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.text),
-              ),
-            ],
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 26),
-        AuthButton(
-          label: 'Enter Verification Code',
-          onTap: () => Navigator.of(context).pushNamed(
-            AppRoutes.verifyCode,
-            arguments: _emailCtrl.text.trim(),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _cooldown > 0
-            ? Text(
-                'Resend code in 0:${_cooldown.toString().padLeft(2, '0')}',
-                style: GoogleFonts.poppins(fontSize: 12, color: AppColors.hint),
-              )
-            : AuthFooterLink(
-                text: "Didn't get the email?",
-                link: 'Resend',
-                onTap: _send,
-              ),
-        const SizedBox(height: 8),
-        AuthFooterLink(
-          text: 'Want to try another account?',
           link: 'Back to login',
           onTap: () => Navigator.of(context).maybePop(),
         ),

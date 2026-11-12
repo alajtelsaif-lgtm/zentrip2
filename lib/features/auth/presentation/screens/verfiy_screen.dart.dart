@@ -9,15 +9,16 @@ import 'auth_shared.dart';
 
 class VerifyScreen extends StatefulWidget {
   final String email;
+  final AuthController? authController;
 
-  const VerifyScreen({super.key, required this.email});
+  const VerifyScreen({super.key, required this.email, this.authController});
 
   @override
   State<VerifyScreen> createState() => _VerifyScreenState();
 }
 
 class _VerifyScreenState extends State<VerifyScreen> {
-  final _auth = AuthController();
+  late final AuthController _auth;
   final _codeCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
@@ -29,12 +30,20 @@ class _VerifyScreenState extends State<VerifyScreen> {
   bool _obscureConfirm = true;
 
   Timer? _timer;
+  Timer? _redirectTimer;
   int _cooldown = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _auth = widget.authController ?? AuthController();
+  }
 
   @override
   void dispose() {
     _timer?.cancel();
-    _auth.dispose();
+    _redirectTimer?.cancel();
+    if (widget.authController == null) _auth.dispose();
     _codeCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
@@ -53,7 +62,8 @@ class _VerifyScreenState extends State<VerifyScreen> {
       _error = null;
       _loading = true;
     });
-    final success = await _auth.verifyResetCode(email: widget.email, code: code);
+    final success =
+        await _auth.verifyResetCode(email: widget.email, code: code);
     if (!mounted) return;
     setState(() => _loading = false);
     if (success) {
@@ -65,6 +75,10 @@ class _VerifyScreenState extends State<VerifyScreen> {
 
   Future<void> _resetPassword() async {
     FocusScope.of(context).unfocus();
+    if (_passwordCtrl.text.isEmpty || _confirmCtrl.text.isEmpty) {
+      setState(() => _error = 'Enter and confirm your new password');
+      return;
+    }
     if (_passwordCtrl.text.length < 8) {
       setState(() => _error = 'Use at least 8 characters');
       return;
@@ -87,9 +101,20 @@ class _VerifyScreenState extends State<VerifyScreen> {
     setState(() => _loading = false);
     if (success) {
       setState(() => _resetDone = true);
+      _redirectTimer?.cancel();
+      _redirectTimer = Timer(const Duration(seconds: 2), _goToLogin);
     } else {
       _showError(_auth.errorMessage);
     }
+  }
+
+  void _goToLogin() {
+    if (!mounted) return;
+    _redirectTimer?.cancel();
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.auth,
+      (route) => false,
+    );
   }
 
   Future<void> _resendCode() async {
@@ -287,10 +312,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
         const SizedBox(height: 26),
         AuthButton(
           label: 'Back to Login',
-          onTap: () => Navigator.of(context).pushNamedAndRemoveUntil(
-            AppRoutes.auth,
-            (route) => false,
-          ),
+          onTap: _goToLogin,
         ),
       ],
     );
