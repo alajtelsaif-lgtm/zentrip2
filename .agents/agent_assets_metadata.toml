@@ -476,3 +476,45 @@ mtime_ms = 1794506709451
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/e9304888-cddd-4559-99ae-ae1b06464e97/44e8fd9d-b77d-4f2a-b4eb-c58016d1fd5a"
 storage_version_token = "1794507080848460"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "qCtTeX_cO0BXmAIDiHSL2"
+uri = "file://generated-artifacts/zentrip-app-screenshots/Zentrip-Screenshots.pdf"
+type = "pdf"
+title = "Zentrip App Screenshots — 32 Screens"
+description = "A 33-page PDF with a cover and 32 mobile screen captures. Uses synthetic sample data; backend-dependent screens may show their isolated empty or error state."
+logical_id = "13bb4d33-1b03-48aa-931f-abe5f5170586"
+content_hash = "sha256:e241ce7007fa7e315c83bb5ea5e9e478559508e628c32af37ccfcf0db64943fc"
+size = 1127283
+mtime_ms = 1794509510914
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/13bb4d33-1b03-48aa-931f-abe5f5170586/c0030ce3-0237-4cb8-be93-bbb9ad333288"
+storage_version_token = "1794509709700912"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "Z5g5DhB8xNxjDoNPWSSkP"
+uri = "file://generated-artifacts/zentrip-app-screenshots/gallery.html"
+type = "html"
+title = "Browse the Zentrip Screenshot Gallery"
+description = "A self-contained HTML gallery of all 32 mobile captures, with one screen per page. Sample data only."
+logical_id = "d7a2b5c6-c31f-4ad3-ad4f-761c0eec17c7"
+content_hash = "sha256:655e47f3661b56e4c42165032d62f4e52378994fdc252074248445d97a917fc6"
+size = 1371795
+mtime_ms = 1794509506626
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/d7a2b5c6-c31f-4ad3-ad4f-761c0eec17c7/c7b4027e-790c-416c-8688-6bd8d7cb5a1e"
+storage_version_token = "1794509710320268"
+content_type = "text/html"
+
+[[outputs]]
+id = "vFES0eoWYVH7EaU5AdG6G"
+uri = "file://generated-artifacts/zentrip-app-screenshots/contact-sheet.jpg"
+type = "image"
+title = "Zentrip Screens — Overview Sheet"
+description = "A quick visual overview of the 32 captured screens; use the PDF for readable full-size views."
+logical_id = "a4235e3b-8bcd-49ff-a63b-66dc178e30d6"
+content_hash = "sha256:b26ad7798a26369d9fb80e3cbfea5df903059c963cb02bce0e73ba5336ba6320"
+size = 220755
+mtime_ms = 1794509506354
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/a4235e3b-8bcd-49ff-a63b-66dc178e30d6/b203934a-414a-45f1-bc20-3e12c20c5097"
+storage_version_token = "1794509710896455"
+content_type = "image/jpeg"
