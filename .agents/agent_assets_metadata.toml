@@ -322,3 +322,17 @@ mtime_ms = 1794423306165
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/aeded4bd-ace6-4157-bbf5-f959c288a813/46d78779-58c8-4742-ba1a-0f5fa5cf1f5e"
 storage_version_token = "1794423388630916"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "MrnNvp7mAU6BLDu9_xvEH"
+uri = "file://outputs/zentrip-landmark-data-quality-ar.docx"
+type = "word_document"
+title = "معالجة تكرار بيانات المعالم السياحية"
+description = "ملف Word عربي منسق يشرح المشكلة وآلية المعالجة والتحقق والحدود."
+logical_id = "325d6c73-2774-4620-afcd-7231113a933c"
+content_hash = "sha256:44e302215826bfb89108bc9aef71a70552e59c6799e43f11f6658f7110544e4b"
+size = 4141
+mtime_ms = 1794500024651
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/325d6c73-2774-4620-afcd-7231113a933c/ee955c72-c76a-443c-8217-f7c225a817f1"
+storage_version_token = "1794500035072997"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
