@@ -336,3 +336,31 @@ mtime_ms = 1794500024651
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/325d6c73-2774-4620-afcd-7231113a933c/ee955c72-c76a-443c-8217-f7c225a817f1"
 storage_version_token = "1794500035072997"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "9niMi5zLXZP-DELhKB-FV"
+uri = "file://outputs/zentrip-supabase-erd.svg"
+type = "image"
+title = "Zentrip Supabase ERD"
+description = "Live Supabase public schema diagram; aligned groups, field types, primary keys, foreign-key targets, and nullable fields."
+logical_id = "08d75241-5449-410b-81de-5d76244696a2"
+content_hash = "sha256:7219b7dd5ccb6c6ac9c06e67e81c5402e59511d3ee1717bc81336fabd1151627"
+size = 63208
+mtime_ms = 1794502435916
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/08d75241-5449-410b-81de-5d76244696a2/6b4a7f20-0944-4d42-8488-b74b7569b7ad"
+storage_version_token = "1794502555009094"
+content_type = "image/svg+xml"
+
+[[outputs]]
+id = "Zj9NyqRjIQ3MRf-ezfjxR"
+uri = "file://outputs/zentrip-supabase-erd.drawio"
+type = "unspecified"
+title = "Editable Zentrip ERD source"
+description = "Editable diagrams.net source with all 24 foreign-key connectors."
+logical_id = "bfbd5389-1608-4e4d-8135-67db9f20acdc"
+content_hash = "sha256:b19d63a75906c784ba1905fddf157d29d2e3e799c4412bb5c59330cf484e935d"
+size = 77472
+mtime_ms = 1794502435922
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/bfbd5389-1608-4e4d-8135-67db9f20acdc/75f1f4e3-722b-4f42-abed-3880c7be2ba6"
+storage_version_token = "1794502555612856"
+content_type = "application/octet-stream"

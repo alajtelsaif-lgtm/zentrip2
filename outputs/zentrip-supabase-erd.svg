@@ -1,0 +1,615 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2476" height="2282" viewBox="0 0 2476 2282">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#F5F8FC"/><stop offset="1" stop-color="#EAF0F7"/></linearGradient>
+ <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity=".10"/></filter>
+</defs>
+<rect width="100%" height="100%" fill="url(#bg)"/>
+<text x="1238.0" y="48" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" font-weight="700" fill="#10243E">Zentrip — Supabase ERD</text>
+<text x="1238.0" y="78" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" fill="#526277">Live public schema snapshot • 20 application tables • 204 columns • 24 foreign keys • read-only inspection</text>
+<text x="1238.0" y="103" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" fill="#66758A">Foreign-key rows name their referenced table and column; full connectors are in the editable .drawio source.</text>
+
+<rect x="54" y="132" width="440" height="34" rx="10" fill="#1D4ED8"/>
+<text x="274.0" y="154" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#FFFFFF">Core identity</text>
+<rect x="536" y="132" width="440" height="34" rx="10" fill="#0F766E"/>
+<text x="756.0" y="154" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#FFFFFF">User data &amp; access</text>
+<rect x="1018" y="132" width="440" height="34" rx="10" fill="#7C3AED"/>
+<text x="1238.0" y="154" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#FFFFFF">Partner &amp; search catalog</text>
+<rect x="1500" y="132" width="440" height="34" rx="10" fill="#C2410C"/>
+<text x="1720.0" y="154" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#FFFFFF">Attractions</text>
+<rect x="1982" y="132" width="440" height="34" rx="10" fill="#334155"/>
+<text x="2202.0" y="154" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#FFFFFF">Trips &amp; transactions</text>
+<g filter="url(#shadow)"><rect x="54" y="182" width="440" height="330" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M63,182 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#1D4ED8"/>
+<text x="68" y="209" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">users</text>
+<text x="481" y="208" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">12 fields</text>
+<rect x="55" y="224" width="438" height="23" fill="#FFF9E8"/>
+<text x="66" y="239" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  bigint</text>
+<rect x="450" y="227" width="36" height="17" rx="5" fill="#1D4ED8"/>
+<text x="468.0" y="239" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="55" y="247" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="262" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">name  varchar(255)</text>
+<rect x="55" y="270" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="285" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">email  varchar(255)</text>
+<rect x="55" y="293" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="308" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">phone  varchar(20)  NULL</text>
+<rect x="55" y="316" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="331" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">email_verified_at  timestamptz  NULL</text>
+<rect x="55" y="339" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="354" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">password  varchar(255)</text>
+<rect x="55" y="362" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="377" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">role  varchar(20)</text>
+<rect x="55" y="385" width="438" height="35" fill="#F0F7FF"/>
+<text x="66" y="400" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">partner_id  bigint  NULL</text>
+<rect x="450" y="388" width="36" height="17" rx="5" fill="#1D4ED8"/>
+<text x="468.0" y="400" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="79" y="415" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.partners.id</text>
+<rect x="55" y="420" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="435" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">remember_token  varchar(100)  NULL</text>
+<rect x="55" y="443" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="458" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="55" y="466" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="481" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<rect x="55" y="489" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="504" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">auth_user_id  uuid  NULL</text>
+<g filter="url(#shadow)"><rect x="54" y="530" width="440" height="203" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M63,530 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#1D4ED8"/>
+<text x="68" y="557" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">partners</text>
+<text x="481" y="556" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">7 fields</text>
+<rect x="55" y="572" width="438" height="23" fill="#FFF9E8"/>
+<text x="66" y="587" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  bigint</text>
+<rect x="450" y="575" width="36" height="17" rx="5" fill="#1D4ED8"/>
+<text x="468.0" y="587" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="55" y="595" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="610" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">slug  varchar(100)</text>
+<rect x="55" y="618" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="633" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">name  varchar(255)</text>
+<rect x="55" y="641" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="656" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">service_type  varchar(30)</text>
+<rect x="55" y="664" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="679" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">status  varchar(20)</text>
+<rect x="55" y="687" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="702" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="55" y="710" width="438" height="23" fill="#FFFFFF"/>
+<text x="66" y="725" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="536" y="182" width="440" height="146" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M545,182 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#0F766E"/>
+<text x="550" y="209" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">user_profiles</text>
+<text x="963" y="208" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">4 fields</text>
+<rect x="537" y="224" width="438" height="35" fill="#F0F7FF"/>
+<text x="548" y="239" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">user_id  bigint</text>
+<rect x="920" y="227" width="48" height="17" rx="5" fill="#0F766E"/>
+<text x="944.0" y="239" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK/FK</text>
+<text x="561" y="254" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.users.id</text>
+<rect x="537" y="259" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="274" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">photo_url  varchar(2048)  NULL</text>
+<rect x="537" y="282" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="297" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="537" y="305" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="320" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="536" y="346" width="440" height="238" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M545,346 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#0F766E"/>
+<text x="550" y="373" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">travel_preferences</text>
+<text x="963" y="372" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">8 fields</text>
+<rect x="537" y="388" width="438" height="35" fill="#F0F7FF"/>
+<text x="548" y="403" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">user_id  bigint</text>
+<rect x="920" y="391" width="48" height="17" rx="5" fill="#0F766E"/>
+<text x="944.0" y="403" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK/FK</text>
+<text x="561" y="418" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.users.id</text>
+<rect x="537" y="423" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="438" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">budget_level  varchar(20)</text>
+<rect x="537" y="446" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="461" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">travel_pace  varchar(20)</text>
+<rect x="537" y="469" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="484" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">trip_duration_days  smallint</text>
+<rect x="537" y="492" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="507" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">travelers  smallint</text>
+<rect x="537" y="515" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="530" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">interests  varchar(500)</text>
+<rect x="537" y="538" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="553" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">preferred_destination  varchar(255)  NULL</text>
+<rect x="537" y="561" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="576" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="536" y="602" width="440" height="169" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M545,602 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#0F766E"/>
+<text x="550" y="629" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">api_tokens</text>
+<text x="963" y="628" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">5 fields</text>
+<rect x="537" y="644" width="438" height="23" fill="#FFF9E8"/>
+<text x="548" y="659" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  bigint</text>
+<rect x="932" y="647" width="36" height="17" rx="5" fill="#0F766E"/>
+<text x="950.0" y="659" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="537" y="667" width="438" height="35" fill="#F0F7FF"/>
+<text x="548" y="682" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">user_id  bigint</text>
+<rect x="932" y="670" width="36" height="17" rx="5" fill="#0F766E"/>
+<text x="950.0" y="682" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="561" y="697" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.users.id</text>
+<rect x="537" y="702" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="717" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">token_hash  char(64)</text>
+<rect x="537" y="725" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="740" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">expires_at  timestamptz</text>
+<rect x="537" y="748" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="763" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="536" y="789" width="440" height="157" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M545,789 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#0F766E"/>
+<text x="550" y="816" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">password_reset_codes</text>
+<text x="963" y="815" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">5 fields</text>
+<rect x="537" y="831" width="438" height="23" fill="#FFF9E8"/>
+<text x="548" y="846" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">email  varchar(255)</text>
+<rect x="932" y="834" width="36" height="17" rx="5" fill="#0F766E"/>
+<text x="950.0" y="846" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="537" y="854" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="869" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">code_hash  char(64)</text>
+<rect x="537" y="877" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="892" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="537" y="900" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="915" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">expires_at  timestamptz</text>
+<rect x="537" y="923" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="938" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">attempts  integer</text>
+<g filter="url(#shadow)"><rect x="536" y="964" width="440" height="238" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M545,964 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#0F766E"/>
+<text x="550" y="991" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">user_reviews</text>
+<text x="963" y="990" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">8 fields</text>
+<rect x="537" y="1006" width="438" height="23" fill="#FFF9E8"/>
+<text x="548" y="1021" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  bigint</text>
+<rect x="932" y="1009" width="36" height="17" rx="5" fill="#0F766E"/>
+<text x="950.0" y="1021" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="537" y="1029" width="438" height="35" fill="#F0F7FF"/>
+<text x="548" y="1044" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">user_id  bigint</text>
+<rect x="932" y="1032" width="36" height="17" rx="5" fill="#0F766E"/>
+<text x="950.0" y="1044" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="561" y="1059" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.users.id</text>
+<rect x="537" y="1064" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="1079" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">item_id  varchar(100)</text>
+<rect x="537" y="1087" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="1102" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">item_type  varchar(30)</text>
+<rect x="537" y="1110" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="1125" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">rating  numeric</text>
+<rect x="537" y="1133" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="1148" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">comment  text</text>
+<rect x="537" y="1156" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="1171" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="537" y="1179" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="1194" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="536" y="1220" width="440" height="192" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M545,1220 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#0F766E"/>
+<text x="550" y="1247" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">ai_chat_messages</text>
+<text x="963" y="1246" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">6 fields</text>
+<rect x="537" y="1262" width="438" height="23" fill="#FFF9E8"/>
+<text x="548" y="1277" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  bigint</text>
+<rect x="932" y="1265" width="36" height="17" rx="5" fill="#0F766E"/>
+<text x="950.0" y="1277" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="537" y="1285" width="438" height="35" fill="#F0F7FF"/>
+<text x="548" y="1300" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">user_id  bigint</text>
+<rect x="932" y="1288" width="36" height="17" rx="5" fill="#0F766E"/>
+<text x="950.0" y="1300" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="561" y="1315" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.users.id</text>
+<rect x="537" y="1320" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="1335" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">session_id  varchar(100)</text>
+<rect x="537" y="1343" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="1358" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">role  text</text>
+<rect x="537" y="1366" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="1381" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">content  text</text>
+<rect x="537" y="1389" width="438" height="23" fill="#FFFFFF"/>
+<text x="548" y="1404" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1018" y="182" width="440" height="537" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1027,182 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#7C3AED"/>
+<text x="1032" y="209" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">partner_listings</text>
+<text x="1445" y="208" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">21 fields</text>
+<rect x="1019" y="224" width="438" height="23" fill="#FFF9E8"/>
+<text x="1030" y="239" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  bigint</text>
+<rect x="1414" y="227" width="36" height="17" rx="5" fill="#7C3AED"/>
+<text x="1432.0" y="239" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="1019" y="247" width="438" height="35" fill="#F0F7FF"/>
+<text x="1030" y="262" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">partner_id  bigint</text>
+<rect x="1414" y="250" width="36" height="17" rx="5" fill="#7C3AED"/>
+<text x="1432.0" y="262" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="1043" y="277" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.partners.id</text>
+<rect x="1019" y="282" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="297" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">type  varchar(30)</text>
+<rect x="1019" y="305" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="320" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">title  varchar(255)</text>
+<rect x="1019" y="328" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="343" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">city  varchar(255)</text>
+<rect x="1019" y="351" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="366" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">country  varchar(255)</text>
+<rect x="1019" y="374" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="389" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">description  text  NULL</text>
+<rect x="1019" y="397" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="412" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">image_url  varchar(2048)  NULL</text>
+<rect x="1019" y="420" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="435" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">price  numeric</text>
+<rect x="1019" y="443" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="458" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">active  boolean</text>
+<rect x="1019" y="466" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="481" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">attributes  jsonb</text>
+<rect x="1019" y="489" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="504" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">location_name  varchar(512)  NULL</text>
+<rect x="1019" y="512" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="527" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">google_maps_url  varchar(2048)  NULL</text>
+<rect x="1019" y="535" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="550" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">place_id  varchar(255)  NULL</text>
+<rect x="1019" y="558" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="573" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">google_rating  numeric</text>
+<rect x="1019" y="581" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="596" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">google_review_count  integer</text>
+<rect x="1019" y="604" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="619" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">amenities  jsonb  NULL</text>
+<rect x="1019" y="627" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="642" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">tax_and_fees_percentage  numeric</text>
+<rect x="1019" y="650" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="665" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">available_rooms  integer</text>
+<rect x="1019" y="673" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="688" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="1019" y="696" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="711" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1018" y="737" width="440" height="502" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1027,737 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#7C3AED"/>
+<text x="1032" y="764" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">offers</text>
+<text x="1445" y="763" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">20 fields</text>
+<rect x="1019" y="779" width="438" height="23" fill="#FFF9E8"/>
+<text x="1030" y="794" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  varchar(64)</text>
+<rect x="1414" y="782" width="36" height="17" rx="5" fill="#7C3AED"/>
+<text x="1432.0" y="794" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="1019" y="802" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="817" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">title  varchar(255)</text>
+<rect x="1019" y="825" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="840" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">location  varchar(255)</text>
+<rect x="1019" y="848" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="863" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">country  varchar(255)</text>
+<rect x="1019" y="871" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="886" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">destination_code  varchar(10)</text>
+<rect x="1019" y="894" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="909" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">description  text</text>
+<rect x="1019" y="917" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="932" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">image_url  varchar(2048)</text>
+<rect x="1019" y="940" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="955" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">price_per_person  numeric</text>
+<rect x="1019" y="963" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="978" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">flight_price_per_person  numeric</text>
+<rect x="1019" y="986" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1001" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">hotel_price_per_night  numeric</text>
+<rect x="1019" y="1009" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1024" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">duration_nights  smallint</text>
+<rect x="1019" y="1032" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1047" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">rating  numeric</text>
+<rect x="1019" y="1055" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1070" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">review_count  integer</text>
+<rect x="1019" y="1078" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1093" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">highlights  jsonb</text>
+<rect x="1019" y="1101" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1116" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">is_featured  boolean</text>
+<rect x="1019" y="1124" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1139" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">category  varchar(40)</text>
+<rect x="1019" y="1147" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1162" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">is_active  boolean</text>
+<rect x="1019" y="1170" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1185" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">sort_order  integer</text>
+<rect x="1019" y="1193" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1208" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="1019" y="1216" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1231" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1018" y="1257" width="440" height="123" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1027,1257 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#7C3AED"/>
+<text x="1032" y="1284" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">offer_catalog_metadata</text>
+<text x="1445" y="1283" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">3 fields</text>
+<rect x="1019" y="1299" width="438" height="35" fill="#F0F7FF"/>
+<text x="1030" y="1314" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">offer_id  varchar(64)</text>
+<rect x="1402" y="1302" width="48" height="17" rx="5" fill="#7C3AED"/>
+<text x="1426.0" y="1314" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK/FK</text>
+<text x="1043" y="1329" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.offers.id</text>
+<rect x="1019" y="1334" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1349" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">badge  varchar(100)</text>
+<rect x="1019" y="1357" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1372" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1018" y="1398" width="440" height="433" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1027,1398 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#7C3AED"/>
+<text x="1032" y="1425" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">airports</text>
+<text x="1445" y="1424" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">17 fields</text>
+<rect x="1019" y="1440" width="438" height="23" fill="#FFF9E8"/>
+<text x="1030" y="1455" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">code  char(3)</text>
+<rect x="1414" y="1443" width="36" height="17" rx="5" fill="#7C3AED"/>
+<text x="1432.0" y="1455" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="1019" y="1463" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1478" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">city  varchar(100)</text>
+<rect x="1019" y="1486" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1501" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">airport_name  varchar(255)</text>
+<rect x="1019" y="1509" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1524" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">country  varchar(100)</text>
+<rect x="1019" y="1532" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1547" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">region  varchar(100)</text>
+<rect x="1019" y="1555" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1570" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">icao_code  char(4)  NULL</text>
+<rect x="1019" y="1578" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1593" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">latitude  double precision  NULL</text>
+<rect x="1019" y="1601" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1616" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">longitude  double precision  NULL</text>
+<rect x="1019" y="1624" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1639" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">airport_type  varchar(32)</text>
+<rect x="1019" y="1647" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1662" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">is_major  boolean</text>
+<rect x="1019" y="1670" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1685" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">scheduled_service  boolean</text>
+<rect x="1019" y="1693" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1708" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">iso_country  char(2)  NULL</text>
+<rect x="1019" y="1716" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1731" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">keywords  text</text>
+<rect x="1019" y="1739" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1754" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">wikipedia_link  varchar(2048)  NULL</text>
+<rect x="1019" y="1762" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1777" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">source_id  bigint  NULL</text>
+<rect x="1019" y="1785" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1800" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">source_provider  varchar(32)</text>
+<rect x="1019" y="1808" width="438" height="23" fill="#FFFFFF"/>
+<text x="1030" y="1823" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1500" y="182" width="440" height="433" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1509,182 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#C2410C"/>
+<text x="1514" y="209" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">tourist_monuments</text>
+<text x="1927" y="208" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">17 fields</text>
+<rect x="1501" y="224" width="438" height="23" fill="#FFF9E8"/>
+<text x="1512" y="239" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  varchar(64)</text>
+<rect x="1896" y="227" width="36" height="17" rx="5" fill="#C2410C"/>
+<text x="1914.0" y="239" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="1501" y="247" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="262" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">title  varchar(255)</text>
+<rect x="1501" y="270" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="285" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">location  varchar(255)</text>
+<rect x="1501" y="293" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="308" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">category_tag  varchar(100)</text>
+<rect x="1501" y="316" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="331" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">category  varchar(40)</text>
+<rect x="1501" y="339" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="354" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">rating  numeric</text>
+<rect x="1501" y="362" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="377" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">review_count  integer</text>
+<rect x="1501" y="385" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="400" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">description  text</text>
+<rect x="1501" y="408" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="423" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">working_hours  varchar(255)</text>
+<rect x="1501" y="431" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="446" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">best_time_to_visit  varchar(255)</text>
+<rect x="1501" y="454" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="469" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">entry_fee  numeric  NULL</text>
+<rect x="1501" y="477" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="492" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">image_url  varchar(2048)</text>
+<rect x="1501" y="500" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="515" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">tags  jsonb</text>
+<rect x="1501" y="523" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="538" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">is_active  boolean</text>
+<rect x="1501" y="546" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="561" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">sort_order  integer</text>
+<rect x="1501" y="569" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="584" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="1501" y="592" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="607" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1500" y="633" width="440" height="100" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1509,633 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#C2410C"/>
+<text x="1514" y="660" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">attraction_visit_counts</text>
+<text x="1927" y="659" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">2 fields</text>
+<rect x="1501" y="675" width="438" height="35" fill="#F0F7FF"/>
+<text x="1512" y="690" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">attraction_id  varchar(64)</text>
+<rect x="1884" y="678" width="48" height="17" rx="5" fill="#C2410C"/>
+<text x="1908.0" y="690" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK/FK</text>
+<text x="1525" y="705" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.tourist_monuments.id</text>
+<rect x="1501" y="710" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="725" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">visit_count  bigint</text>
+<g filter="url(#shadow)"><rect x="1500" y="751" width="440" height="123" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1509,751 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#C2410C"/>
+<text x="1514" y="778" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">attraction_visit_dedup</text>
+<text x="1927" y="777" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">3 fields</text>
+<rect x="1501" y="793" width="438" height="35" fill="#F0F7FF"/>
+<text x="1512" y="808" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">attraction_id  varchar(64)</text>
+<rect x="1884" y="796" width="48" height="17" rx="5" fill="#C2410C"/>
+<text x="1908.0" y="808" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK/FK</text>
+<text x="1525" y="823" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.tourist_monuments.id</text>
+<rect x="1501" y="828" width="438" height="23" fill="#FFF9E8"/>
+<text x="1512" y="843" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">visitor_hash  char(64)</text>
+<rect x="1896" y="831" width="36" height="17" rx="5" fill="#C2410C"/>
+<text x="1914.0" y="843" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="1501" y="851" width="438" height="23" fill="#FFFFFF"/>
+<text x="1512" y="866" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">counted_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1982" y="182" width="440" height="653" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1991,182 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#334155"/>
+<text x="1996" y="209" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">trips</text>
+<text x="2409" y="208" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">25 fields</text>
+<rect x="1983" y="224" width="438" height="23" fill="#FFF9E8"/>
+<text x="1994" y="239" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  bigint</text>
+<rect x="2378" y="227" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="239" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="1983" y="247" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="262" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">user_id  bigint</text>
+<rect x="2378" y="250" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="262" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="277" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.users.id</text>
+<rect x="1983" y="282" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="297" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">partner_id  bigint  NULL</text>
+<rect x="2378" y="285" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="297" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="312" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.partners.id</text>
+<rect x="1983" y="317" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="332" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">partner_listing_id  bigint  NULL</text>
+<rect x="2378" y="320" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="332" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="347" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.partner_listings.id</text>
+<rect x="1983" y="352" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="367" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">title  varchar(255)</text>
+<rect x="1983" y="375" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="390" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">destination  varchar(255)</text>
+<rect x="1983" y="398" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="413" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">start_date  date  NULL</text>
+<rect x="1983" y="421" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="436" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">end_date  date  NULL</text>
+<rect x="1983" y="444" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="459" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">details  jsonb  NULL</text>
+<rect x="1983" y="467" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="482" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">origin_code  varchar(10)  NULL</text>
+<rect x="1983" y="490" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="505" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">origin_city  varchar(255)  NULL</text>
+<rect x="1983" y="513" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="528" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">destination_code  varchar(10)  NULL</text>
+<rect x="1983" y="536" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="551" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">destination_city  varchar(255)  NULL</text>
+<rect x="1983" y="559" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="574" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">departure_date  timestamptz  NULL</text>
+<rect x="1983" y="582" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="597" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">return_date  timestamptz  NULL</text>
+<rect x="1983" y="605" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="620" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">flight_number  varchar(50)  NULL</text>
+<rect x="1983" y="628" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="643" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">airline  varchar(255)  NULL</text>
+<rect x="1983" y="651" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="666" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">airline_logo_url  varchar(2048)  NULL</text>
+<rect x="1983" y="674" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="689" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">is_direct  boolean</text>
+<rect x="1983" y="697" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="712" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">seat_class  varchar(50)  NULL</text>
+<rect x="1983" y="720" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="735" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">price  numeric  NULL</text>
+<rect x="1983" y="743" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="758" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">booking_ref  varchar(100)  NULL</text>
+<rect x="1983" y="766" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="781" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">status  varchar(30)</text>
+<rect x="1983" y="789" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="804" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="1983" y="812" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="827" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1982" y="853" width="440" height="458" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1991,853 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#334155"/>
+<text x="1996" y="880" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">bookings</text>
+<text x="2409" y="879" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">16 fields</text>
+<rect x="1983" y="895" width="438" height="23" fill="#FFF9E8"/>
+<text x="1994" y="910" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  bigint</text>
+<rect x="2378" y="898" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="910" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="1983" y="918" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="933" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">user_id  bigint</text>
+<rect x="2378" y="921" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="933" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="948" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.users.id</text>
+<rect x="1983" y="953" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="968" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">partner_id  bigint  NULL</text>
+<rect x="2378" y="956" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="968" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="983" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.partners.id</text>
+<rect x="1983" y="988" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="1003" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">partner_listing_id  bigint  NULL</text>
+<rect x="2378" y="991" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="1003" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="1018" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.partner_listings.id</text>
+<rect x="1983" y="1023" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="1038" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">trip_id  bigint  NULL</text>
+<rect x="2378" y="1026" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="1038" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="1053" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.trips.id</text>
+<rect x="1983" y="1058" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1073" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">type  varchar(50)</text>
+<rect x="1983" y="1081" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1096" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">status  varchar(30)</text>
+<rect x="1983" y="1104" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1119" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">total_amount  numeric</text>
+<rect x="1983" y="1127" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1142" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">details  jsonb  NULL</text>
+<rect x="1983" y="1150" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1165" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">title  varchar(255)  NULL</text>
+<rect x="1983" y="1173" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1188" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">subtitle  varchar(255)  NULL</text>
+<rect x="1983" y="1196" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1211" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">date  timestamptz  NULL</text>
+<rect x="1983" y="1219" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1234" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">price  numeric  NULL</text>
+<rect x="1983" y="1242" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1257" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">ref_code  varchar(100)  NULL</text>
+<rect x="1983" y="1265" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1280" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="1983" y="1288" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1303" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1982" y="1329" width="440" height="285" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1991,1329 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#334155"/>
+<text x="1996" y="1356" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">flight_seat_holds</text>
+<text x="2409" y="1355" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">9 fields</text>
+<rect x="1983" y="1371" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="1386" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">flight_listing_id  bigint</text>
+<rect x="2366" y="1374" width="48" height="17" rx="5" fill="#334155"/>
+<text x="2390.0" y="1386" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK/FK</text>
+<text x="2007" y="1401" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.partner_listings.id</text>
+<rect x="1983" y="1406" width="438" height="23" fill="#FFF9E8"/>
+<text x="1994" y="1421" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">seat_number  varchar(5)</text>
+<rect x="2378" y="1409" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="1421" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="1983" y="1429" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="1444" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">user_id  bigint</text>
+<rect x="2378" y="1432" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="1444" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="1459" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.users.id</text>
+<rect x="1983" y="1464" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="1479" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">trip_id  bigint  NULL</text>
+<rect x="2378" y="1467" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="1479" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="1494" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.trips.id</text>
+<rect x="1983" y="1499" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1514" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">status  varchar(16)</text>
+<rect x="1983" y="1522" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1537" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">booking_ref  varchar(100)  NULL</text>
+<rect x="1983" y="1545" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1560" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">expires_at  timestamptz</text>
+<rect x="1983" y="1568" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1583" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="1983" y="1591" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1606" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1982" y="1632" width="440" height="400" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1991,1632 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#334155"/>
+<text x="1996" y="1659" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">transfers</text>
+<text x="2409" y="1658" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">14 fields</text>
+<rect x="1983" y="1674" width="438" height="23" fill="#FFF9E8"/>
+<text x="1994" y="1689" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">id  bigint</text>
+<rect x="2378" y="1677" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="1689" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK</text>
+<rect x="1983" y="1697" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="1712" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">user_id  bigint</text>
+<rect x="2378" y="1700" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="1712" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="1727" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.users.id</text>
+<rect x="1983" y="1732" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="1747" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">partner_id  bigint  NULL</text>
+<rect x="2378" y="1735" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="1747" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="1762" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.partners.id</text>
+<rect x="1983" y="1767" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="1782" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">partner_listing_id  bigint  NULL</text>
+<rect x="2378" y="1770" width="36" height="17" rx="5" fill="#334155"/>
+<text x="2396.0" y="1782" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">FK</text>
+<text x="2007" y="1797" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.partner_listings.id</text>
+<rect x="1983" y="1802" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1817" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">provider_name  varchar(255)</text>
+<rect x="1983" y="1825" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1840" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">vehicle_type  varchar(100)</text>
+<rect x="1983" y="1848" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1863" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">pickup_location  varchar(255)</text>
+<rect x="1983" y="1871" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1886" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">dropoff_location  varchar(255)</text>
+<rect x="1983" y="1894" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1909" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">pickup_time  timestamptz</text>
+<rect x="1983" y="1917" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1932" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">price  numeric</text>
+<rect x="1983" y="1940" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1955" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">passengers  integer</text>
+<rect x="1983" y="1963" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="1978" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">status  varchar(50)</text>
+<rect x="1983" y="1986" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="2001" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">created_at  timestamptz</text>
+<rect x="1983" y="2009" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="2024" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">updated_at  timestamptz</text>
+<g filter="url(#shadow)"><rect x="1982" y="2050" width="440" height="100" rx="9" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/></g>
+<path d="M1991,2050 h422 a9,9 0 0 1 9,9 v33 h-440 v-33 a9,9 0 0 1 9,-9" fill="#334155"/>
+<text x="1996" y="2077" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#FFFFFF">transfer_schedules</text>
+<text x="2409" y="2076" text-anchor="end" font-family="Arial,sans-serif" font-size="11" fill="#E2E8F0">2 fields</text>
+<rect x="1983" y="2092" width="438" height="35" fill="#F0F7FF"/>
+<text x="1994" y="2107" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">transfer_id  bigint</text>
+<rect x="2366" y="2095" width="48" height="17" rx="5" fill="#334155"/>
+<text x="2390.0" y="2107" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#FFFFFF">PK/FK</text>
+<text x="2007" y="2122" font-family="Consolas,ui-monospace,monospace" font-size="10" fill="#38658D">→ public.transfers.id</text>
+<rect x="1983" y="2127" width="438" height="23" fill="#FFFFFF"/>
+<text x="1994" y="2142" font-family="Consolas,ui-monospace,monospace" font-size="11.5" fill="#263448">duration_minutes  smallint</text>
+<rect x="54" y="2176" width="2368" height="84" rx="10" fill="#FFFFFF" stroke="#CBD5E1"/>
+<text x="70" y="2201" font-family="Arial,sans-serif" font-size="12" fill="#334155">PK = primary key • FK = foreign key • NULL = nullable. The internal flyway_schema_history table is omitted.</text>
+<text x="70" y="2223" font-family="Arial,sans-serif" font-size="12" fill="#334155">This diagram reflects tables currently present in Supabase public schema; locally defined but absent migrations are not shown.</text>
+<text x="70" y="2245" font-family="Arial,sans-serif" font-size="12" fill="#334155">Fields without a database foreign key (for example users.auth_user_id and polymorphic user_reviews.item_id) are shown without inferred relationships.</text>
+</svg>
