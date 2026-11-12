@@ -2,6 +2,7 @@ package com.zentrip.api;
 
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -50,6 +51,9 @@ class SecurityConfigIntegrationTest {
     private OpenTripMapAttractionService openTripMapAttractionService;
 
     @MockBean
+    private LandmarkCatalogService landmarkCatalogService;
+
+    @MockBean
     private GoogleGeminiChatService geminiChatService;
 
     @Test
@@ -61,6 +65,22 @@ class SecurityConfigIntegrationTest {
                         .param("query", "Trip")
                         .param("lang", "en"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void unifiedPlaceListingIsPublicAndReturnsOnlyTheCatalogResponse() throws Exception {
+        when(landmarkCatalogService.listCanonicalPlaces("", "", "", "", "en", 40, 0))
+                .thenReturn(Map.of(
+                        "places", List.of(Map.of("canonical_name", "Leptis Magna")),
+                        "total_count", 1,
+                        "limit", 40,
+                        "offset", 0,
+                        "has_more", false));
+
+        mockMvc.perform(get("/api/places"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("Leptis Magna")));
     }
 
     @Test
@@ -102,6 +122,10 @@ class SecurityConfigIntegrationTest {
         mockMvc.perform(get("/api/partner/dashboard"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/bookings"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/places/ingest")
+                        .contentType("application/json")
+                        .content("{\"source\":\"opentripmap\",\"places\":[]}"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -167,6 +191,43 @@ class SecurityConfigIntegrationTest {
         mockMvc.perform(get("/api/partner/dashboard")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/places/ingest")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("""
+                                {"source":"opentripmap","places":[
+                                  {"xid":"N12345","name":"Example Place",
+                                   "latitude":32.64,"longitude":14.29}
+                                ]}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminTokenCanIngestConfiguredProviderRecords() throws Exception {
+        String token = "admin-place-ingest-test-token";
+        when(jdbcTemplate.queryForList(
+                contains("FROM api_tokens t"),
+                eq(TokenAuthFilter.sha256(token)),
+                any(Timestamp.class)))
+                .thenReturn(List.of(Map.of("user_id", 30L, "role", "admin")));
+        when(landmarkCatalogService.ingestBatch(eq("opentripmap"), anyList()))
+                .thenReturn(List.of(Map.of(
+                        "id", "N12345",
+                        "canonical_place_id", "c0a8019e-0000-4000-8000-000000000001")));
+
+        mockMvc.perform(post("/api/places/ingest")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("""
+                                {"source":"opentripmap","places":[
+                                  {"xid":"N12345","name":"Example Place",
+                                   "latitude":32.64,"longitude":14.29}
+                                ]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("\"count\":1")));
     }
 
     @Test

@@ -159,3 +159,28 @@ Landmark discovery, suggestions, and all place records use OpenTripMap only. Con
 The app currently supports historic/archaeological places, architecture, museums, parks/gardens, natural attractions, and beaches. Candidates are filtered by provider kinds, commercial/business signals, historical-event names, identity, coordinates, and duplicate nearby names (including diacritic and bridge-suffix variants). Wikimedia file-page URLs are converted to image redirects, and disallowed 400px thumbnail URLs are changed to 500px thumbnails. Search results and details are cached for 24 hours and seven days respectively; details use a bounded worker pool and requests are spaced to the documented 10 requests/second free-tier limit. Arabic requests use English responses because OpenTripMap documents English and Russian; a card uses a consistent language rather than mixing fields.
 
 OpenTripMap's free plan is non-commercial and limited to 5,000 requests/day. This app is configured as commercial by default, so the backend logs a warning when `OPENTRIPMAP_FREE_PLAN=true`. Use an appropriate commercial plan before production traffic. Review the source/image attribution fields before publishing user-facing images.
+
+### Canonical place records and deduplication
+
+The existing `landmark_places`, `landmark_place_aliases`, and `landmark_merge_candidates` tables provide the unified place catalog; they are the Zentrip equivalents of a golden-record table, source identities, aliases, and a review queue. Do not create parallel `places` or `place_sources` tables. OpenTripMap is the only supported landmark ingestion provider. Wikidata identifiers may be used as cross-reference metadata, and Wikipedia remains an image-only fallback; Google Maps, OSM, and Wikipedia are not independent POI ingestion sources.
+
+Identity resolution checks the provider ID and Wikidata ID first. It then blocks candidates using indexed coordinate bounds and verifies actual distance with Haversine. A nearby place is automatically merged only when it is under 50 meters and its normalized name similarity is at least 0.85; uncertain candidates within 300 meters remain separate and are queued for review. This avoids merging adjacent attractions solely because their coordinates are close.
+
+`GET /api/places?query=...&city=...&country=...&category=...&language=en&limit=40&offset=0` returns paginated canonical roots with aliases and source metadata; raw source duplicates are not listed. `POST /api/places/ingest` is admin-only and accepts a batch of 1–200 OpenTripMap records:
+
+```json
+{
+  "source": "opentripmap",
+  "places": [
+    {
+      "xid": "N12345",
+      "name": "Example Place",
+      "latitude": 32.64,
+      "longitude": 14.29,
+      "category": "historical"
+    }
+  ]
+}
+```
+
+The endpoint rejects unsupported providers, missing names or IDs, invalid coordinates, and oversized batches. It uses the existing additive landmark catalog migration and does not alter curated `tourist_monuments` records.

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.SQLException;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -21,8 +22,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Persistent cache and canonical identity layer for imported landmark data.
@@ -39,8 +42,12 @@ public class LandmarkCatalogService {
     private static final int ALIAS_RESULT_LIMIT = 20;
     private static final double NEARBY_CANDIDATE_METERS = 300.0;
     private static final double AUTOMATIC_MERGE_METERS = 50.0;
+    private static final double AUTOMATIC_NAME_SIMILARITY = 0.85;
+    private static final int MAX_INGEST_BATCH = 200;
     private static final Pattern PROVIDER_ID = Pattern.compile("^[A-Za-z0-9_-]{1,64}$");
     private static final TypeReference<LinkedHashMap<String, Object>> MAP_TYPE =
+            new TypeReference<>() {};
+    private static final TypeReference<List<String>> STRING_LIST_TYPE =
             new TypeReference<>() {};
 
     private final JdbcTemplate jdbc;
@@ -279,6 +286,169 @@ public class LandmarkCatalogService {
         }
     }
 
+    /**
+     * Lists only canonical roots. Source-specific rows stay internal and are
+     * represented by the root's aliases and source metadata.
+     */
+    public Map<String, Object> listCanonicalPlaces(
+            String query, String city, String country, String category,
+            String language, int limit, int offset) {
+        if (!catalogAvailable()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "The unified place catalog is unavailable.");
+        }
+
+        List<String> filters = new ArrayList<>();
+        List<Object> parameters = new ArrayList<>();
+        filters.add("p.canonical_place_id IS NULL");
+
+        String normalizedQuery = normalize(query);
+        if (normalizedQuery.length() >= 2) {
+            filters.add("""
+                    EXISTS (
+                        SELECT 1 FROM landmark_place_aliases query_alias
+                        WHERE query_alias.canonical_place_id = p.id
+                          AND query_alias.normalized_name LIKE ? ESCAPE '\\'
+                    )
+                    """);
+            parameters.add("%" + escapeLike(normalizedQuery) + "%");
+        }
+        addContainsFilter(filters, parameters, "p.city", city);
+        addContainsFilter(filters, parameters, "p.country", country);
+        addContainsFilter(filters, parameters, "p.category", category);
+
+        String where = String.join(" AND ", filters);
+        Number count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM landmark_places p WHERE " + where,
+                Number.class, parameters.toArray());
+        long total = count == null ? 0 : count.longValue();
+        int safeLimit = Math.max(1, Math.min(100, limit));
+        int safeOffset = Math.max(0, offset);
+        List<Object> pageParameters = new ArrayList<>(parameters);
+        pageParameters.add(safeLimit);
+        pageParameters.add(safeOffset);
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT p.id::text AS canonical_place_id,
+                       p.provider,
+                       p.provider_place_id,
+                       p.payload::text AS payload,
+                       p.names::text AS names,
+                       COALESCE((
+                           SELECT json_agg(alias_rows.alias_name
+                                           ORDER BY alias_rows.alias_name)::text
+                           FROM (
+                               SELECT DISTINCT alias_name
+                               FROM landmark_place_aliases
+                               WHERE canonical_place_id = p.id
+                           ) alias_rows
+                       ), '[]') AS aliases_json,
+                       COALESCE((
+                           SELECT json_agg(source_rows.provider
+                                           ORDER BY source_rows.provider)::text
+                           FROM (
+                               SELECT DISTINCT source.provider
+                               FROM landmark_places source
+                               WHERE source.id = p.id
+                                  OR source.canonical_place_id = p.id
+                           ) source_rows
+                       ), '[]') AS sources_json
+                FROM landmark_places p
+                WHERE %s
+                ORDER BY LOWER(p.country), LOWER(p.city),
+                         LOWER(COALESCE(p.payload ->> 'name', '')), p.id
+                LIMIT ? OFFSET ?
+                """.formatted(where), pageParameters.toArray());
+
+        String requestedLanguage = language == null || language.isBlank()
+                ? "en"
+                : language.trim().toLowerCase(Locale.ROOT).split("-", 2)[0];
+        List<Map<String, Object>> places = new ArrayList<>(rows.size());
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> place = readMap(row.get("payload"));
+            Map<String, Object> names = readMap(row.get("names"));
+            String canonicalName = value(names, requestedLanguage,
+                    value(names, "en", value(place, "name", "")));
+            String providerId = value(row, "provider_place_id", "");
+            place.put("canonical_name", canonicalName);
+            place.put("canonical_place_id", row.get("canonical_place_id"));
+            place.put("id", providerId);
+            place.putIfAbsent("xid", providerId);
+            place.put("source_provider", value(row, "provider", "opentripmap"));
+            place.put("aliases", readStringList(row.get("aliases_json")));
+            place.put("sources", readStringList(row.get("sources_json")));
+            places.add(place);
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("places", List.copyOf(places));
+        response.put("source", "landmark_catalog");
+        response.put("providers", List.of("opentripmap"));
+        response.put("total_count", total);
+        response.put("limit", safeLimit);
+        response.put("offset", safeOffset);
+        response.put("has_more", safeOffset + places.size() < total);
+        return response;
+    }
+
+    /**
+     * Accepts bounded admin-triggered batches from the provider already used by
+     * Zentrip. Other providers are intentionally rejected at this boundary.
+     */
+    @Transactional
+    public List<Map<String, Object>> ingestBatch(String source, List<?> records) {
+        if (!catalogAvailable()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "The unified place catalog is unavailable.");
+        }
+        String normalizedSource = source == null
+                ? "" : source.trim().toLowerCase(Locale.ROOT);
+        if (!"opentripmap".equals(normalizedSource)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Only the configured OpenTripMap landmark source is supported.");
+        }
+        if (records == null || records.isEmpty() || records.size() > MAX_INGEST_BATCH) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "The place batch must contain between 1 and 200 records.");
+        }
+
+        List<Map<String, Object>> normalizedRecords = new ArrayList<>(records.size());
+        for (Object record : records) {
+            if (!(record instanceof Map<?, ?> rawRecord)) {
+                throw invalidPlaceRecord();
+            }
+            Map<String, Object> place = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : rawRecord.entrySet()) {
+                if (!(entry.getKey() instanceof String key)) {
+                    throw invalidPlaceRecord();
+                }
+                place.put(key, entry.getValue());
+            }
+            String recordSource = value(place, "source_provider", normalizedSource)
+                    .toLowerCase(Locale.ROOT);
+            String providerId = value(place, "xid", value(place, "id", ""));
+            String name = value(place, "name_en", value(place, "name", ""));
+            Double latitude = number(place.get("latitude"));
+            Double longitude = number(place.get("longitude"));
+            if (!normalizedSource.equals(recordSource)
+                    || !PROVIDER_ID.matcher(providerId).matches()
+                    || name.isBlank() || name.length() > 500
+                    || latitude == null || !Double.isFinite(latitude)
+                    || latitude < -90 || latitude > 90
+                    || longitude == null || !Double.isFinite(longitude)
+                    || longitude < -180 || longitude > 180
+                    || value(place, "city", "").length() > 255
+                    || value(place, "country", "").length() > 255
+                    || value(place, "category", "landmark").length() > 100) {
+                throw invalidPlaceRecord();
+            }
+            place.put("source_provider", normalizedSource);
+            normalizedRecords.add(place);
+        }
+        return persistAndCanonicalize(normalizedRecords);
+    }
+
     private Map<String, Object> persistOne(Map<String, Object> input) {
         Map<String, Object> incoming = new LinkedHashMap<>(input);
         String xid = value(incoming, "xid", value(incoming, "id", ""));
@@ -303,11 +473,16 @@ public class LandmarkCatalogService {
         }
 
         NearbyPlace nearest = nearestRoot(latitude, longitude, xid);
-        if (nearest != null && nearest.distanceMeters() < AUTOMATIC_MERGE_METERS) {
+        double nameSimilarity = nearest == null ? 0
+                : nameSimilarity(canonicalName(nearest.place().payload()), canonicalName(incoming));
+        if (nearest != null && nearest.distanceMeters() < AUTOMATIC_MERGE_METERS
+                && nameSimilarity >= AUTOMATIC_NAME_SIMILARITY) {
             Map<String, Object> merged = fillMissing(nearest.place().payload(), incoming);
             updateRoot(nearest.place().id(), merged, incoming);
+            UUID sourceId = insertSourceIdentity(provider, xid, nearest.place(), incoming);
             saveAlias(nearest.place().id(), incoming, "opentripmap");
-            insertSourceIdentity(provider, xid, nearest.place(), incoming);
+            recordCandidate(nearest.place().id(), sourceId, nearest.distanceMeters(),
+                    nameSimilarity, "merged", incoming);
             return withCanonicalIdentity(
                     merged, nearest.place().id(), nearest.place().providerPlaceId());
         }
@@ -346,6 +521,51 @@ public class LandmarkCatalogService {
                     verification == null ? null : verification.confidence(), status);
         }
         return rootPayload;
+    }
+
+    static double nameSimilarity(String first, String second) {
+        String left = normalize(first);
+        String right = normalize(second);
+        if (left.isBlank() || right.isBlank()) return 0;
+        if (left.equals(right)) return 1;
+        int maximumLength = Math.max(left.length(), right.length());
+        int[] previous = new int[right.length() + 1];
+        int[] current = new int[right.length() + 1];
+        for (int column = 0; column <= right.length(); column++) {
+            previous[column] = column;
+        }
+        for (int row = 1; row <= left.length(); row++) {
+            current[0] = row;
+            for (int column = 1; column <= right.length(); column++) {
+                int substitutionCost =
+                        left.charAt(row - 1) == right.charAt(column - 1) ? 0 : 1;
+                current[column] = Math.min(
+                        Math.min(current[column - 1] + 1, previous[column] + 1),
+                        previous[column - 1] + substitutionCost);
+            }
+            int[] swap = previous;
+            previous = current;
+            current = swap;
+        }
+        return 1.0 - (double) previous[right.length()] / maximumLength;
+    }
+
+    private static String canonicalName(Map<String, Object> place) {
+        return value(place, "canonical_name",
+                value(place, "name_en", value(place, "name", "")));
+    }
+
+    private static ResponseStatusException invalidPlaceRecord() {
+        return new ResponseStatusException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "Each place requires an OpenTripMap ID, name, and valid coordinates.");
+    }
+
+    private static void addContainsFilter(
+            List<String> filters, List<Object> parameters, String column, String value) {
+        if (value == null || value.isBlank()) return;
+        filters.add("LOWER(COALESCE(" + column + ", '')) LIKE ? ESCAPE '\\'");
+        parameters.add("%" + escapeLike(value.trim().toLowerCase(Locale.ROOT)) + "%");
     }
 
     private CatalogPlace byWikidata(String wikidataId) {
@@ -600,6 +820,15 @@ public class LandmarkCatalogService {
         }
     }
 
+    private List<String> readStringList(Object value) {
+        if (value == null) return List.of();
+        try {
+            return mapper.readValue(String.valueOf(value), STRING_LIST_TYPE);
+        } catch (Exception exception) {
+            return List.of();
+        }
+    }
+
     private String json(Object value) {
         try {
             return mapper.writeValueAsString(value);
@@ -657,10 +886,14 @@ public class LandmarkCatalogService {
 
     private static String normalize(String value) {
         if (value == null) return "";
-        return value.trim().toLowerCase(Locale.ROOT)
-                .replaceAll("[\\u064B-\\u065F\\u0670\\u0640]", "")
+        String normalized = Normalizer.normalize(
+                value.trim().toLowerCase(Locale.ROOT), Normalizer.Form.NFKD);
+        return normalized.replaceAll("\\p{M}+", "")
+                .replace("ـ", "")
                 .replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
                 .replace('ة', 'ه').replace('ى', 'ي')
+                .replaceAll("[^\\p{L}\\p{N}]+", " ")
+                .trim()
                 .replaceAll("\\s+", " ");
     }
 

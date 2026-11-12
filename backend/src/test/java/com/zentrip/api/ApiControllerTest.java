@@ -38,11 +38,16 @@ class ApiControllerTest {
     private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
     private final OpenTripMapAttractionService openTripMapAttractionService =
             mock(OpenTripMapAttractionService.class);
+    private final LandmarkCatalogService landmarkCatalogService =
+            mock(LandmarkCatalogService.class);
     private final ApiController controller = new ApiController(
             jdbc, "", photoStorage, passwordResetService, openTripMapAttractionService);
 
     @BeforeEach
     void stubExistingBookingForeignKeyTargets() {
+        controller.setLandmarkCatalogService(landmarkCatalogService);
+        when(landmarkCatalogService.persistAndCanonicalize(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(jdbc.queryForObject(
                 eq("SELECT COUNT(*) FROM users WHERE id = ?"), eq(Integer.class), eq(7L)))
                 .thenReturn(1);
@@ -369,6 +374,45 @@ class ApiControllerTest {
         assertEquals(List.of("opentripmap"), response.get("providers"));
         verify(openTripMapAttractionService).searchAttractionsWithStatus(
                 "Khoms", "Libya", "en", "", null, null, null, null, null, null, null);
+    }
+
+    @Test
+    void unifiedPlacesEndpointPassesFiltersAndPaginationToTheCatalog() {
+        Map<String, Object> expected = Map.of(
+                "places", List.of(Map.of("canonical_name", "Leptis Magna")),
+                "total_count", 1L,
+                "limit", 10,
+                "offset", 20,
+                "has_more", false);
+        when(landmarkCatalogService.listCanonicalPlaces(
+                "Leptis", "Khoms", "Libya", "historic", "en", 10, 20))
+                .thenReturn(expected);
+
+        Map<String, Object> actual = controller.listCanonicalPlaces(
+                "Leptis", "Khoms", "Libya", "historic", "en", 10, 20);
+
+        assertEquals(expected, actual);
+        verify(landmarkCatalogService).listCanonicalPlaces(
+                "Leptis", "Khoms", "Libya", "historic", "en", 10, 20);
+    }
+
+    @Test
+    void placeIngestionUsesTheConfiguredOpenTripMapSource() {
+        List<Map<String, Object>> records = List.of(Map.of(
+                "xid", "N12345",
+                "name", "Leptis Magna",
+                "latitude", 32.64,
+                "longitude", 14.29));
+        when(landmarkCatalogService.ingestBatch("opentripmap", records))
+                .thenReturn(records);
+
+        Map<String, Object> response = controller.ingestCanonicalPlaces(
+                Map.of("source", "opentripmap", "places", records));
+
+        assertEquals(1, response.get("count"));
+        assertEquals("opentripmap", response.get("source"));
+        assertEquals(records, response.get("places"));
+        verify(landmarkCatalogService).ingestBatch("opentripmap", records);
     }
 
     @Test

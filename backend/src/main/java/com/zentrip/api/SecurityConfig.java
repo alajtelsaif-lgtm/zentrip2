@@ -64,6 +64,7 @@ public class SecurityConfig {
                 ).permitAll()
                 .requestMatchers("/api/admin", "/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/partner", "/api/partner/**").hasRole("PARTNER")
+                .requestMatchers(HttpMethod.POST, "/api/places/ingest").hasRole("ADMIN")
                 .requestMatchers(
                     "/api/auth/me", "/api/auth/logout", "/api/users/fcm-token"
                 ).authenticated()
@@ -96,6 +97,7 @@ public class SecurityConfig {
                     "/api/inventory/**",
                     "/api/offers",
                     "/api/attractions/search",
+                    "/api/places",
                     "/api/attractions/nearby",
                     "/api/attractions/map",
                     "/api/attractions/suggestions",

@@ -556,6 +556,45 @@ public class ApiController {
                 limit, offset, diagnostics);
     }
 
+    @GetMapping("/places")
+    public Map<String, Object> listCanonicalPlaces(
+            @RequestParam(defaultValue = "") String query,
+            @RequestParam(defaultValue = "") String city,
+            @RequestParam(defaultValue = "") String country,
+            @RequestParam(defaultValue = "") String category,
+            @RequestParam(defaultValue = "en") String language,
+            @RequestParam(defaultValue = "40") int limit,
+            @RequestParam(defaultValue = "0") int offset) {
+        if (landmarkCatalogService == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "The unified place catalog is unavailable.");
+        }
+        return landmarkCatalogService.listCanonicalPlaces(
+                query, city, country, category, language, limit, offset);
+    }
+
+    @PostMapping("/places/ingest")
+    public Map<String, Object> ingestCanonicalPlaces(
+            @RequestBody Map<String, Object> body) {
+        if (landmarkCatalogService == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "The unified place catalog is unavailable.");
+        }
+        if (body == null || !(body.get("places") instanceof List<?> places)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "A places array is required.");
+        }
+        String source = body.get("source") == null
+                ? "" : String.valueOf(body.get("source"));
+        List<Map<String, Object>> ingested =
+                landmarkCatalogService.ingestBatch(source, places);
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("places", ingested);
+        response.put("count", ingested.size());
+        response.put("source", "opentripmap");
+        return response;
+    }
+
     public Map<String, Object> searchMonuments(
             String city, String category, String country, String lang) {
         return discoveredAttractions(
