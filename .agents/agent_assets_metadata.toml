@@ -602,3 +602,17 @@ mtime_ms = 1794579720233
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/045fd331-0b5b-4350-913c-727d56cf78ea/2cd35651-9faf-4fe7-8c60-eb4f54167917"
 storage_version_token = "1794579779765374"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "792azVlyOKg1mJriBCY_W"
+uri = "file://generated-artifacts/zentrip-complete-erd/Zentrip-Complete-ERD.html"
+type = "html"
+title = "Zentrip Complete ERD — HTML viewer"
+description = "Self-contained HTML with all 13 vector pages, page navigation, zoom controls, and print-to-A4-PDF support. Works offline and has no external dependencies."
+logical_id = "7d73f918-58a7-4cea-87a9-e4bb8a2a0088"
+content_hash = "sha256:72e2f59195c189309b6f177f1b0fd46977cf62aedc48fda6ead6521fb47cb3a2"
+size = 174167
+mtime_ms = 1794580603282
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/7d73f918-58a7-4cea-87a9-e4bb8a2a0088/a37b418c-9c4d-4d44-a444-9a72c92a5721"
+storage_version_token = "1794580634940873"
+content_type = "text/html"
