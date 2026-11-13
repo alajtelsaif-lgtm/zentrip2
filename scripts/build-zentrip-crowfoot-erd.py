@@ -33,12 +33,12 @@ GRID = 20
 
 # The order keeps related entities near their referenced tables.
 GRID_TABLES = [
-    ["partners", "users", "offers", "tourist_monuments"],
-    ["partner_listings", "user_profiles", "offer_catalog_metadata", "attraction_visit_counts"],
-    ["trips", "travel_preferences", "airports", "attraction_visit_dedup"],
-    ["bookings", "ai_chat_messages", "api_tokens", "transfers"],
-    ["flight_seat_holds", "user_reviews", "password_reset_codes", "transfer_schedules"],
-    ["flyway_schema_history", None, None, None],
+    ["partners", "users", "auth.users", "offers"],
+    ["partner_listings", "user_profiles", "tourist_monuments", "attraction_visit_counts"],
+    ["trips", "travel_preferences", "offer_catalog_metadata", "attraction_visit_dedup"],
+    ["bookings", "ai_chat_messages", "airports", "transfers"],
+    ["flight_seat_holds", "user_reviews", "api_tokens", "transfer_schedules"],
+    ["password_reset_codes", None, None, None],
 ]
 
 
@@ -53,22 +53,19 @@ def read_schema() -> tuple[dict[str, list[dict[str, str]]], list[dict[str, str]]
     if body is None:
         raise RuntimeError("Could not read the schema reference document.")
 
-    tables: list[ET.Element] = []
-    previous_paragraph = ""
-    table_names: list[str] = []
-    for child in list(body):
-        tag = child.tag.rsplit("}", 1)[-1]
-        if tag == "p":
-            previous_paragraph = "".join((node.text or "") for node in child.findall(".//w:t", W)).strip()
-        elif tag == "tbl":
-            tables.append(child)
-            if previous_paragraph and previous_paragraph not in {"Snapshot item", "How to read the diagrams"}:
-                table_names.append(previous_paragraph)
-            previous_paragraph = ""
+    direct_tables = body.findall("./w:tbl", W)
+    if len(direct_tables) < 2:
+        raise RuntimeError("The schema reference is missing its snapshot metadata or FK register.")
 
-    # Table 0 is the snapshot metadata and table 1 is the FK register.
+    meta = {}
+    for row in direct_tables[0].findall("./w:tr", W)[1:]:
+        values = [cell_text(cell) for cell in row.findall("./w:tc", W)]
+        if len(values) >= 2:
+            meta[values[0]] = values[1]
+    snapshot = meta.get("Snapshot date", "Unknown date")
+
     fk_rows = []
-    for row in tables[1].findall("./w:tr", W)[1:]:
+    for row in direct_tables[1].findall("./w:tr", W)[1:]:
         values = [cell_text(cell) for cell in row.findall("./w:tc", W)]
         if len(values) >= 5:
             fk_rows.append({
@@ -79,48 +76,82 @@ def read_schema() -> tuple[dict[str, list[dict[str, str]]], list[dict[str, str]]
                 "delete_rule": values[4],
             })
 
-    # The data dictionary lists each entity title immediately before its table.
-    entities: dict[str, list[dict[str, str]]] = {}
-    for table in tables[2:]:
-        rows = table.findall("./w:tr", W)
-        if not rows:
-            continue
-        header = [cell_text(cell) for cell in rows[0].findall("./w:tc", W)]
-        if header[:3] != ["Column", "PostgreSQL type", "Key / relation"]:
-            continue
-
-        # The entity title is found by the unique table order in the reference.
-        parsed_rows = []
-        for row in rows[1:]:
-            values = [cell_text(cell) for cell in row.findall("./w:tc", W)]
-            if len(values) >= 4:
-                parsed_rows.append({
-                    "name": values[0],
-                    "type": values[1],
-                    "key": values[2],
-                    "nullable": values[3],
-                })
-        entities[len(entities)] = parsed_rows
-
-    # Titles follow the order of the data dictionary tables. Find them by walking
-    # the XML body again so this stays tied to the source document, not hard-coded.
-    data_names: list[str] = []
+    schema: dict[str, list[dict[str, str]]] = {}
+    in_dictionary = False
+    pending_title = ""
     for child in list(body):
-        if child.tag.rsplit("}", 1)[-1] == "p":
+        tag = child.tag.rsplit("}", 1)[-1]
+        if tag == "p":
             text = "".join((node.text or "") for node in child.findall(".//w:t", W)).strip()
-            if text in {"ai_chat_messages", "airports", "api_tokens", "attraction_visit_counts",
-                        "attraction_visit_dedup", "bookings", "flight_seat_holds",
-                        "flyway_schema_history", "offer_catalog_metadata", "offers",
-                        "partner_listings", "partners", "password_reset_codes",
-                        "tourist_monuments", "transfer_schedules", "transfers",
-                        "travel_preferences", "trips", "user_profiles", "user_reviews", "users"}:
-                data_names.append(text)
+            if text == "Live Supabase data dictionary":
+                in_dictionary = True
+                pending_title = ""
+            elif in_dictionary and text:
+                pending_title = text
+        elif tag == "tbl" and in_dictionary:
+            rows = child.findall("./w:tr", W)
+            if not rows:
+                continue
+            header = [cell_text(cell) for cell in rows[0].findall("./w:tc", W)]
+            if header[:3] != ["Column", "PostgreSQL type", "Key / relation"]:
+                continue
+            if not pending_title:
+                raise RuntimeError("A live schema dictionary table has no entity name.")
+            parsed_rows = []
+            for row in rows[1:]:
+                values = [cell_text(cell) for cell in row.findall("./w:tc", W)]
+                if len(values) >= 4:
+                    parsed_rows.append({
+                        "name": values[0],
+                        "type": values[1],
+                        "key": values[2],
+                        "nullable": values[3],
+                    })
+            schema[pending_title] = parsed_rows
+            pending_title = ""
 
-    if len(data_names) != len(entities):
-        raise RuntimeError(f"Schema document contains {len(entities)} entity tables but {len(data_names)} titles.")
-    schema = {name: entities[index] for index, name in enumerate(data_names)}
-    snapshot = "11 November 2026"
+    if not schema:
+        raise RuntimeError("No live public-schema tables were found in the reference document.")
+    for fk in fk_rows:
+        child_fields = schema.get(fk["child"], [])
+        fk_columns = {name.strip() for name in fk["child_key"].split(",")}
+        fk["nullable"] = any(
+            field["name"] in fk_columns and field["nullable"] == "Yes"
+            for field in child_fields
+        )
+        pk_columns = {
+            field["name"] for field in child_fields
+            if re.search(r"\bPK\b", field["key"])
+        }
+        unique_sets = []
+        if pk_columns:
+            unique_sets.append(pk_columns)
+        for field in child_fields:
+            match = re.search(r"\bUQ(?:\s*\(([^)]*)\))?", field["key"])
+            if not match:
+                continue
+            columns = match.group(1)
+            unique_sets.append(
+                {column.strip() for column in columns.split(",")} if columns
+                else {field["name"]}
+            )
+        fk["one_to_one"] = any(fk_columns == unique_columns for unique_columns in unique_sets)
     return schema, fk_rows, snapshot
+
+
+def expected_code_tables() -> set[str]:
+    """Read project-owned table definitions, excluding external dependencies."""
+    sources = [ROOT / "backend" / "src" / "main" / "resources" / "schema.sql"]
+    sources.extend((ROOT / "backend" / "src" / "main" / "resources" / "migrations").glob("*.sql"))
+    table_pattern = re.compile(
+        r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+(?:public\.)?([a-z_][a-z0-9_]*)",
+        re.IGNORECASE,
+    )
+    names = set()
+    for source in sources:
+        if source.exists():
+            names.update(table_pattern.findall(source.read_text(encoding="utf-8")))
+    return names
 
 
 def get_key_flags(key_text: str) -> list[str]:
@@ -159,7 +190,7 @@ def place_tables(schema: dict[str, list[dict[str, str]]]) -> tuple[dict[str, dic
                     "w": BOX_W,
                     "h": HEADER_H + len(schema[name]) * ROW_H + BOX_PAD_BOTTOM,
                 }
-    return positions, COL_X[-1] + BOX_W + 70, cursor - ROW_GAP + 60
+    return positions, COL_X[-1] + BOX_W + 70, cursor + 230
 
 
 def inside_box(point: tuple[int, int], rect: dict[str, int], pad: int = 16) -> bool:
@@ -262,33 +293,55 @@ def connector_markup(fk: dict[str, str], boxes: dict[str, dict[str, int]],
         return (f'<path d="M {x} {y} L {sx + px * spread} {sy + py * spread} '
                 f'M {x} {y} L {sx} {sy} M {x} {y} L {sx - px * spread} {sy - py * spread}" '
                 'fill="none" stroke="#455b91" stroke-width="3" stroke-linecap="round"/>')
+    def one_marker(x: int, y: int, neighbor: tuple[int, int]) -> str:
+        dx, dy = x - neighbor[0], y - neighbor[1]
+        length = max(1, math.hypot(dx, dy))
+        px, py = -dy / length, dx / length
+        return (f'<path d="M {x + px * 10} {y + py * 10} '
+                f'L {x - px * 10} {y - py * 10}" stroke="#455b91" stroke-width="3"/>')
+    def optional_circle(x: int, y: int, neighbor: tuple[int, int]) -> str:
+        dx, dy = neighbor[0] - x, neighbor[1] - y
+        length = max(1, math.hypot(dx, dy))
+        cx, cy = x + dx / length * 14, y + dy / length * 14
+        return f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="4.5" fill="#fff" stroke="#455b91" stroke-width="2"/>'
     # Parent-side 1 marker (short cross bar).
-    dx, dy = start_x - before[0], start_y - before[1]
-    length = max(1, math.hypot(dx, dy))
-    px, py = -dy / length, dx / length
-    one = (f'<path d="M {start_x + px * 10} {start_y + py * 10} '
-           f'L {start_x - px * 10} {start_y - py * 10}" stroke="#455b91" stroke-width="3"/>')
+    one = one_marker(start_x, start_y, before)
+    if fk.get("nullable"):
+        one += optional_circle(start_x, start_y, before)
+    child_marker = one_marker(end_x, end_y, after) if fk.get("one_to_one") else fork(end_x, end_y, after)
+    child_marker += optional_circle(end_x, end_y, after)
+    cardinality_label = ""
+    if fk.get("one_to_one"):
+        label_x, label_y = points[len(points) // 2]
+        cardinality_label = (
+            f'<rect x="{label_x-20}" y="{label_y-13}" width="40" height="20" fill="#ffffff" stroke="#d3d9e4"/>'
+            f'<text x="{label_x}" y="{label_y+2}" text-anchor="middle" font-family="Arial,sans-serif" '
+            'font-size="12" fill="#455b91">1:1</text>'
+        )
     return (f'<polyline points="{path}" fill="none" stroke="#455b91" stroke-width="2.2" '
             'stroke-linecap="round" stroke-linejoin="round"/>'
-            + one + fork(end_x, end_y, after))
+            + one + child_marker + cardinality_label)
 
 
 def svg_document(schema: dict[str, list[dict[str, str]]], fks: list[dict[str, str]],
                  positions: dict[str, dict[str, int]], width: int, height: int,
-                 snapshot: str) -> str:
-    app_tables = [name for name in schema if name != "flyway_schema_history"]
-    total_columns = sum(len(cols) for cols in schema.values())
+                 snapshot: str, missing_in_live: list[str], missing_ledger: bool) -> str:
+    app_tables = [name for name in schema if not name.startswith("auth.")]
+    total_columns = sum(len(cols) for name, cols in schema.items() if not name.startswith("auth."))
+    footer_y = height - 180
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
         '<rect width="100%" height="100%" fill="#eaf0fc"/>',
         f'<text x="{width/2}" y="72" text-anchor="middle" font-family="Arial,sans-serif" font-size="42" fill="#343a46">Zentrip — Supabase ER Diagram</text>',
-        f'<text x="{width/2}" y="112" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" fill="#596579">Crow’s-foot relationships • {len(schema)} tables • {total_columns} columns • {len(fks)} foreign keys • snapshot {snapshot}</text>',
+        f'<text x="{width/2}" y="112" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" fill="#596579">Crow’s-foot ERD • {len(app_tables)} live Zentrip tables • {total_columns} columns • {len(fks)} foreign keys • snapshot: {html.escape(snapshot)}</text>',
         '<rect x="70" y="132" width="510" height="38" fill="#ffffff" stroke="#263746" stroke-width="1.5"/>',
         '<text x="92" y="157" font-family="Arial,sans-serif" font-size="15" fill="#243247">PK = primary key    FK = foreign key    UQ = unique</text>',
         '<line x1="620" y1="151" x2="760" y2="151" stroke="#455b91" stroke-width="2.2"/>',
         '<line x1="620" y1="141" x2="620" y2="161" stroke="#455b91" stroke-width="3"/>',
         '<path d="M760 151 L744 141 M760 151 L744 151 M760 151 L744 161" fill="none" stroke="#455b91" stroke-width="3"/>',
-        '<text x="780" y="157" font-family="Arial,sans-serif" font-size="15" fill="#243247">One-to-many (FK enforced by PostgreSQL)</text>',
+        '<text x="780" y="157" font-family="Arial,sans-serif" font-size="15" fill="#243247">bar = one, circle = optional, crowfoot = many</text>',
+        '<rect x="1220" y="137" width="42" height="28" fill="#f8fafc" stroke="#65748b" stroke-width="2" stroke-dasharray="7 5"/>',
+        '<text x="1275" y="157" font-family="Arial,sans-serif" font-size="15" fill="#243247">External Supabase Auth table</text>',
     ]
     parts.append('<g id="relationships">')
     for fk in fks:
@@ -299,9 +352,13 @@ def svg_document(schema: dict[str, list[dict[str, str]]], fks: list[dict[str, st
     for table, fields in schema.items():
         rect = positions[table]
         x, y, w, h = rect["x"], rect["y"], rect["w"], rect["h"]
-        parts.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="#fff" stroke="#263746" stroke-width="2"/>')
-        parts.append(f'<rect x="{x}" y="{y}" width="{w}" height="{HEADER_H}" fill="#fff" stroke="#263746" stroke-width="2"/>')
-        parts.append(f'<text x="{x+w/2}" y="{y+28}" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#303643">{html.escape(table)}</text>')
+        is_external = table.startswith("auth.")
+        fill = "#f8fafc" if is_external else "#fff"
+        dash = ' stroke-dasharray="8 5"' if is_external else ""
+        title = f"{table} (Supabase Auth)" if is_external else table
+        parts.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{fill}" stroke="#263746" stroke-width="2"{dash}/>')
+        parts.append(f'<rect x="{x}" y="{y}" width="{w}" height="{HEADER_H}" fill="{fill}" stroke="#263746" stroke-width="2"{dash}/>')
+        parts.append(f'<text x="{x+w/2}" y="{y+28}" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#303643">{html.escape(title)}</text>')
         for i, field in enumerate(fields):
             row_y = y + HEADER_H + (i + 1) * ROW_H
             label_y = y + HEADER_H + i * ROW_H + 18
@@ -312,12 +369,34 @@ def svg_document(schema: dict[str, list[dict[str, str]]], fks: list[dict[str, st
             parts.append(f'<text x="{x+14}" y="{label_y}" font-family="Arial,sans-serif" font-size="15" fill="#222b37">{html.escape(field["name"])}</text>')
             if flags_text:
                 parts.append(f'<text x="{x+w-14}" y="{label_y}" text-anchor="end" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#364f89">{html.escape(flags_text)}</text>')
+    if missing_in_live or missing_ledger:
+        parts.extend([
+            f'<rect x="70" y="{footer_y}" width="{width-140}" height="145" rx="4" fill="#fff8e8" stroke="#b7791f" stroke-width="2"/>',
+            f'<text x="92" y="{footer_y+30}" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#7b4c11">Project tables not present in this live Supabase snapshot</text>',
+        ])
+        missing_text = ", ".join(missing_in_live) if missing_in_live else "None"
+        parts.append(
+            f'<text x="92" y="{footer_y+62}" font-family="Arial,sans-serif" font-size="15" fill="#513f28">'
+            f'<tspan x="92" dy="0">{html.escape(missing_text)}</tspan></text>'
+        )
+        if missing_ledger:
+            parts.append(
+                f'<text x="92" y="{footer_y+88}" font-family="Arial,sans-serif" font-size="14" fill="#513f28">'
+                'The project also defines a schema_migrations tracking table; it is infrastructure, not app data.</text>'
+            )
+        if "flyway_schema_history" in expected_code_tables():
+            pass
+        parts.append(
+            f'<text x="92" y="{footer_y+119}" font-family="Arial,sans-serif" font-size="13" fill="#705c40">'
+            'flyway_schema_history is omitted above because it records migration status, not Zentrip application data.</text>'
+        )
     parts.append('</g></svg>')
     return "\n".join(part for part in parts if part)
 
 
 def drawio_document(schema: dict[str, list[dict[str, str]]], fks: list[dict[str, str]],
-                    positions: dict[str, dict[str, int]], width: int, height: int) -> str:
+                    positions: dict[str, dict[str, int]], width: int, height: int,
+                    missing_in_live: list[str], missing_ledger: bool) -> str:
     cells = ['<mxCell id="0"/>', '<mxCell id="1" parent="0"/>']
     table_ids = {name: f"t{i+1}" for i, name in enumerate(schema)}
     for name, fields in schema.items():
@@ -327,13 +406,16 @@ def drawio_document(schema: dict[str, list[dict[str, str]]], fks: list[dict[str,
             flags = ", ".join(get_key_flags(field["key"]))
             flag_html = f'<span style="color:#364f89;font-weight:bold;float:right">{html.escape(flags)}</span>' if flags else ""
             rows.append(f'<tr><td style="padding:3px 8px">{html.escape(field["name"])}{flag_html}</td></tr>')
+        external_note = '<tr><td style="padding:3px 8px;color:#65748b"><i>External Supabase Auth table</i></td></tr>' if name.startswith("auth.") else ""
         label = (
             '<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px">'
             f'<tr><th style="background:#ffffff;border:1px solid #263746;padding:8px;font-size:16px">{html.escape(name)}</th></tr>'
-            + "".join(rows) + "</table>"
+            + external_note + "".join(rows) + "</table>"
         )
         value = html.escape(label, quote=True)
-        style = "rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;strokeColor=#263746;fillColor=#FFFFFF;fontColor=#222B37;fontSize=13;spacing=0;"
+        external_style = "dashed=1;dashPattern=8 5;" if name.startswith("auth.") else ""
+        fill = "#F8FAFC" if name.startswith("auth.") else "#FFFFFF"
+        style = f"rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;strokeColor=#263746;fillColor={fill};{external_style}fontColor=#222B37;fontSize=13;spacing=0;"
         cells.append(
             f'<mxCell id="{table_ids[name]}" value="{value}" style="{style}" vertex="1" parent="1">'
             f'<mxGeometry x="{p["x"]}" y="{p["y"]}" width="{p["w"]}" height="{p["h"]}" as="geometry"/></mxCell>'
@@ -341,12 +423,29 @@ def drawio_document(schema: dict[str, list[dict[str, str]]], fks: list[dict[str,
     for i, fk in enumerate(fks):
         if fk["parent"] not in table_ids or fk["child"] not in table_ids:
             continue
-        style = "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#455B91;strokeWidth=2;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;"
-        value = html.escape(f'{fk["child_key"]} → {fk["parent"]}.{fk["parent_key"]}', quote=True)
+        start_arrow = "ERzeroToOne" if fk.get("nullable") else "ERone"
+        end_arrow = "ERzeroToOne" if fk.get("one_to_one") else "ERzeroToMany"
+        style = f"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#455B91;strokeWidth=2;startArrow={start_arrow};startFill=0;endArrow={end_arrow};endFill=0;"
+        value = html.escape(("1:1 · " if fk.get("one_to_one") else "") + f'{fk["child_key"]} → {fk["parent"]}.{fk["parent_key"]}', quote=True)
         cells.append(
             f'<mxCell id="e{i+1}" value="{value}" style="{style}" edge="1" parent="1" '
             f'source="{table_ids[fk["parent"]]}" target="{table_ids[fk["child"]]}">'
             '<mxGeometry relative="1" as="geometry"/></mxCell>'
+        )
+    if missing_in_live:
+        note_lines = ", ".join(missing_in_live)
+        ledger_text = "The project also defines a schema_migrations tracking table; it is infrastructure, not app data." if missing_ledger else ""
+        note = (
+            '<b>Project tables not present in this live Supabase snapshot</b><br/>'
+            + html.escape(note_lines)
+            + ("<br/>" + html.escape(ledger_text) if ledger_text else "")
+            + '<br/>flyway_schema_history is omitted because it records migration status, not Zentrip application data.'
+        )
+        cells.append(
+            f'<mxCell id="schema-status" value="{html.escape(note, quote=True)}" '
+            'style="shape=note;whiteSpace=wrap;html=1;size=18;strokeColor=#B7791F;fillColor=#FFF8E8;fontColor=#513F28;fontSize=15;" '
+            'vertex="1" parent="1"><mxGeometry x="70" y="'
+            f'{height-180}" width="{width-140}" height="145" as="geometry"/></mxCell>'
         )
     return (
         '<mxfile host="app.diagrams.net" version="24.7.17"><diagram id="zentrip-erd" name="Zentrip Supabase ERD">'
@@ -357,21 +456,47 @@ def drawio_document(schema: dict[str, list[dict[str, str]]], fks: list[dict[str,
 
 
 def main() -> None:
-    schema, fks, snapshot = read_schema()
-    missing = [name for row in GRID_TABLES for name in row if name and name not in schema]
-    if missing:
-        raise RuntimeError(f"Layout references missing tables: {missing}")
-    if len(schema) != 21 or sum(map(len, schema.values())) != 214 or len(fks) != 25:
-        raise RuntimeError(
-            "The saved schema snapshot no longer matches expected metadata "
-            f"({len(schema)} tables, {sum(map(len, schema.values()))} columns, {len(fks)} foreign keys)."
-        )
+    live_schema, fks, snapshot = read_schema()
+    system_only = {"flyway_schema_history", "schema_migrations"}
+    schema = {name: columns for name, columns in live_schema.items() if name not in system_only}
+    for fk in fks:
+        parent = fk["parent"]
+        if parent not in schema and "." in parent:
+            schema.setdefault(parent, [{
+                "name": fk["parent_key"],
+                "type": "uuid",
+                "key": "PK",
+                "nullable": "No",
+            }])
+    missing_layout = sorted(set(schema) - {name for row in GRID_TABLES for name in row if name})
+    missing = sorted({name for row in GRID_TABLES for name in row if name} - set(schema))
+    if missing_layout or missing:
+        raise RuntimeError(f"ERD layout mismatch. Unplaced live tables: {missing_layout}; absent layout tables: {missing}")
+    if any(fk["parent"] not in schema or fk["child"] not in schema for fk in fks):
+        raise RuntimeError("A live foreign key references an entity missing from the ERD.")
+    code_tables = expected_code_tables()
+    missing_in_live = sorted((code_tables - set(live_schema)) - system_only)
+    missing_ledger = "schema_migrations" in code_tables and "schema_migrations" not in live_schema
     positions, width, height = place_tables(schema)
     OUT.mkdir(exist_ok=True)
-    SVG_PATH.write_text(svg_document(schema, fks, positions, width, height, snapshot), encoding="utf-8")
-    DRAWIO_PATH.write_text(drawio_document(schema, fks, positions, width, height), encoding="utf-8")
+    SVG_PATH.write_text(
+        svg_document(schema, fks, positions, width, height, snapshot, missing_in_live, missing_ledger),
+        encoding="utf-8",
+    )
+    DRAWIO_PATH.write_text(
+        drawio_document(schema, fks, positions, width, height, missing_in_live, missing_ledger),
+        encoding="utf-8",
+    )
     print(f"Created {SVG_PATH} and {DRAWIO_PATH}")
-    print(f"Verified {len(schema)} tables, {sum(map(len, schema.values()))} columns, {len(fks)} FKs.")
+    app_table_count = len([name for name in live_schema if name not in system_only])
+    app_column_count = sum(len(cols) for name, cols in live_schema.items() if name not in system_only)
+    print(
+        f"Live Supabase: {len(live_schema)} tables; app ERD: {app_table_count} tables, "
+        f"{app_column_count} columns, {len(fks)} FKs; "
+        f"code-defined tables missing from live: {len(missing_in_live)}."
+    )
+    if missing_in_live:
+        print("Missing app tables: " + ", ".join(missing_in_live))
 
 
 if __name__ == "__main__":

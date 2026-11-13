@@ -91,6 +91,7 @@ SELECT json_build_object(
     SELECT COALESCE(json_agg(json_build_object(
       'table', child.relname,
       'name', pc.conname,
+      'refSchema', parent_schema.nspname,
       'refTable', parent.relname,
       'pairs', (
         SELECT json_agg(json_build_object(
@@ -115,6 +116,7 @@ SELECT json_build_object(
     JOIN pg_class child ON child.oid = pc.conrelid
     JOIN pg_namespace child_schema ON child_schema.oid = child.relnamespace
     JOIN pg_class parent ON parent.oid = pc.confrelid
+    JOIN pg_namespace parent_schema ON parent_schema.oid = parent.relnamespace
     WHERE pc.contype = 'f' AND child_schema.nspname = 'public'
   )
 )::text;
@@ -226,7 +228,10 @@ function prepareSchema(schema) {
       }
       for (const fk of table.foreignKeys) {
         const pair = fk.pairs.find((entry) => entry.column === column.name);
-        if (pair) keyFlags.push(`FK → ${fk.refTable}.${pair.refColumn}`);
+        const refName = fk.refSchema && fk.refSchema !== "public"
+          ? `${fk.refSchema}.${fk.refTable}`
+          : fk.refTable;
+        if (pair) keyFlags.push(`FK → ${refName}.${pair.refColumn}`);
       }
       return { ...column, displayType: postgresType(column), keyFlags };
     });
@@ -513,7 +518,7 @@ function relationshipSection(schema) {
   const rows = [["Referenced table", "Referenced key", "Child table", "Foreign-key column(s)", "Delete rule"]];
   for (const fk of schema.foreignKeys) {
     rows.push([
-      fk.refTable,
+      fk.refSchema && fk.refSchema !== "public" ? `${fk.refSchema}.${fk.refTable}` : fk.refTable,
       fk.pairs.map((pair) => pair.refColumn).join(", "),
       fk.table,
       fk.pairs.map((pair) => pair.column).join(", "),
