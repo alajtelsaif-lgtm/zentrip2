@@ -581,6 +581,10 @@ function buildDocument(schema) {
   const tablesByName = new Map(schema.tables.map((table) => [table.name, table]));
   const totalColumns = schema.tables.reduce((sum, table) => sum + table.columns.length, 0);
   const systemTable = tablesByName.get("flyway_schema_history");
+  const snapshotDate = new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "long",
+    timeZone: "UTC",
+  }).format(new Date());
   const front = [
     paragraph("ZenTrip — Supabase Database Diagram", {
       heading: HeadingLevel.TITLE,
@@ -604,7 +608,7 @@ function buildDocument(schema) {
       ["Declared foreign keys", String(schema.foreignKeys.length)],
       ["Read scope", "Catalog metadata only; no customer or booking rows read"],
       ["System table", systemTable ? "flyway_schema_history — migration history, no application foreign keys" : "Not present"],
-      ["Snapshot date", "11 November 2026"],
+      ["Snapshot date", snapshotDate],
     ], [4600, 10800]),
     paragraph("How to read the diagrams", {
       heading: HeadingLevel.HEADING_1,
