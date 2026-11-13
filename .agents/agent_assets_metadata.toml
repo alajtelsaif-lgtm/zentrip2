@@ -313,14 +313,14 @@ content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.d
 id = "PHUUht-s5xUxVqJmaa0D8"
 uri = "file://generated-artifacts/ZenTrip-Supabase-Database-Diagram.docx"
 type = "word_document"
-title = "ZenTrip Supabase Database Diagram"
-description = "Editable Word ER diagrams and a complete live schema dictionary, extracted read-only from Supabase."
+title = "Zentrip Supabase ERD — Editable Word"
+description = "Word document with native editable diagram objects, based on the public Supabase schema snapshot from 11 November 2026."
 logical_id = "aeded4bd-ace6-4157-bbf5-f959c288a813"
 content_hash = "sha256:6b8758b7d4d225f8682987dd25782625aa2541b82d7497c78612a78f8f559367"
 size = 34355
 mtime_ms = 1794423306165
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/aeded4bd-ace6-4157-bbf5-f959c288a813/46d78779-58c8-4742-ba1a-0f5fa5cf1f5e"
-storage_version_token = "1794423388630916"
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/aeded4bd-ace6-4157-bbf5-f959c288a813/781f9e70-4447-4406-a094-ed00953807c6"
+storage_version_token = "1794575402452874"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 [[outputs]]
@@ -369,14 +369,14 @@ content_type = "application/octet-stream"
 id = "7J2KVdFinI3aU5Wbyuwfk"
 uri = "file://outputs/zentrip-supabase-chen-attributes.svg"
 type = "image"
-title = "Chen ERD — all attributes"
-description = "All 204 columns from the live Supabase public schema shown as oval attributes; primary keys are underlined and foreign keys are marked."
+title = "Zentrip ERD — SVG preview"
+description = "High-resolution preview of the all-attributes Chen ERD."
 logical_id = "25d85d38-751f-4124-a58d-9f16149054bc"
 content_hash = "sha256:b85ea2e32ca11d0f10f7060215611b9ae58069dadb235af152b0a32f89e93644"
 size = 88630
 mtime_ms = 1794503259376
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/25d85d38-751f-4124-a58d-9f16149054bc/18c49c32-f1c6-4690-a176-547f97b5c682"
-storage_version_token = "1794503342593973"
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/25d85d38-751f-4124-a58d-9f16149054bc/5dc5ab34-c1aa-4d97-a53e-cada350b73ca"
+storage_version_token = "1794575403734921"
 content_type = "image/svg+xml"
 
 [[outputs]]
@@ -397,14 +397,14 @@ content_type = "image/svg+xml"
 id = "QBOE0O-HwgvBrSRvDPfBk"
 uri = "file://outputs/zentrip-supabase-chen-erd.drawio"
 type = "unspecified"
-title = "Editable Chen ERD source"
-description = "Two editable diagrams.net pages: the full attribute view and the relationship map."
+title = "Zentrip ERD — Editable Draw.io source"
+description = "Editable Chen-style ERD source. Open in diagrams.net / draw.io."
 logical_id = "25f43416-1fb3-4202-a407-e98247a56f19"
 content_hash = "sha256:33e965c62a4e5271c471fd666cc22ee34612da32a28229a672c45e360ca21802"
 size = 212202
 mtime_ms = 1794503259475
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/25f43416-1fb3-4202-a407-e98247a56f19/861a0cdc-cdde-4f54-89fe-daea0bfd5c30"
-storage_version_token = "1794503344110577"
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/25f43416-1fb3-4202-a407-e98247a56f19/3eb91914-3796-41e5-9c51-768dac6be114"
+storage_version_token = "1794575403095389"
 content_type = "application/octet-stream"
 
 [[outputs]]
