@@ -560,3 +560,45 @@ mtime_ms = 1794577569521
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/4b74c936-138d-47f6-82a4-c9624f197c07/b00cf2d8-4384-449d-9e9b-923c9d44e2a9"
 storage_version_token = "1794577606168211"
 content_type = "image/svg+xml"
+
+[[outputs]]
+id = "44vHHCg9OTzXgb5efbbrD"
+uri = "file://generated-artifacts/zentrip-complete-erd/ZenTrip-Complete-ERD-A4-Landscape.pdf"
+type = "pdf"
+title = "Zentrip Complete ERD — 13-page PDF"
+description = "A4 landscape, all database fields and relationships, including reconciliation of live Supabase metadata with project SQL."
+logical_id = "6dc4d48f-0b8c-4210-b9c2-963283dd3999"
+content_hash = "sha256:1445f701fb9965fac98fc8a8cba5aed33bfc5ccc4a6118f7004c184f9c3f0810"
+size = 5769895
+mtime_ms = 1794579610965
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/6dc4d48f-0b8c-4210-b9c2-963283dd3999/485f8f1b-6f57-4789-bc4e-a3847349321f"
+storage_version_token = "1794579778230003"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "u-cHZ93VStw9xoF5di1jL"
+uri = "file://generated-artifacts/zentrip-complete-erd/Zentrip-Complete-ERD.drawio"
+type = "unspecified"
+title = "Editable Zentrip ERD — Draw.io"
+description = "Editable multi-page diagram with entity shapes, keys, cardinality connectors, and relationship maps. Open in diagrams.net."
+logical_id = "b4b57824-503b-4b53-8052-1d33856b70cb"
+content_hash = "sha256:95797aeb8d59cd3f560219fcf560f239fc2fe35588483d197a5ad9003608878c"
+size = 134251
+mtime_ms = 1794579597871
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/b4b57824-503b-4b53-8052-1d33856b70cb/dcb5e99f-65a2-4f44-a44b-54b07640c099"
+storage_version_token = "1794579779164289"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "DiVyshTYAtrUsu5IzBoOK"
+uri = "file://generated-artifacts/zentrip-complete-erd/ZenTrip-Complete-ERD-SVG-Pages.zip"
+type = "unspecified"
+title = "Zentrip ERD source pages and guide"
+description = "All 13 SVG pages, schema reconciliation, and PDF export instructions."
+logical_id = "045fd331-0b5b-4350-913c-727d56cf78ea"
+content_hash = "sha256:84de58a993d1aba12ec449dd7330649a454f3814783671172245f4b0b73bb2ee"
+size = 27049
+mtime_ms = 1794579720233
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/045fd331-0b5b-4350-913c-727d56cf78ea/2cd35651-9faf-4fe7-8c60-eb4f54167917"
+storage_version_token = "1794579779765374"
+content_type = "application/octet-stream"
