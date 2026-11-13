@@ -5,6 +5,7 @@ import '../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../features/auth/presentation/screens/reset_password_screen.dart';
 import '../features/auth/presentation/screens/verfiy_screen.dart.dart';
 import '../features/auth/presentation/screens/login_success_screen.dart';
 import '../features/trips/presentation/screens/trip_details_screen.dart';
@@ -38,6 +39,7 @@ abstract class AppRoutes {
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
   static const String verifyCode = '/verify-code';
+  static const String resetPassword = '/reset-password';
   static const String loginSuccess = '/login-success';
   static const String home = '/home';
   static const String tripDetails = '/trip-details';
@@ -98,6 +100,12 @@ abstract class AppRoutes {
         final email = settings.arguments;
         if (email is String && email.isNotEmpty) {
           return _slide(VerifyScreen(email: email), settings);
+        }
+        return _slide(const ForgotPasswordScreen(), settings);
+      case resetPassword:
+        final email = settings.arguments;
+        if (email is String && email.isNotEmpty) {
+          return _slide(ResetPasswordScreen(email: email), settings);
         }
         return _slide(const ForgotPasswordScreen(), settings);
       case loginSuccess:

@@ -614,6 +614,90 @@ abstract class AppLocalizations {
   /// **'اختر كلمة مرور قوية لحماية حسابك'**
   String get resetPasswordSubtitle;
 
+  /// No description provided for @resetPasswordTitleLine1.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة تعيين'**
+  String get resetPasswordTitleLine1;
+
+  /// No description provided for @resetPasswordTitleLine2.
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور'**
+  String get resetPasswordTitleLine2;
+
+  /// No description provided for @resetCodeInputHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل رمز إعادة التعيين المكوّن من 6 أرقام'**
+  String get resetCodeInputHint;
+
+  /// No description provided for @demoPasswordResetNotice.
+  ///
+  /// In ar, this message translates to:
+  /// **'للعرض التجريبي فقط: استخدم الرمز 123456. لن تتغير كلمة مرور أي حساب حقيقي.'**
+  String get demoPasswordResetNotice;
+
+  /// No description provided for @resetCodeInvalid.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل رمز إعادة تعيين صحيحًا مكوّنًا من 6 أرقام'**
+  String get resetCodeInvalid;
+
+  /// No description provided for @resetPasswordFieldsRequired.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل كلمة المرور الجديدة وأكدها'**
+  String get resetPasswordFieldsRequired;
+
+  /// No description provided for @resetPasswordMinLength.
+  ///
+  /// In ar, this message translates to:
+  /// **'استخدم 8 أحرف على الأقل'**
+  String get resetPasswordMinLength;
+
+  /// No description provided for @resetPasswordMismatch.
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمتا المرور غير متطابقتين'**
+  String get resetPasswordMismatch;
+
+  /// No description provided for @resetPasswordButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة تعيين كلمة المرور'**
+  String get resetPasswordButton;
+
+  /// No description provided for @passwordResetSuccessTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتملت إعادة تعيين كلمة المرور'**
+  String get passwordResetSuccessTitle;
+
+  /// No description provided for @demoPasswordResetComplete.
+  ///
+  /// In ar, this message translates to:
+  /// **'اكتمل العرض التجريبي. لم تتغير كلمة مرور أي حساب حقيقي.'**
+  String get demoPasswordResetComplete;
+
+  /// No description provided for @backToLogin.
+  ///
+  /// In ar, this message translates to:
+  /// **'العودة إلى تسجيل الدخول'**
+  String get backToLogin;
+
+  /// No description provided for @showPassword.
+  ///
+  /// In ar, this message translates to:
+  /// **'إظهار كلمة المرور'**
+  String get showPassword;
+
+  /// No description provided for @hidePassword.
+  ///
+  /// In ar, this message translates to:
+  /// **'إخفاء كلمة المرور'**
+  String get hidePassword;
+
   /// No description provided for @saveNewPassword.
   ///
   /// In ar, this message translates to:

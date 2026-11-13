@@ -85,6 +85,19 @@ class ApiService {
 
   // ── Mock Mode ───────────────────────────────────────────────────────────
   static const bool useMockMode = false;
+  static const String demoPasswordResetCode = '123456';
+
+  static bool isDemoPasswordResetHost(String host) {
+    final normalized = host.trim().toLowerCase();
+    return normalized == 'localhost' ||
+        normalized == '127.0.0.1' ||
+        normalized.endsWith('.replit.dev');
+  }
+
+  /// The preview-only reset flow never calls the account API or changes a
+  /// real account. Published domains do not enable this demonstration path.
+  bool get isDemoPasswordResetEnabled =>
+      kIsWeb && isDemoPasswordResetHost(Uri.base.host);
   static const String mockVerificationCode = '123456';
   static const Duration _mockDelay = Duration(milliseconds: 700);
   static const bool socialAuthConfigured = false;
@@ -320,6 +333,9 @@ class ApiService {
   }
 
   Future<ApiResult<void>> sendResetCode({required String email}) async {
+    if (isDemoPasswordResetEnabled) {
+      return ApiResult<void>.success();
+    }
     if (useMockMode) {
       return _request(() async {
         await Future.delayed(_mockDelay);
@@ -334,6 +350,11 @@ class ApiService {
     required String email,
     required String code,
   }) async {
+    if (isDemoPasswordResetEnabled) {
+      return code == demoPasswordResetCode
+          ? ApiResult<void>.success()
+          : ApiResult<void>.failure('The reset code is invalid or expired.');
+    }
     if (useMockMode) {
       return _request(() async {
         await Future.delayed(_mockDelay);
@@ -355,6 +376,11 @@ class ApiService {
     required String code,
     required String newPassword,
   }) async {
+    if (isDemoPasswordResetEnabled) {
+      return code == demoPasswordResetCode
+          ? ApiResult<void>.success()
+          : ApiResult<void>.failure('The reset code is invalid or expired.');
+    }
     if (useMockMode) {
       return _request(() async {
         await Future.delayed(_mockDelay);
@@ -984,8 +1010,7 @@ class ApiService {
       final response = await _dio.get('/admin/flight-listings');
       return (response.data['flights'] as List)
           .whereType<Map>()
-          .map((item) =>
-              FlightModel.fromJson(Map<String, dynamic>.from(item)))
+          .map((item) => FlightModel.fromJson(Map<String, dynamic>.from(item)))
           .toList();
     });
   }

@@ -62,7 +62,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
 
     await Navigator.of(context).pushNamed(
-      AppRoutes.verifyCode,
+      AppRoutes.resetPassword,
       arguments: _emailCtrl.text.trim(),
     );
     if (mounted) setState(() => _loading = false);

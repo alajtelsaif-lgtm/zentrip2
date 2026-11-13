@@ -36,6 +36,7 @@ class _SplashScreenState extends State<SplashScreen> {
         AppRoutes.register,
         AppRoutes.forgotPassword,
         AppRoutes.verifyCode,
+        AppRoutes.resetPassword,
       }.contains(requestedRoute)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -46,8 +47,7 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     // مدة عرض شاشة الـ Splash قبل الانتقال التلقائي.
-    const splashDuration =
-        kIsWeb ? Duration.zero : Duration(seconds: 4);
+    const splashDuration = kIsWeb ? Duration.zero : Duration(seconds: 4);
     final results = await Future.wait<Object>([
       Future.delayed(splashDuration, () => true),
       _restoreSessionSafely(),

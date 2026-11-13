@@ -271,6 +271,51 @@ class AppLocalizationsAr extends AppLocalizations {
   String get resetPasswordSubtitle => 'اختر كلمة مرور قوية لحماية حسابك';
 
   @override
+  String get resetPasswordTitleLine1 => 'إعادة تعيين';
+
+  @override
+  String get resetPasswordTitleLine2 => 'كلمة المرور';
+
+  @override
+  String get resetCodeInputHint => 'أدخل رمز إعادة التعيين المكوّن من 6 أرقام';
+
+  @override
+  String get demoPasswordResetNotice =>
+      'للعرض التجريبي فقط: استخدم الرمز 123456. لن تتغير كلمة مرور أي حساب حقيقي.';
+
+  @override
+  String get resetCodeInvalid =>
+      'أدخل رمز إعادة تعيين صحيحًا مكوّنًا من 6 أرقام';
+
+  @override
+  String get resetPasswordFieldsRequired => 'أدخل كلمة المرور الجديدة وأكدها';
+
+  @override
+  String get resetPasswordMinLength => 'استخدم 8 أحرف على الأقل';
+
+  @override
+  String get resetPasswordMismatch => 'كلمتا المرور غير متطابقتين';
+
+  @override
+  String get resetPasswordButton => 'إعادة تعيين كلمة المرور';
+
+  @override
+  String get passwordResetSuccessTitle => 'اكتملت إعادة تعيين كلمة المرور';
+
+  @override
+  String get demoPasswordResetComplete =>
+      'اكتمل العرض التجريبي. لم تتغير كلمة مرور أي حساب حقيقي.';
+
+  @override
+  String get backToLogin => 'العودة إلى تسجيل الدخول';
+
+  @override
+  String get showPassword => 'إظهار كلمة المرور';
+
+  @override
+  String get hidePassword => 'إخفاء كلمة المرور';
+
+  @override
   String get saveNewPassword => 'حفظ كلمة المرور';
 
   @override

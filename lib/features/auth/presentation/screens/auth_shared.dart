@@ -139,23 +139,40 @@ class _AuthScaffoldState extends State<AuthScaffold>
                     final bottomPadding =
                         (mq.viewInsets.bottom == 0 ? mq.padding.bottom : 0.0) +
                             16.0;
-                    final contentHeight =
-                        (constraints.maxHeight - 10 - bottomPadding)
-                            .clamp(0.0, double.infinity);
-                    return SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(
-                        24,
-                        10,
-                        24,
-                        bottomPadding,
-                      ),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: contentHeight),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
+                    const contentTopPadding = 44.0;
+                    final contentHeight = (constraints.maxHeight -
+                            contentTopPadding -
+                            bottomPadding)
+                        .clamp(0.0, double.infinity)
+                        .toDouble();
+                    return Stack(
+                      children: [
+                        Positioned.fill(
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(
+                              24,
+                              contentTopPadding,
+                              24,
+                              bottomPadding,
+                            ),
+                            child: ConstrainedBox(
+                              constraints:
+                                  BoxConstraints(minHeight: contentHeight),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [widget.child],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 12,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Container(
+                              key: const Key('auth-sheet-handle'),
                               width: 36,
                               height: 4,
                               decoration: BoxDecoration(
@@ -163,11 +180,9 @@ class _AuthScaffoldState extends State<AuthScaffold>
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
-                            const SizedBox(height: 18),
-                            widget.child,
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     );
                   },
                 ),

@@ -107,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       children: [
         Text(
-          'Login to Access Your',
+          'Login to',
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
             fontSize: 22,
@@ -117,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         Text(
-          'Travel Tickets',
+          'Travel Around the Globe',
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
             fontSize: 22,

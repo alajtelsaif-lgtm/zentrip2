@@ -20,9 +20,12 @@ void main() {
 
     final scrollRect = tester.getRect(find.byType(SingleChildScrollView));
     expect(scrollRect.bottom, closeTo(tester.view.physicalSize.height, 1));
+    final handleRect =
+        tester.getRect(find.byKey(const Key('auth-sheet-handle')));
+    expect(handleRect.top, closeTo(scrollRect.top + 12, 1));
     final titleRect = tester.getRect(find.text('Forgot Your Password?'));
-    expect(titleRect.center.dy, greaterThan(scrollRect.top + 60));
-    expect(titleRect.center.dy, lessThan(scrollRect.bottom - 200));
+    expect(titleRect.top, greaterThan(handleRect.bottom + 16));
+    expect(titleRect.top, lessThan(scrollRect.top + 110));
     await tester.ensureVisible(find.text('Send Reset Code'));
     await tester.pump();
     expect(find.text('Send Reset Code'), findsOneWidget);
@@ -80,6 +83,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(tester.takeException(), isNull);
+    expect(find.text('Login to'), findsOneWidget);
+    expect(find.text('Travel Around the Globe'), findsOneWidget);
     final createAccountText = find.byWidgetPredicate(
       (widget) => widget is Text && widget.textSpan != null,
     );

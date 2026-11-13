@@ -273,6 +273,51 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose a strong password to protect your account';
 
   @override
+  String get resetPasswordTitleLine1 => 'Reset';
+
+  @override
+  String get resetPasswordTitleLine2 => 'Password';
+
+  @override
+  String get resetCodeInputHint => 'Enter the 6-digit reset code';
+
+  @override
+  String get demoPasswordResetNotice =>
+      'Preview demo only: use code 123456. This will not change a real account.';
+
+  @override
+  String get resetCodeInvalid => 'Enter the valid 6-digit reset code';
+
+  @override
+  String get resetPasswordFieldsRequired =>
+      'Enter and confirm your new password';
+
+  @override
+  String get resetPasswordMinLength => 'Use at least 8 characters';
+
+  @override
+  String get resetPasswordMismatch => 'Passwords don\'t match';
+
+  @override
+  String get resetPasswordButton => 'Reset Password';
+
+  @override
+  String get passwordResetSuccessTitle => 'Password reset complete';
+
+  @override
+  String get demoPasswordResetComplete =>
+      'Demo completed. The real account password was not changed.';
+
+  @override
+  String get backToLogin => 'Back to Login';
+
+  @override
+  String get showPassword => 'Show password';
+
+  @override
+  String get hidePassword => 'Hide password';
+
+  @override
   String get saveNewPassword => 'Save Password';
 
   @override
