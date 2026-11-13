@@ -518,3 +518,45 @@ mtime_ms = 1794532240882
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/a4235e3b-8bcd-49ff-a63b-66dc178e30d6/53162bf0-47bb-465b-b78b-6866b1fce778"
 storage_version_token = "1794532282266715"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "xW_dyNCeto9AjrCHtM7XP"
+uri = "file://generated-artifacts/zentrip-supabase-erd-crowfoot.png"
+type = "image"
+title = "Zentrip ERD — PNG diagram"
+description = "The full ERD in the requested table-box and crow’s-foot style, showing all 21 tables, 214 columns, and 25 database foreign keys."
+logical_id = "e92cd581-346f-4c66-a696-fcfac9e300d9"
+content_hash = "sha256:7ea237f49f79acb24dcfc020d1e45be5e02136bb31e371b59226de36acced145"
+size = 1943319
+mtime_ms = 1794575875549
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/e92cd581-346f-4c66-a696-fcfac9e300d9/0f411339-523d-42df-9c6e-3e5a9c96bb5c"
+storage_version_token = "1794575924493787"
+content_type = "image/png"
+
+[[outputs]]
+id = "HsZa3Hoo-RVzFNqNdCTe8"
+uri = "file://generated-artifacts/zentrip-supabase-erd-crowfoot.drawio"
+type = "unspecified"
+title = "Zentrip ERD — Editable Draw.io file"
+description = "Editable entity boxes and relationship connectors. Open in diagrams.net / draw.io."
+logical_id = "665718d9-b0e3-477c-a7ea-fe8ace9db1ba"
+content_hash = "sha256:ade5fb86de61a24987c03ef3ec58d27d264d31c226f0f6edb8430e7b7ecbdb08"
+size = 42280
+mtime_ms = 1794575873876
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/665718d9-b0e3-477c-a7ea-fe8ace9db1ba/85eb6c0e-f5a1-42c3-b0c2-f270fe942c3c"
+storage_version_token = "1794575925118075"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "r_DLZYFWRV5QnTkDGuMVU"
+uri = "file://generated-artifacts/zentrip-supabase-erd-crowfoot.svg"
+type = "image"
+title = "Zentrip ERD — SVG diagram"
+description = "Scalable vector version of the complete crow’s-foot ERD."
+logical_id = "4b74c936-138d-47f6-82a4-c9624f197c07"
+content_hash = "sha256:2a819a04b75529d2f91f162f12ecd6047481247597d1ec255adf39781ef18ff2"
+size = 61494
+mtime_ms = 1794575873875
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:e6a74485-980a-4506-b274-9fd8e57ff1ee/4b74c936-138d-47f6-82a4-c9624f197c07/3f8acad9-c23a-4e69-9e7e-a8ce24032d0a"
+storage_version_token = "1794575925730385"
+content_type = "image/svg+xml"
