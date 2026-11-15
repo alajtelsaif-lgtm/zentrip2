@@ -1461,9 +1461,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get attractionOpenOnMap => 'Open on Map';
 
   @override
-  String get attractionMapComingSoon => 'Map view is coming soon';
-
-  @override
   String get chatOnlineStatus => 'Connected to AI';
 
   @override
@@ -3143,4 +3140,303 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get referenceRatePolicy =>
       'Rates older than 4 days are flagged; rates older than 7 days are not used.';
+
+  @override
+  String get authInvalidEmail => 'Enter a valid email address';
+
+  @override
+  String get forgotTitleLine1 => 'Forgot Your Password?';
+
+  @override
+  String get forgotTitleLine2 => 'We\'ll Get You Back On Track';
+
+  @override
+  String get forgotSubtitle =>
+      'Enter the email linked to your account and we\'ll send you a code to reset your password.';
+
+  @override
+  String get authEmailHint => 'Enter your email';
+
+  @override
+  String get sendResetCode => 'Send Reset Code';
+
+  @override
+  String get rememberedIt => 'Remembered it?';
+
+  @override
+  String get backToLoginLower => 'Back to login';
+
+  @override
+  String get authPasswordHint => 'Enter your password';
+
+  @override
+  String get loginTitleLine1 => 'Login to';
+
+  @override
+  String get loginTitleLine2 => 'Travel Around the Globe';
+
+  @override
+  String get rememberMe => 'Remember me';
+
+  @override
+  String get forgotPasswordLink => 'Forgot password?';
+
+  @override
+  String get loginButton => 'Login';
+
+  @override
+  String get orSignUpWith => 'Or sign up with';
+
+  @override
+  String get noAccountPrompt => 'Don\'t have an account? ';
+
+  @override
+  String get createAnAccount => 'Create an account';
+
+  @override
+  String get fullNameHint => 'Enter your full name';
+
+  @override
+  String phoneExactDigits(int count, String country) {
+    return 'Enter exactly $count digits for $country';
+  }
+
+  @override
+  String phoneDigitRange(int min, int max, String country) {
+    return 'Enter $min-$max digits for $country';
+  }
+
+  @override
+  String get passwordMinLength => 'Use at least 8 characters';
+
+  @override
+  String get passwordsDontMatch => 'Passwords don\'t match';
+
+  @override
+  String get acceptTermsError => 'Please accept the terms to continue';
+
+  @override
+  String get phoneHint => 'Enter your phone number';
+
+  @override
+  String get addProfilePhotoOptional => 'Add a profile photo (optional)';
+
+  @override
+  String get registerTitleLine1 => 'Create Your Account';
+
+  @override
+  String get registerTitleLine2 => 'Start Your Journey';
+
+  @override
+  String get createPasswordHint => 'Create a password';
+
+  @override
+  String get confirmPasswordHint => 'Confirm your password';
+
+  @override
+  String get agreeToThe => 'I agree to the ';
+
+  @override
+  String get termsOfService => 'Terms of Service';
+
+  @override
+  String get createAccountButton => 'Create Account';
+
+  @override
+  String get enterSixDigitCode => 'Enter the 6-digit verification code';
+
+  @override
+  String get enterAndConfirmPassword => 'Enter and confirm your new password';
+
+  @override
+  String get verifyTitleLine1 => 'Verify Your';
+
+  @override
+  String get verifyTitleLine2 => 'Email Address';
+
+  @override
+  String get verifySubtitle =>
+      'Enter the 6-digit code sent to your email address.';
+
+  @override
+  String get verificationCodeHint => 'Enter verification code';
+
+  @override
+  String get verifyCodeButton => 'Verify Code';
+
+  @override
+  String get didntReceiveCode => 'Didn\'t receive a code?';
+
+  @override
+  String resendInSeconds(int seconds) {
+    return 'Resend in $seconds s';
+  }
+
+  @override
+  String get newPasswordTitleLine1 => 'Choose a';
+
+  @override
+  String get newPasswordTitleLine2 => 'New Password';
+
+  @override
+  String get newPasswordSubtitle => 'Create a new password for your account.';
+
+  @override
+  String get newPasswordHint => 'New password';
+
+  @override
+  String get confirmNewPasswordHint => 'Confirm new password';
+
+  @override
+  String get resetPasswordAction => 'Reset Password';
+
+  @override
+  String get passwordUpdatedSuccess =>
+      'Your password has been updated successfully.';
+
+  @override
+  String get backToLoginButton => 'Back to Login';
+
+  @override
+  String get photoTooLarge => 'Choose an image smaller than 5 MB.';
+
+  @override
+  String get photoUnreadable =>
+      'Could not read this image. Please try another.';
+
+  @override
+  String get seatListingMissing => 'This flight is missing its listing ID.';
+
+  @override
+  String get seatLoadFailed => 'Could not load seat availability.';
+
+  @override
+  String get seatNoLongerAvailable =>
+      'A seat you selected is no longer available. Please choose again.';
+
+  @override
+  String selectUpToSeats(int count) {
+    return 'Select up to $count seats for this booking.';
+  }
+
+  @override
+  String selectSeatsToContinue(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Select $count seats to continue.',
+      one: 'Select 1 seat to continue.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fareNotEnoughSeats => 'This fare no longer has enough seats.';
+
+  @override
+  String get flightAvailabilityUnverified =>
+      'Could not verify flight availability.';
+
+  @override
+  String get flightConflictsBooking =>
+      'This flight conflicts with another booking on your account.';
+
+  @override
+  String get seatsNoLongerAvailable => 'Those seats are no longer available.';
+
+  @override
+  String get paymentNotCompletedNoTrip =>
+      'Payment was not completed. No trip was saved.';
+
+  @override
+  String paymentHoldNotReleased(String details) {
+    return 'Payment was not completed and the seat hold could not be released. $details';
+  }
+
+  @override
+  String get paymentHoldReleased =>
+      'Payment was not completed. Your seat hold was released.';
+
+  @override
+  String get chooseSeats => 'Choose seats';
+
+  @override
+  String get refreshAvailability => 'Refresh availability';
+
+  @override
+  String proceedToPaymentAmount(String amount) {
+    return 'Proceed to Payment · $amount';
+  }
+
+  @override
+  String get seatAvailabilityUnavailable =>
+      'Seat availability is not available right now.';
+
+  @override
+  String get aircraftDetails => 'Aircraft details';
+
+  @override
+  String get sharedInventory => 'Shared inventory';
+
+  @override
+  String cabinNumber(String number) {
+    return 'Cabin $number';
+  }
+
+  @override
+  String get optionalExtras => 'Optional extras';
+
+  @override
+  String get optionalExtrasSubtitle => 'Add only what you need';
+
+  @override
+  String get extraLegroomSeats => 'Extra-legroom seats';
+
+  @override
+  String get taxesAndFees => 'Taxes and fees';
+
+  @override
+  String get estimatedTotal => 'Estimated total';
+
+  @override
+  String get retryShort => 'Retry';
+
+  @override
+  String get boardingDirect => 'Direct';
+
+  @override
+  String get boardingOneStop => '1 Stop';
+
+  @override
+  String get clearSearch => 'Clear search';
+
+  @override
+  String get passwordResetTitleLine1 => 'Password';
+
+  @override
+  String get passwordResetTitleLine2 => 'Reset';
+
+  @override
+  String get boardingDate => 'Date';
+
+  @override
+  String get boardingFlight => 'Flight';
+
+  @override
+  String get boardingClass => 'Class';
+
+  @override
+  String get boardingRef => 'Ref';
+
+  @override
+  String get resendCodeLink => 'Resend code';
+
+  @override
+  String get attractionLocationUnavailable =>
+      'The location of this place is not available.';
+
+  @override
+  String fareTimesPassengers(String fare, int count) {
+    return '$fare fare × $count';
+  }
 }

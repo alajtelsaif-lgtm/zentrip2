@@ -6,7 +6,7 @@ import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../features/auth/presentation/screens/reset_password_screen.dart';
-import '../features/auth/presentation/screens/verfiy_screen.dart.dart';
+import '../features/auth/presentation/screens/verify_screen.dart';
 import '../features/trips/presentation/screens/trip_details_screen.dart';
 import '../features/trips/presentation/screens/search_flights_screen.dart';
 import '../features/trips/presentation/screens/search_hotels_screen.dart';

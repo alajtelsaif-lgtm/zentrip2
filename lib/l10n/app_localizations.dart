@@ -2829,12 +2829,6 @@ abstract class AppLocalizations {
   /// **'افتح على الخريطة'**
   String get attractionOpenOnMap;
 
-  /// No description provided for @attractionMapComingSoon.
-  ///
-  /// In ar, this message translates to:
-  /// **'عرض الخريطة قيد التطوير قريباً'**
-  String get attractionMapComingSoon;
-
   /// No description provided for @chatOnlineStatus.
   ///
   /// In ar, this message translates to:
@@ -5889,6 +5883,534 @@ abstract class AppLocalizations {
   /// In ar, this message translates to:
   /// **'تُميّز الأسعار الأقدم من 4 أيام؛ ولا تُستخدم أسعار الصرف الأقدم من 7 أيام.'**
   String get referenceRatePolicy;
+
+  /// No description provided for @authInvalidEmail.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل بريدًا إلكترونيًا صحيحًا'**
+  String get authInvalidEmail;
+
+  /// No description provided for @forgotTitleLine1.
+  ///
+  /// In ar, this message translates to:
+  /// **'نسيت كلمة المرور؟'**
+  String get forgotTitleLine1;
+
+  /// No description provided for @forgotTitleLine2.
+  ///
+  /// In ar, this message translates to:
+  /// **'سنساعدك على استعادة حسابك'**
+  String get forgotTitleLine2;
+
+  /// No description provided for @forgotSubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل البريد الإلكتروني المرتبط بحسابك وسنرسل لك رمزًا لإعادة تعيين كلمة المرور.'**
+  String get forgotSubtitle;
+
+  /// No description provided for @authEmailHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل بريدك الإلكتروني'**
+  String get authEmailHint;
+
+  /// No description provided for @sendResetCode.
+  ///
+  /// In ar, this message translates to:
+  /// **'إرسال رمز إعادة التعيين'**
+  String get sendResetCode;
+
+  /// No description provided for @rememberedIt.
+  ///
+  /// In ar, this message translates to:
+  /// **'تذكرتها؟'**
+  String get rememberedIt;
+
+  /// No description provided for @backToLoginLower.
+  ///
+  /// In ar, this message translates to:
+  /// **'العودة لتسجيل الدخول'**
+  String get backToLoginLower;
+
+  /// No description provided for @authPasswordHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل كلمة المرور'**
+  String get authPasswordHint;
+
+  /// No description provided for @loginTitleLine1.
+  ///
+  /// In ar, this message translates to:
+  /// **'سجّل دخولك'**
+  String get loginTitleLine1;
+
+  /// No description provided for @loginTitleLine2.
+  ///
+  /// In ar, this message translates to:
+  /// **'وسافر حول العالم'**
+  String get loginTitleLine2;
+
+  /// No description provided for @rememberMe.
+  ///
+  /// In ar, this message translates to:
+  /// **'تذكرني'**
+  String get rememberMe;
+
+  /// No description provided for @forgotPasswordLink.
+  ///
+  /// In ar, this message translates to:
+  /// **'نسيت كلمة المرور؟'**
+  String get forgotPasswordLink;
+
+  /// No description provided for @loginButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسجيل الدخول'**
+  String get loginButton;
+
+  /// No description provided for @orSignUpWith.
+  ///
+  /// In ar, this message translates to:
+  /// **'أو سجّل باستخدام'**
+  String get orSignUpWith;
+
+  /// No description provided for @noAccountPrompt.
+  ///
+  /// In ar, this message translates to:
+  /// **'ليس لديك حساب؟ '**
+  String get noAccountPrompt;
+
+  /// No description provided for @createAnAccount.
+  ///
+  /// In ar, this message translates to:
+  /// **'أنشئ حسابًا'**
+  String get createAnAccount;
+
+  /// No description provided for @fullNameHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل اسمك الكامل'**
+  String get fullNameHint;
+
+  /// No description provided for @phoneExactDigits.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل {count} أرقام بالضبط لـ {country}'**
+  String phoneExactDigits(int count, String country);
+
+  /// No description provided for @phoneDigitRange.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل من {min} إلى {max} أرقام لـ {country}'**
+  String phoneDigitRange(int min, int max, String country);
+
+  /// No description provided for @passwordMinLength.
+  ///
+  /// In ar, this message translates to:
+  /// **'استخدم 8 أحرف على الأقل'**
+  String get passwordMinLength;
+
+  /// No description provided for @passwordsDontMatch.
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمتا المرور غير متطابقتين'**
+  String get passwordsDontMatch;
+
+  /// No description provided for @acceptTermsError.
+  ///
+  /// In ar, this message translates to:
+  /// **'يرجى الموافقة على الشروط للمتابعة'**
+  String get acceptTermsError;
+
+  /// No description provided for @phoneHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل رقم هاتفك'**
+  String get phoneHint;
+
+  /// No description provided for @addProfilePhotoOptional.
+  ///
+  /// In ar, this message translates to:
+  /// **'أضف صورة شخصية (اختياري)'**
+  String get addProfilePhotoOptional;
+
+  /// No description provided for @registerTitleLine1.
+  ///
+  /// In ar, this message translates to:
+  /// **'أنشئ حسابك'**
+  String get registerTitleLine1;
+
+  /// No description provided for @registerTitleLine2.
+  ///
+  /// In ar, this message translates to:
+  /// **'وابدأ رحلتك'**
+  String get registerTitleLine2;
+
+  /// No description provided for @createPasswordHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'أنشئ كلمة مرور'**
+  String get createPasswordHint;
+
+  /// No description provided for @confirmPasswordHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'أكّد كلمة المرور'**
+  String get confirmPasswordHint;
+
+  /// No description provided for @agreeToThe.
+  ///
+  /// In ar, this message translates to:
+  /// **'أوافق على '**
+  String get agreeToThe;
+
+  /// No description provided for @termsOfService.
+  ///
+  /// In ar, this message translates to:
+  /// **'شروط الخدمة'**
+  String get termsOfService;
+
+  /// No description provided for @createAccountButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'إنشاء حساب'**
+  String get createAccountButton;
+
+  /// No description provided for @enterSixDigitCode.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل رمز التحقق المكوّن من 6 أرقام'**
+  String get enterSixDigitCode;
+
+  /// No description provided for @enterAndConfirmPassword.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل كلمة المرور الجديدة وأكّدها'**
+  String get enterAndConfirmPassword;
+
+  /// No description provided for @verifyTitleLine1.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحقّق من'**
+  String get verifyTitleLine1;
+
+  /// No description provided for @verifyTitleLine2.
+  ///
+  /// In ar, this message translates to:
+  /// **'بريدك الإلكتروني'**
+  String get verifyTitleLine2;
+
+  /// No description provided for @verifySubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل الرمز المكوّن من 6 أرقام المرسل إلى بريدك الإلكتروني.'**
+  String get verifySubtitle;
+
+  /// No description provided for @verificationCodeHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل رمز التحقق'**
+  String get verificationCodeHint;
+
+  /// No description provided for @verifyCodeButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحقّق من الرمز'**
+  String get verifyCodeButton;
+
+  /// No description provided for @didntReceiveCode.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يصلك الرمز؟'**
+  String get didntReceiveCode;
+
+  /// No description provided for @resendInSeconds.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة الإرسال بعد {seconds} ث'**
+  String resendInSeconds(int seconds);
+
+  /// No description provided for @newPasswordTitleLine1.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر'**
+  String get newPasswordTitleLine1;
+
+  /// No description provided for @newPasswordTitleLine2.
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة مرور جديدة'**
+  String get newPasswordTitleLine2;
+
+  /// No description provided for @newPasswordSubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أنشئ كلمة مرور جديدة لحسابك.'**
+  String get newPasswordSubtitle;
+
+  /// No description provided for @newPasswordHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'كلمة المرور الجديدة'**
+  String get newPasswordHint;
+
+  /// No description provided for @confirmNewPasswordHint.
+  ///
+  /// In ar, this message translates to:
+  /// **'تأكيد كلمة المرور الجديدة'**
+  String get confirmNewPasswordHint;
+
+  /// No description provided for @resetPasswordAction.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة تعيين كلمة المرور'**
+  String get resetPasswordAction;
+
+  /// No description provided for @passwordUpdatedSuccess.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم تحديث كلمة المرور بنجاح.'**
+  String get passwordUpdatedSuccess;
+
+  /// No description provided for @backToLoginButton.
+  ///
+  /// In ar, this message translates to:
+  /// **'العودة لتسجيل الدخول'**
+  String get backToLoginButton;
+
+  /// No description provided for @photoTooLarge.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر صورة أصغر من 5 ميجابايت.'**
+  String get photoTooLarge;
+
+  /// No description provided for @photoUnreadable.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّرت قراءة هذه الصورة. جرّب صورة أخرى.'**
+  String get photoUnreadable;
+
+  /// No description provided for @seatListingMissing.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذه الرحلة بلا معرّف إدراج.'**
+  String get seatListingMissing;
+
+  /// No description provided for @seatLoadFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر تحميل توفر المقاعد.'**
+  String get seatLoadFailed;
+
+  /// No description provided for @seatNoLongerAvailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'أحد المقاعد التي اخترتها لم يعد متاحًا. يرجى الاختيار مرة أخرى.'**
+  String get seatNoLongerAvailable;
+
+  /// No description provided for @selectUpToSeats.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر حتى {count} مقاعد لهذا الحجز.'**
+  String selectUpToSeats(int count);
+
+  /// No description provided for @selectSeatsToContinue.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count, plural, =1{اختر مقعدًا واحدًا للمتابعة.} other{اختر {count} مقاعد للمتابعة.}}'**
+  String selectSeatsToContinue(int count);
+
+  /// No description provided for @fareNotEnoughSeats.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يعد في هذه الفئة مقاعد كافية.'**
+  String get fareNotEnoughSeats;
+
+  /// No description provided for @flightAvailabilityUnverified.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذّر التحقق من توفر الرحلة.'**
+  String get flightAvailabilityUnverified;
+
+  /// No description provided for @flightConflictsBooking.
+  ///
+  /// In ar, this message translates to:
+  /// **'تتعارض هذه الرحلة مع حجز آخر في حسابك.'**
+  String get flightConflictsBooking;
+
+  /// No description provided for @seatsNoLongerAvailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'هذه المقاعد لم تعد متاحة.'**
+  String get seatsNoLongerAvailable;
+
+  /// No description provided for @paymentNotCompletedNoTrip.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يكتمل الدفع. لم يتم حفظ أي رحلة.'**
+  String get paymentNotCompletedNoTrip;
+
+  /// No description provided for @paymentHoldNotReleased.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يكتمل الدفع وتعذّر إلغاء حجز المقعد المؤقت. {details}'**
+  String paymentHoldNotReleased(String details);
+
+  /// No description provided for @paymentHoldReleased.
+  ///
+  /// In ar, this message translates to:
+  /// **'لم يكتمل الدفع. تم إلغاء حجز مقعدك المؤقت.'**
+  String get paymentHoldReleased;
+
+  /// No description provided for @chooseSeats.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر المقاعد'**
+  String get chooseSeats;
+
+  /// No description provided for @refreshAvailability.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحديث التوفر'**
+  String get refreshAvailability;
+
+  /// No description provided for @proceedToPaymentAmount.
+  ///
+  /// In ar, this message translates to:
+  /// **'المتابعة إلى الدفع · {amount}'**
+  String proceedToPaymentAmount(String amount);
+
+  /// No description provided for @seatAvailabilityUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'توفر المقاعد غير متاح حاليًا.'**
+  String get seatAvailabilityUnavailable;
+
+  /// No description provided for @aircraftDetails.
+  ///
+  /// In ar, this message translates to:
+  /// **'تفاصيل الطائرة'**
+  String get aircraftDetails;
+
+  /// No description provided for @sharedInventory.
+  ///
+  /// In ar, this message translates to:
+  /// **'مخزون مشترك'**
+  String get sharedInventory;
+
+  /// No description provided for @cabinNumber.
+  ///
+  /// In ar, this message translates to:
+  /// **'المقصورة {number}'**
+  String cabinNumber(String number);
+
+  /// No description provided for @optionalExtras.
+  ///
+  /// In ar, this message translates to:
+  /// **'إضافات اختيارية'**
+  String get optionalExtras;
+
+  /// No description provided for @optionalExtrasSubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أضف ما تحتاجه فقط'**
+  String get optionalExtrasSubtitle;
+
+  /// No description provided for @extraLegroomSeats.
+  ///
+  /// In ar, this message translates to:
+  /// **'مقاعد بمساحة إضافية للأرجل'**
+  String get extraLegroomSeats;
+
+  /// No description provided for @taxesAndFees.
+  ///
+  /// In ar, this message translates to:
+  /// **'الضرائب والرسوم'**
+  String get taxesAndFees;
+
+  /// No description provided for @estimatedTotal.
+  ///
+  /// In ar, this message translates to:
+  /// **'الإجمالي التقديري'**
+  String get estimatedTotal;
+
+  /// No description provided for @retryShort.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة المحاولة'**
+  String get retryShort;
+
+  /// No description provided for @boardingDirect.
+  ///
+  /// In ar, this message translates to:
+  /// **'مباشر'**
+  String get boardingDirect;
+
+  /// No description provided for @boardingOneStop.
+  ///
+  /// In ar, this message translates to:
+  /// **'توقف واحد'**
+  String get boardingOneStop;
+
+  /// No description provided for @clearSearch.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح البحث'**
+  String get clearSearch;
+
+  /// No description provided for @passwordResetTitleLine1.
+  ///
+  /// In ar, this message translates to:
+  /// **'تمت إعادة'**
+  String get passwordResetTitleLine1;
+
+  /// No description provided for @passwordResetTitleLine2.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعيين كلمة المرور'**
+  String get passwordResetTitleLine2;
+
+  /// No description provided for @boardingDate.
+  ///
+  /// In ar, this message translates to:
+  /// **'التاريخ'**
+  String get boardingDate;
+
+  /// No description provided for @boardingFlight.
+  ///
+  /// In ar, this message translates to:
+  /// **'الرحلة'**
+  String get boardingFlight;
+
+  /// No description provided for @boardingClass.
+  ///
+  /// In ar, this message translates to:
+  /// **'الدرجة'**
+  String get boardingClass;
+
+  /// No description provided for @boardingRef.
+  ///
+  /// In ar, this message translates to:
+  /// **'المرجع'**
+  String get boardingRef;
+
+  /// No description provided for @resendCodeLink.
+  ///
+  /// In ar, this message translates to:
+  /// **'إعادة إرسال الرمز'**
+  String get resendCodeLink;
+
+  /// No description provided for @attractionLocationUnavailable.
+  ///
+  /// In ar, this message translates to:
+  /// **'موقع هذا المكان غير متاح.'**
+  String get attractionLocationUnavailable;
+
+  /// No description provided for @fareTimesPassengers.
+  ///
+  /// In ar, this message translates to:
+  /// **'سعر {fare} × {count}'**
+  String fareTimesPassengers(String fare, int count);
 }
 
 class _AppLocalizationsDelegate

@@ -14,6 +14,8 @@ import '../../../../global_widgets/payment_checkout_screen.dart';
 import '../../../../features/notifications/logic/notifications_store.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/attraction_model.dart';
+import '../../../../models/map_search_result.dart';
+import '../../../nearby/presentation/screens/places_map_screen.dart';
 import '../../../../models/booking_model.dart';
 import '../../../../routes/app_routes.dart';
 import '../attraction_category.dart';
@@ -136,6 +138,31 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
     if (!mounted) return;
     AppShellTabController.goToTab(3); // تاب "رحلاتي" — عشان يشوف حجزه فورًا
     Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (_) => false);
+  }
+
+  void _openOnMap(AttractionModel a, AppLocalizations l10n) {
+    final hasCoordinates = a.latitude.isFinite &&
+        a.longitude.isFinite &&
+        !(a.latitude == 0 && a.longitude == 0);
+    if (!hasCoordinates) {
+      AppSnackbar.info(context, l10n.attractionLocationUnavailable);
+      return;
+    }
+    final place = MapSearchResult(
+      title: a.name,
+      address: a.location,
+      category: 'attraction',
+      rating: a.rating > 0 ? a.rating : null,
+      latitude: a.latitude,
+      longitude: a.longitude,
+      thumbnail: a.imageUrl,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PlacesMapScreen(places: [place], selectedPlace: place),
+      ),
+    );
   }
 
   @override
@@ -328,8 +355,7 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
                   ).animate().fade(delay: 250.ms)
                 else
                   ElevatedButton.icon(
-                    onPressed: () =>
-                        AppSnackbar.info(context, l10n.attractionMapComingSoon),
+                    onPressed: () => _openOnMap(a, l10n),
                     icon: const Icon(Icons.map_rounded),
                     label: Text(l10n.attractionOpenOnMap),
                     style: ElevatedButton.styleFrom(

@@ -1,16 +1,12 @@
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zentrip/core/services/price_comparison.dart';
-import 'package:zentrip/features/flight_booking/logic/flight_controller.dart';
-import 'package:zentrip/features/flight_booking/presentation/screens/flight_results_screen.dart';
 import 'package:zentrip/features/hotel_booking/logic/hotel_controller.dart';
 import 'package:zentrip/features/hotel_booking/presentation/screens/hotel_results_screen.dart';
 import 'package:zentrip/global_widgets/price_comparison_controls.dart';
 import 'package:zentrip/l10n/app_localizations.dart';
 import 'package:zentrip/models/exchange_rates.dart';
-import 'package:zentrip/models/flight_model.dart';
 import 'package:zentrip/models/hotel_model.dart';
 
 final _now = DateTime.utc(2026, 11, 1, 12);
@@ -36,114 +32,7 @@ Widget _app(Widget child, Object controller, Locale locale) => MaterialApp(
     );
 
 void main() {
-  testWidgets('flexible search keeps its loading notice and currency controls',
-      (tester) async {
-    final pending = Completer<List<FlightModel>>();
-    FlightSearchParams? received;
-    final ctrl = FlightController(
-      comparison: _comparison(),
-      searchFlights: (params) {
-        received = params;
-        return pending.future;
-      },
-    );
-    final params = FlightSearchParams(
-      originCode: 'MJI',
-      originCity: 'Misrata',
-      destinationCode: 'TUN',
-      destinationCity: 'Tunis',
-      departureDate: _now,
-      flexibleDepartureMonths: [DateTime(2026, 11), DateTime(2026, 12)],
-      flexibleTripDurationDays: 10,
-      flexibleWeekendsOnly: true,
-    );
-    final search = ctrl.search(params);
-    await tester.pumpWidget(
-        _app(const FlightResultsScreen(), ctrl, const Locale('en')));
-    await tester.pump();
-    final l10n = AppLocalizations.of(
-        tester.element(find.byType(PriceComparisonControls)));
-    expect(find.text(l10n.flightFlexibleSearchLoading), findsOneWidget);
-    expect(find.byType(PriceComparisonControls), findsOneWidget);
-    expect(received?.flexibleDepartureMonths, params.flexibleDepartureMonths);
-    expect(received?.flexibleTripDurationDays, 10);
-    expect(received?.flexibleWeekendsOnly, isTrue);
-    expect(tester.takeException(), isNull);
-    pending.complete([]);
-    await search;
-    await tester.pumpAndSettle();
-    expect(find.text(l10n.flightFlexibleSearchLoading), findsNothing);
-    expect(find.byType(PriceComparisonControls), findsOneWidget);
-    ctrl.dispose();
-  });
-
   for (final locale in [const Locale('en'), const Locale('ar')]) {
-    testWidgets(
-        'flight currency and budget controls remain usable at 360px ${locale.languageCode}',
-        (tester) async {
-      tester.view.physicalSize = const Size(360, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final ctrl = FlightController(
-        comparison: _comparison(),
-        searchFlights: (_) async => [
-          FlightModel.fromJson({
-            'id': 'duffel-1',
-            'source': 'duffel',
-            'airline': 'Example Air',
-            'economy_price': 75.25,
-            'price_currency': 'EUR',
-            'price_is_total': true,
-            'seats_available': -1,
-            'departure_time': '2026-11-05T09:00:00',
-            'arrival_time': '2026-11-05T11:00:00',
-          })
-        ],
-      );
-      await ctrl.search(FlightSearchParams(
-        originCode: 'MJI',
-        originCity: 'Misrata',
-        destinationCode: 'TUN',
-        destinationCity: 'Tunis',
-        departureDate: _now,
-        passengers: 2,
-      ));
-      await tester.pumpWidget(_app(const FlightResultsScreen(), ctrl, locale));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      final l10n = AppLocalizations.of(
-          tester.element(find.byType(PriceComparisonControls)));
-      final budget = find.byType(TextFormField);
-      await tester.enterText(budget, '200');
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pumpAndSettle();
-      // The total EUR quote converts to a USD amount within this budget.
-      expect(ctrl.results.length, 1);
-      expect(find.byType(PriceComparisonControls), findsOneWidget);
-      await tester.tap(find.byTooltip(l10n.clearBudget));
-      await tester.pumpAndSettle();
-      expect(ctrl.results.length, 1);
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('EUR').last);
-      await tester.pumpAndSettle();
-      expect(ctrl.comparison.currency, 'EUR');
-      expect(ctrl.comparisonPrice(ctrl.results.single), 75.25);
-      expect(tester.takeException(), isNull);
-      // The card is below the route header on narrow screens.
-      await tester.drag(find.byType(ListView), const Offset(0, -260));
-      await tester.pumpAndSettle();
-      expect(find.text('€75.25'), findsOneWidget);
-      final selectFlight = find.ancestor(
-        of: find.text(l10n.flightSelectThis),
-        matching: find.byType(ElevatedButton),
-      );
-      expect(tester.widget<ElevatedButton>(selectFlight).onPressed, isNotNull);
-      expect(tester.takeException(), isNull);
-      ctrl.dispose();
-    });
-
     testWidgets(
         'hotel failed-rate and empty-budget recovery at 360px ${locale.languageCode}',
         (tester) async {

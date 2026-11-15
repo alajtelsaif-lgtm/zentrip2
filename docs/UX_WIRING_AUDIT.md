@@ -86,7 +86,7 @@ Repeated controls inside a builder (for example, every flight card’s select ac
 | `/auth` | `lib/features/auth/presentation/screens/login_screen.dart` — `LoginScreen` |
 | `/register` | `lib/features/auth/presentation/screens/register_screen.dart` — `RegisterScreen` |
 | `/forgot-password` | `lib/features/auth/presentation/screens/forgot_password_screen.dart` — `ForgotPasswordScreen` |
-| `/verify-code` | `lib/features/auth/presentation/screens/verfiy_screen.dart.dart` — `VerifyScreen` |
+| `/verify-code` | `lib/features/auth/presentation/screens/verify_screen.dart` — `VerifyScreen` |
 | `/login-success` | `lib/features/auth/presentation/screens/login_success_screen.dart` — `LoginSuccessScreen` |
 | `/home` | `lib/global_widgets/app_shell.dart` — `AppShell`; `lib/features/home/presentation/screens/home_screen.dart` — `HomeScreen` |
 | `/trip-details` | `lib/features/trips/presentation/screens/trip_details_screen.dart` — `TripDetailsScreen` |

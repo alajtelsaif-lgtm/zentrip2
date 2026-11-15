@@ -1,3 +1,4 @@
+import '../../../../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -65,17 +66,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() {
       _nameErr =
-          _nameCtrl.text.trim().length < 2 ? 'Enter your full name' : null;
-      _emailErr = emailOk ? null : 'Enter a valid email address';
+          _nameCtrl.text.trim().length < 2 ? AppLocalizations.of(context).fullNameHint : null;
+      _emailErr = emailOk ? null : AppLocalizations.of(context).authInvalidEmail;
       _phoneErr = _phoneCountry.accepts(phoneDigits)
           ? null
           : _phoneCountry.minNationalDigits == _phoneCountry.maxNationalDigits
-              ? 'Enter exactly ${_phoneCountry.maxNationalDigits} digits for ${_phoneCountry.name}'
-              : 'Enter ${_phoneCountry.minNationalDigits}-${_phoneCountry.maxNationalDigits} digits for ${_phoneCountry.name}';
-      _passErr = _passCtrl.text.length < 8 ? 'Use at least 8 characters' : null;
+              ? AppLocalizations.of(context).phoneExactDigits(_phoneCountry.maxNationalDigits, _phoneCountry.name)
+              : AppLocalizations.of(context).phoneDigitRange(_phoneCountry.minNationalDigits, _phoneCountry.maxNationalDigits, _phoneCountry.name);
+      _passErr = _passCtrl.text.length < 8 ? AppLocalizations.of(context).passwordMinLength : null;
       _confirmErr =
-          _confirmCtrl.text != _passCtrl.text ? "Passwords don't match" : null;
-      _termsErr = _agree ? null : 'Please accept the terms to continue';
+          _confirmCtrl.text != _passCtrl.text ? AppLocalizations.of(context).passwordsDontMatch : null;
+      _termsErr = _agree ? null : AppLocalizations.of(context).acceptTermsError;
     });
 
     if ([_nameErr, _emailErr, _phoneErr, _passErr, _confirmErr, _termsErr]
@@ -188,7 +189,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       style: GoogleFonts.poppins(fontSize: 14, color: AppColors.text),
       cursorColor: AppColors.navy,
       decoration: InputDecoration(
-        hintText: 'Enter your phone number',
+        hintText: AppLocalizations.of(context).phoneHint,
         hintStyle: GoogleFonts.poppins(fontSize: 13, color: AppColors.hint),
         errorText: _phoneErr,
         errorStyle: GoogleFonts.poppins(fontSize: 11, color: AppColors.error),
@@ -270,19 +271,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Add a profile photo (optional)',
+            AppLocalizations.of(context).addProfilePhotoOptional,
             style: GoogleFonts.poppins(fontSize: 11, color: AppColors.hint),
           ),
           const SizedBox(height: 12),
-          const AuthTitle(
-            line1: 'Create Your Account',
-            line2: 'Start Your Journey',
+          AuthTitle(
+            line1: AppLocalizations.of(context).registerTitleLine1,
+            line2: AppLocalizations.of(context).registerTitleLine2,
           ),
           const SizedBox(height: 20),
 
           AuthInput(
             controller: _nameCtrl,
-            hint: 'Enter your full name',
+            hint: AppLocalizations.of(context).fullNameHint,
             icon: Icons.person_outline_rounded,
             textInputAction: TextInputAction.next,
             errorText: _nameErr,
@@ -291,7 +292,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 12),
           AuthInput(
             controller: _emailCtrl,
-            hint: 'Enter your email',
+            hint: AppLocalizations.of(context).authEmailHint,
             icon: Icons.mail_outline_rounded,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
@@ -303,7 +304,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 12),
           AuthInput(
             controller: _passCtrl,
-            hint: 'Create a password',
+            hint: AppLocalizations.of(context).createPasswordHint,
             icon: Icons.lock_outline_rounded,
             obscure: _obscurePass,
             textInputAction: TextInputAction.next,
@@ -316,7 +317,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 12),
           AuthInput(
             controller: _confirmCtrl,
-            hint: 'Confirm your password',
+            hint: AppLocalizations.of(context).confirmPasswordHint,
             icon: Icons.verified_user_outlined,
             obscure: _obscureConfirm,
             textInputAction: TextInputAction.done,
@@ -357,12 +358,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   padding: const EdgeInsets.only(top: 2),
                   child: Text.rich(
                     TextSpan(
-                      text: 'I agree to the ',
+                      text: AppLocalizations.of(context).agreeToThe,
                       style: GoogleFonts.poppins(
                           fontSize: 11.5, color: AppColors.hint),
                       children: [
                         TextSpan(
-                          text: 'Terms of Service',
+                          text: AppLocalizations.of(context).termsOfService,
                           style: GoogleFonts.poppins(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w600,
@@ -370,7 +371,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         const TextSpan(text: ' and '),
                         TextSpan(
-                          text: 'Privacy Policy',
+                          text: AppLocalizations.of(context).privacyPolicy,
                           style: GoogleFonts.poppins(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w600,
@@ -396,7 +397,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 18),
 
           AuthButton(
-              label: 'Create Account', loading: _loading, onTap: _submit),
+              label: AppLocalizations.of(context).createAccountButton, loading: _loading, onTap: _submit),
           if (ApiService.socialAuthConfigured) ...[
             const SizedBox(height: 16),
             const OrDivider(),
@@ -425,8 +426,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
 
           AuthFooterLink(
-            text: 'Already have an account?',
-            link: 'Login',
+            text: AppLocalizations.of(context).alreadyHaveAccount,
+            link: AppLocalizations.of(context).loginButton,
             onTap: () => Navigator.of(context).maybePop(),
           ),
         ],

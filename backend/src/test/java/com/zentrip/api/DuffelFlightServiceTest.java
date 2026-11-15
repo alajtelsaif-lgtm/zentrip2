@@ -159,14 +159,15 @@ class DuffelFlightServiceTest {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         AtomicInteger requests = new AtomicInteger();
-        for (int index = 0; index < 2; index++) {
-            server.expect(requestTo(OFFER_REQUEST_URL))
-                    .andRespond(request -> {
-                        requests.incrementAndGet();
-                        return withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS)
-                                .createResponse(request);
-                    });
-        }
+        // Two dates are requested in parallel; the second may or may not start
+        // before the first 429 stops the fan-out, so allow one or two calls.
+        server.expect(org.springframework.test.web.client.ExpectedCount.between(1, 2),
+                        requestTo(OFFER_REQUEST_URL))
+                .andRespond(request -> {
+                    requests.incrementAndGet();
+                    return withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS)
+                            .createResponse(request);
+                });
         DuffelFlightService service =
                 new DuffelFlightService("unit-test-token", true, builder);
 
@@ -187,7 +188,8 @@ class DuffelFlightServiceTest {
         assertTrue(outcome.flights().isEmpty());
         assertTrue(outcome.warnings().stream().anyMatch(
                 warning -> warning.contains("rate-limiting")));
-        assertEquals(2, requests.get());
+        assertTrue(requests.get() >= 1 && requests.get() <= 2,
+                "fan-out must stop after the rate limit; requests=" + requests.get());
         server.verify();
     }
 

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zentrip/l10n/app_localizations.dart';
 import 'package:zentrip/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:zentrip/features/auth/presentation/screens/login_screen.dart';
 import 'package:zentrip/features/auth/presentation/screens/register_screen.dart';
-import 'package:zentrip/features/auth/presentation/screens/verfiy_screen.dart.dart';
+import 'package:zentrip/features/auth/presentation/screens/verify_screen.dart';
 
 void main() {
   setUp(() {
@@ -14,7 +15,11 @@ void main() {
       (tester) async {
     _setViewport(tester);
     await tester.pumpWidget(
-      const MaterialApp(home: ForgotPasswordScreen()),
+      const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: ForgotPasswordScreen()),
     );
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -37,7 +42,11 @@ void main() {
       (tester) async {
     _setViewport(tester);
     await tester.pumpWidget(
-      const MaterialApp(home: RegisterScreen()),
+      const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: RegisterScreen()),
     );
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -59,6 +68,10 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        
         home: VerifyScreen(email: 'traveler@example.com'),
       ),
     );
@@ -79,7 +92,11 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+    await tester.pumpWidget(const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: LoginScreen()));
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(tester.takeException(), isNull);
@@ -105,12 +122,20 @@ void main() {
 
   testWidgets('unconfigured social sign-in options are hidden', (tester) async {
     _setViewport(tester);
-    await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+    await tester.pumpWidget(const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: LoginScreen()));
     await tester.pump();
     expect(find.text('Google'), findsNothing);
     expect(find.text('Apple'), findsNothing);
 
-    await tester.pumpWidget(const MaterialApp(home: RegisterScreen()));
+    await tester.pumpWidget(const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: RegisterScreen()));
     await tester.pump();
     expect(find.text('Google'), findsNothing);
     expect(find.text('Apple'), findsNothing);

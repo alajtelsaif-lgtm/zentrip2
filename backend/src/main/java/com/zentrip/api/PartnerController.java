@@ -875,39 +875,6 @@ public class PartnerController {
         }
     }
 
-    @GetMapping("/hotels/locations")
-    public Map<String, Object> hotelLocations(
-            @RequestParam String query) {
-        String normalizedQuery = query.trim().toLowerCase(Locale.ROOT);
-        if (normalizedQuery.length() < 2) return Map.of("suggestions", List.of());
-        String pattern = "%" + normalizedQuery + "%";
-        List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT l.city, l.title, l.attributes
-                FROM partner_listings l
-                JOIN partners p ON p.id = l.partner_id AND p.status = 'active'
-                WHERE l.type = 'hotel' AND l.active = TRUE
-                  AND (LOWER(l.city) LIKE ? OR LOWER(l.title) LIKE ?
-                       OR LOWER(COALESCE(l.attributes ->> 'address', '')) LIKE ?
-                       OR LOWER(COALESCE(l.attributes ->> 'district', '')) LIKE ?
-                       OR LOWER(COALESCE(l.attributes ->> 'neighborhood', '')) LIKE ?
-                       OR LOWER(COALESCE(l.attributes ->> 'landmark', '')) LIKE ?)
-                ORDER BY l.city, l.title
-                LIMIT 50
-                """, pattern, pattern, pattern, pattern, pattern, pattern);
-        Set<String> suggestions = new java.util.LinkedHashSet<>();
-        for (Map<String, Object> row : rows) {
-            String city = text(row.get("city")).trim();
-            Map<String, Object> listingAttributes = attributes(row.get("attributes"));
-            addLocationSuggestion(suggestions, city, normalizedQuery);
-            for (String key : List.of("district", "neighborhood", "landmark", "address")) {
-                addLocationSuggestion(
-                        suggestions, text(listingAttributes.get(key)), normalizedQuery);
-            }
-            addLocationSuggestion(suggestions, text(row.get("title")), normalizedQuery);
-        }
-        return Map.of("suggestions", suggestions.stream().limit(12).toList());
-    }
-
     @GetMapping("/hotels/destinations/suggest")
     public Map<String, Object> suggestHotelDestinations(
             @RequestParam(name = "q", defaultValue = "") String query,

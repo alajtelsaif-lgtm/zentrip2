@@ -151,11 +151,19 @@
   "notifTimeAgoNow": "الآن",
   "notifTimeAgoMinutes": "منذ {minutes} دقيقة",
   "@notifTimeAgoMinutes": {
-    "placeholders": { "minutes": { "type": "Object" } }
+    "placeholders": {
+      "minutes": {
+        "type": "Object"
+      }
+    }
   },
   "notifUnreadCount": "عدد الإشعارات غير المقروءة: {count}",
   "@notifUnreadCount": {
-    "placeholders": { "count": { "type": "Object" } }
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
   },
   "notifTimeAgoHours": "من {hours} ساعة",
   "notifTimeAgoDays": "من {days} يوم",
@@ -254,7 +262,13 @@
   "travelPaceBalanced": "متوازنة",
   "travelPacePacked": "مكثفة",
   "travelDurationLabel": "مدة الرحلة: {days} أيام",
-  "@travelDurationLabel": { "placeholders": { "days": { "type": "int" } } },
+  "@travelDurationLabel": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "travelersLabel": "عدد المسافرين",
   "travelDestinationLabel": "الوجهة المفضلة (اختياري)",
   "travelDestinationHint": "مثال: إسطنبول",
@@ -500,7 +514,6 @@
   "attractionBooking": "جارٍ الحجز...",
   "attractionBookTicket": "احجز تذكرة — {price}",
   "attractionOpenOnMap": "افتح على الخريطة",
-  "attractionMapComingSoon": "عرض الخريطة قيد التطوير قريباً",
   "chatOnlineStatus": "متصل بالذكاء الاصطناعي",
   "chatHistoryTooltip": "سجل المحادثات",
   "chatDeleteTitle": "حذف المحادثة",
@@ -540,7 +553,7 @@
   "flightWeek": "أسبوع",
   "flightMonth": "شهر",
   "flightOther": "مدة أخرى",
-  "flightDuration": "مدة الرحلة",
+  "flightDuration": "المدة",
   "flightDays": "أيام",
   "flightWhenToGo": "متى تريد السفر؟",
   "flightSelectUpToMonths": "اختر حتى 3 أشهر",
@@ -565,7 +578,6 @@
   "flightAircraft": "الطائرة",
   "flightBookingReferenceLabel": "مرجع الحجز",
   "flightSelectedSeats": "المقاعد المختارة",
-  "flightDuration": "المدة",
   "flightBookingConfirmed": "تم تأكيد الحجز",
   "flightConfirmationError": "تعذّر تأكيد الحجز. أعد المحاولة للتحقق من حالته بأمان.",
   "flightBackToHome": "العودة إلى الرئيسية",
@@ -1095,5 +1107,168 @@
   "offerSourceDuffel": "دافل",
   "tryAgain": "حاول مرة أخرى",
   "invalidComparisonBudget": "أدخل مبلغاً صحيحاً لا يقل عن صفر",
-  "referenceRatePolicy": "تُميّز الأسعار الأقدم من 4 أيام؛ ولا تُستخدم أسعار الصرف الأقدم من 7 أيام."
+  "referenceRatePolicy": "تُميّز الأسعار الأقدم من 4 أيام؛ ولا تُستخدم أسعار الصرف الأقدم من 7 أيام.",
+  "authInvalidEmail": "أدخل بريدًا إلكترونيًا صحيحًا",
+  "forgotTitleLine1": "نسيت كلمة المرور؟",
+  "forgotTitleLine2": "سنساعدك على استعادة حسابك",
+  "forgotSubtitle": "أدخل البريد الإلكتروني المرتبط بحسابك وسنرسل لك رمزًا لإعادة تعيين كلمة المرور.",
+  "authEmailHint": "أدخل بريدك الإلكتروني",
+  "sendResetCode": "إرسال رمز إعادة التعيين",
+  "rememberedIt": "تذكرتها؟",
+  "backToLoginLower": "العودة لتسجيل الدخول",
+  "authPasswordHint": "أدخل كلمة المرور",
+  "loginTitleLine1": "سجّل دخولك",
+  "loginTitleLine2": "وسافر حول العالم",
+  "rememberMe": "تذكرني",
+  "forgotPasswordLink": "نسيت كلمة المرور؟",
+  "loginButton": "تسجيل الدخول",
+  "orSignUpWith": "أو سجّل باستخدام",
+  "noAccountPrompt": "ليس لديك حساب؟ ",
+  "createAnAccount": "أنشئ حسابًا",
+  "fullNameHint": "أدخل اسمك الكامل",
+  "phoneExactDigits": "أدخل {count} أرقام بالضبط لـ {country}",
+  "@phoneExactDigits": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneDigitRange": "أدخل من {min} إلى {max} أرقام لـ {country}",
+  "@phoneDigitRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      },
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "passwordMinLength": "استخدم 8 أحرف على الأقل",
+  "passwordsDontMatch": "كلمتا المرور غير متطابقتين",
+  "acceptTermsError": "يرجى الموافقة على الشروط للمتابعة",
+  "phoneHint": "أدخل رقم هاتفك",
+  "addProfilePhotoOptional": "أضف صورة شخصية (اختياري)",
+  "registerTitleLine1": "أنشئ حسابك",
+  "registerTitleLine2": "وابدأ رحلتك",
+  "createPasswordHint": "أنشئ كلمة مرور",
+  "confirmPasswordHint": "أكّد كلمة المرور",
+  "agreeToThe": "أوافق على ",
+  "termsOfService": "شروط الخدمة",
+  "createAccountButton": "إنشاء حساب",
+  "enterSixDigitCode": "أدخل رمز التحقق المكوّن من 6 أرقام",
+  "enterAndConfirmPassword": "أدخل كلمة المرور الجديدة وأكّدها",
+  "verifyTitleLine1": "تحقّق من",
+  "verifyTitleLine2": "بريدك الإلكتروني",
+  "verifySubtitle": "أدخل الرمز المكوّن من 6 أرقام المرسل إلى بريدك الإلكتروني.",
+  "verificationCodeHint": "أدخل رمز التحقق",
+  "verifyCodeButton": "تحقّق من الرمز",
+  "didntReceiveCode": "لم يصلك الرمز؟",
+  "resendInSeconds": "إعادة الإرسال بعد {seconds} ث",
+  "@resendInSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "newPasswordTitleLine1": "اختر",
+  "newPasswordTitleLine2": "كلمة مرور جديدة",
+  "newPasswordSubtitle": "أنشئ كلمة مرور جديدة لحسابك.",
+  "newPasswordHint": "كلمة المرور الجديدة",
+  "confirmNewPasswordHint": "تأكيد كلمة المرور الجديدة",
+  "resetPasswordAction": "إعادة تعيين كلمة المرور",
+  "passwordUpdatedSuccess": "تم تحديث كلمة المرور بنجاح.",
+  "backToLoginButton": "العودة لتسجيل الدخول",
+  "photoTooLarge": "اختر صورة أصغر من 5 ميجابايت.",
+  "photoUnreadable": "تعذّرت قراءة هذه الصورة. جرّب صورة أخرى.",
+  "seatListingMissing": "هذه الرحلة بلا معرّف إدراج.",
+  "seatLoadFailed": "تعذّر تحميل توفر المقاعد.",
+  "seatNoLongerAvailable": "أحد المقاعد التي اخترتها لم يعد متاحًا. يرجى الاختيار مرة أخرى.",
+  "selectUpToSeats": "اختر حتى {count} مقاعد لهذا الحجز.",
+  "@selectUpToSeats": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectSeatsToContinue": "{count, plural, =1{اختر مقعدًا واحدًا للمتابعة.} other{اختر {count} مقاعد للمتابعة.}}",
+  "@selectSeatsToContinue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fareNotEnoughSeats": "لم يعد في هذه الفئة مقاعد كافية.",
+  "flightAvailabilityUnverified": "تعذّر التحقق من توفر الرحلة.",
+  "flightConflictsBooking": "تتعارض هذه الرحلة مع حجز آخر في حسابك.",
+  "seatsNoLongerAvailable": "هذه المقاعد لم تعد متاحة.",
+  "paymentNotCompletedNoTrip": "لم يكتمل الدفع. لم يتم حفظ أي رحلة.",
+  "paymentHoldNotReleased": "لم يكتمل الدفع وتعذّر إلغاء حجز المقعد المؤقت. {details}",
+  "@paymentHoldNotReleased": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentHoldReleased": "لم يكتمل الدفع. تم إلغاء حجز مقعدك المؤقت.",
+  "chooseSeats": "اختر المقاعد",
+  "refreshAvailability": "تحديث التوفر",
+  "proceedToPaymentAmount": "المتابعة إلى الدفع · {amount}",
+  "@proceedToPaymentAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "seatAvailabilityUnavailable": "توفر المقاعد غير متاح حاليًا.",
+  "aircraftDetails": "تفاصيل الطائرة",
+  "sharedInventory": "مخزون مشترك",
+  "cabinNumber": "المقصورة {number}",
+  "@cabinNumber": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "optionalExtras": "إضافات اختيارية",
+  "optionalExtrasSubtitle": "أضف ما تحتاجه فقط",
+  "extraLegroomSeats": "مقاعد بمساحة إضافية للأرجل",
+  "taxesAndFees": "الضرائب والرسوم",
+  "estimatedTotal": "الإجمالي التقديري",
+  "retryShort": "إعادة المحاولة",
+  "boardingDirect": "مباشر",
+  "boardingOneStop": "توقف واحد",
+  "clearSearch": "مسح البحث",
+  "passwordResetTitleLine1": "تمت إعادة",
+  "passwordResetTitleLine2": "تعيين كلمة المرور",
+  "boardingDate": "التاريخ",
+  "boardingFlight": "الرحلة",
+  "boardingClass": "الدرجة",
+  "boardingRef": "المرجع",
+  "resendCodeLink": "إعادة إرسال الرمز",
+  "attractionLocationUnavailable": "موقع هذا المكان غير متاح.",
+  "fareTimesPassengers": "سعر {fare} × {count}",
+  "@fareTimesPassengers": {
+    "placeholders": {
+      "fare": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

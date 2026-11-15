@@ -1,3 +1,4 @@
+import '../../../../l10n/app_localizations.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -588,8 +589,8 @@ class GoogleG extends StatelessWidget {
 }
 
 class OrDivider extends StatelessWidget {
-  final String text;
-  const OrDivider({super.key, this.text = 'Or sign up with'});
+  final String? text;
+  const OrDivider({super.key, this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -598,7 +599,7 @@ class OrDivider extends StatelessWidget {
         const Expanded(child: Divider(color: AppColors.line)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(text,
+          child: Text(text ?? AppLocalizations.of(context).orSignUpWith,
               style: GoogleFonts.poppins(fontSize: 11, color: AppColors.hint)),
         ),
         const Expanded(child: Divider(color: AppColors.line)),

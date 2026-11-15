@@ -1,3 +1,4 @@
+import '../../../../l10n/app_localizations.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -54,7 +55,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
     FocusScope.of(context).unfocus();
     final code = _codeCtrl.text.trim();
     if (!RegExp(r'^\d{6}$').hasMatch(code)) {
-      setState(() => _error = 'Enter the 6-digit verification code');
+      setState(() => _error = AppLocalizations.of(context).enterSixDigitCode);
       return;
     }
 
@@ -76,15 +77,15 @@ class _VerifyScreenState extends State<VerifyScreen> {
   Future<void> _resetPassword() async {
     FocusScope.of(context).unfocus();
     if (_passwordCtrl.text.isEmpty || _confirmCtrl.text.isEmpty) {
-      setState(() => _error = 'Enter and confirm your new password');
+      setState(() => _error = AppLocalizations.of(context).enterAndConfirmPassword);
       return;
     }
     if (_passwordCtrl.text.length < 8) {
-      setState(() => _error = 'Use at least 8 characters');
+      setState(() => _error = AppLocalizations.of(context).passwordMinLength);
       return;
     }
     if (_passwordCtrl.text != _confirmCtrl.text) {
-      setState(() => _error = "Passwords don't match");
+      setState(() => _error = AppLocalizations.of(context).passwordsDontMatch);
       return;
     }
 
@@ -181,10 +182,10 @@ class _VerifyScreenState extends State<VerifyScreen> {
     return Column(
       key: const ValueKey('verify'),
       children: [
-        const AuthTitle(
-          line1: 'Verify Your',
-          line2: 'Email Address',
-          subtitle: 'Enter the 6-digit code sent to your email address.',
+        AuthTitle(
+          line1: AppLocalizations.of(context).verifyTitleLine1,
+          line2: AppLocalizations.of(context).verifyTitleLine2,
+          subtitle: AppLocalizations.of(context).verifySubtitle,
         ),
         const SizedBox(height: 8),
         Text(
@@ -198,7 +199,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
         const SizedBox(height: 24),
         AuthInput(
           controller: _codeCtrl,
-          hint: 'Enter verification code',
+          hint: AppLocalizations.of(context).verificationCodeHint,
           icon: Icons.pin_outlined,
           keyboardType: TextInputType.number,
           textInputAction: TextInputAction.done,
@@ -209,14 +210,14 @@ class _VerifyScreenState extends State<VerifyScreen> {
         ),
         const SizedBox(height: 20),
         AuthButton(
-          label: 'Verify Code',
+          label: AppLocalizations.of(context).verifyCodeButton,
           loading: _loading,
           onTap: _loading ? null : _verify,
         ),
         const SizedBox(height: 18),
         AuthFooterLink(
-          text: "Didn't receive a code?",
-          link: _cooldown > 0 ? 'Resend in $_cooldown s' : 'Resend code',
+          text: AppLocalizations.of(context).didntReceiveCode,
+          link: _cooldown > 0 ? AppLocalizations.of(context).resendInSeconds(_cooldown) : AppLocalizations.of(context).resendCodeLink,
           onTap: _resendCode,
         ),
       ],
@@ -227,15 +228,15 @@ class _VerifyScreenState extends State<VerifyScreen> {
     return Column(
       key: const ValueKey('reset'),
       children: [
-        const AuthTitle(
-          line1: 'Choose a',
-          line2: 'New Password',
-          subtitle: 'Create a new password for your account.',
+        AuthTitle(
+          line1: AppLocalizations.of(context).newPasswordTitleLine1,
+          line2: AppLocalizations.of(context).newPasswordTitleLine2,
+          subtitle: AppLocalizations.of(context).newPasswordSubtitle,
         ),
         const SizedBox(height: 24),
         AuthInput(
           controller: _passwordCtrl,
-          hint: 'New password',
+          hint: AppLocalizations.of(context).newPasswordHint,
           icon: Icons.lock_outline_rounded,
           obscure: _obscurePassword,
           textInputAction: TextInputAction.next,
@@ -251,7 +252,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
         const SizedBox(height: 12),
         AuthInput(
           controller: _confirmCtrl,
-          hint: 'Confirm new password',
+          hint: AppLocalizations.of(context).confirmNewPasswordHint,
           icon: Icons.verified_user_outlined,
           obscure: _obscureConfirm,
           textInputAction: TextInputAction.done,
@@ -265,7 +266,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
         ),
         const SizedBox(height: 20),
         AuthButton(
-          label: 'Reset Password',
+          label: AppLocalizations.of(context).resetPasswordAction,
           loading: _loading,
           onTap: _loading ? null : _resetPassword,
         ),
@@ -298,10 +299,10 @@ class _VerifyScreenState extends State<VerifyScreen> {
           ),
         ),
         const SizedBox(height: 18),
-        const AuthTitle(line1: 'Password', line2: 'Reset'),
+        AuthTitle(line1: AppLocalizations.of(context).passwordResetTitleLine1, line2: AppLocalizations.of(context).passwordResetTitleLine2),
         const SizedBox(height: 10),
         Text(
-          'Your password has been updated successfully.',
+          AppLocalizations.of(context).passwordUpdatedSuccess,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
             fontSize: 12.5,
@@ -311,7 +312,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
         ),
         const SizedBox(height: 26),
         AuthButton(
-          label: 'Back to Login',
+          label: AppLocalizations.of(context).backToLoginButton,
           onTap: _goToLogin,
         ),
       ],

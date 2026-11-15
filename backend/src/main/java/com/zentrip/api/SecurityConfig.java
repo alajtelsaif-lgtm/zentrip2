@@ -88,7 +88,6 @@ public class SecurityConfig {
                     "/api/airports/search",
                     "/api/flights/search",
                     "/api/flights/search/flexible",
-                    "/api/hotels/locations",
                     "/api/hotels/destinations/suggest",
                     "/api/hotels/search",
                     "/api/hotels/nearby",

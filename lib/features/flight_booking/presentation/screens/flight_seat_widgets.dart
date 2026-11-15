@@ -1,3 +1,4 @@
+import '../../../../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/utils/money_format.dart';
@@ -22,7 +23,7 @@ class FlightSelectionHeader extends StatelessWidget {
     );
     final time = TimeOfDay.fromDateTime(flight.departureTime).format(context);
     final aircraft = flight.aircraftName.trim().isEmpty
-        ? 'Aircraft details'
+        ? AppLocalizations.of(context).aircraftDetails
         : flight.aircraftName;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,7 +137,7 @@ class FlightFareCard extends StatelessWidget {
                   ),
                   if (fare.sharedInventory)
                     Text(
-                      'Shared inventory',
+                      AppLocalizations.of(context).sharedInventory,
                       style: TextStyle(
                           color: selected ? Colors.white70 : _muted,
                           fontSize: 10),
@@ -244,7 +245,7 @@ class _CabinPill extends StatelessWidget {
         button: true,
         enabled: enabled,
         selected: selected,
-        label: 'Cabin $number',
+        label: AppLocalizations.of(context).cabinNumber(number),
         child: Material(
           color: selected ? _navy : const Color(0xFFFFFFFF),
           borderRadius: BorderRadius.circular(14),
@@ -351,10 +352,10 @@ class FlightExtrasPanel extends StatelessWidget {
         tilePadding: const EdgeInsets.symmetric(horizontal: 16),
         childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
         iconColor: _navy,
-        title: const Text('Optional extras',
-            style: TextStyle(color: _ink, fontWeight: FontWeight.w800)),
-        subtitle: const Text('Add only what you need',
-            style: TextStyle(color: _muted, fontSize: 12)),
+        title: Text(AppLocalizations.of(context).optionalExtras,
+            style: const TextStyle(color: _ink, fontWeight: FontWeight.w800)),
+        subtitle: Text(AppLocalizations.of(context).optionalExtrasSubtitle,
+            style: const TextStyle(color: _muted, fontSize: 12)),
         children: [
           for (final entry in extras.entries)
             CheckboxListTile(
@@ -431,16 +432,25 @@ class FlightPriceBreakdown extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _priceRow(context, '${fare.label} fare × $passengerCount', base),
-          if (premium > 0) _priceRow(context, 'Extra-legroom seats', premium),
-          if (extra > 0) _priceRow(context, 'Optional extras', extra),
-          _priceRow(context, 'Taxes and fees', taxes + map.bookingFee),
+          _priceRow(
+              context,
+              AppLocalizations.of(context)
+                  .fareTimesPassengers(fare.label, passengerCount),
+              base),
+          if (premium > 0)
+            _priceRow(context, AppLocalizations.of(context).extraLegroomSeats,
+                premium),
+          if (extra > 0)
+            _priceRow(
+                context, AppLocalizations.of(context).optionalExtras, extra),
+          _priceRow(context, AppLocalizations.of(context).taxesAndFees,
+              taxes + map.bookingFee),
           const Divider(height: 22),
           Row(
             children: [
-              const Expanded(
-                child: Text('Estimated total',
-                    style: TextStyle(
+              Expanded(
+                child: Text(AppLocalizations.of(context).estimatedTotal,
+                    style: const TextStyle(
                         color: _ink,
                         fontWeight: FontWeight.w800,
                         fontSize: 15)),
@@ -560,7 +570,7 @@ class FlightSeatErrorPanel extends StatelessWidget {
               TextButton.icon(
                 onPressed: retrying ? null : onRetry,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Retry'),
+                label: Text(AppLocalizations.of(context).retryShort),
               ),
             ],
           ],

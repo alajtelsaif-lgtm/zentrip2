@@ -1,3 +1,4 @@
+import '../../../../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../routes/app_routes.dart';
@@ -39,7 +40,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (_loading) return;
     FocusScope.of(context).unfocus();
     if (!_validEmail(_emailCtrl.text)) {
-      setState(() => _error = 'Enter a valid email address');
+      setState(() => _error = AppLocalizations.of(context).authInvalidEmail);
       return;
     }
     setState(() {
@@ -80,16 +81,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget _buildForm() {
     return Column(
       children: [
-        const AuthTitle(
-          line1: 'Forgot Your Password?',
-          line2: "We'll Get You Back On Track",
+        AuthTitle(
+          line1: AppLocalizations.of(context).forgotTitleLine1,
+          line2: AppLocalizations.of(context).forgotTitleLine2,
           subtitle:
-              "Enter the email linked to your account and we'll send you a code to reset your password.",
+              AppLocalizations.of(context).forgotSubtitle,
         ),
         const SizedBox(height: 24),
         AuthInput(
           controller: _emailCtrl,
-          hint: 'Enter your email',
+          hint: AppLocalizations.of(context).authEmailHint,
           icon: Icons.mail_outline_rounded,
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.done,
@@ -99,11 +100,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           },
         ),
         const SizedBox(height: 20),
-        AuthButton(label: 'Send Reset Code', loading: _loading, onTap: _send),
+        AuthButton(label: AppLocalizations.of(context).sendResetCode, loading: _loading, onTap: _send),
         const SizedBox(height: 18),
         AuthFooterLink(
-          text: 'Remembered it?',
-          link: 'Back to login',
+          text: AppLocalizations.of(context).rememberedIt,
+          link: AppLocalizations.of(context).backToLoginLower,
           onTap: () => Navigator.of(context).maybePop(),
         ),
       ],

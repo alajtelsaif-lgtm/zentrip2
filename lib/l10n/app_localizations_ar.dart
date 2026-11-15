@@ -1452,9 +1452,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get attractionOpenOnMap => 'افتح على الخريطة';
 
   @override
-  String get attractionMapComingSoon => 'عرض الخريطة قيد التطوير قريباً';
-
-  @override
   String get chatOnlineStatus => 'متصل بالذكاء الاصطناعي';
 
   @override
@@ -3129,4 +3126,296 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get referenceRatePolicy =>
       'تُميّز الأسعار الأقدم من 4 أيام؛ ولا تُستخدم أسعار الصرف الأقدم من 7 أيام.';
+
+  @override
+  String get authInvalidEmail => 'أدخل بريدًا إلكترونيًا صحيحًا';
+
+  @override
+  String get forgotTitleLine1 => 'نسيت كلمة المرور؟';
+
+  @override
+  String get forgotTitleLine2 => 'سنساعدك على استعادة حسابك';
+
+  @override
+  String get forgotSubtitle =>
+      'أدخل البريد الإلكتروني المرتبط بحسابك وسنرسل لك رمزًا لإعادة تعيين كلمة المرور.';
+
+  @override
+  String get authEmailHint => 'أدخل بريدك الإلكتروني';
+
+  @override
+  String get sendResetCode => 'إرسال رمز إعادة التعيين';
+
+  @override
+  String get rememberedIt => 'تذكرتها؟';
+
+  @override
+  String get backToLoginLower => 'العودة لتسجيل الدخول';
+
+  @override
+  String get authPasswordHint => 'أدخل كلمة المرور';
+
+  @override
+  String get loginTitleLine1 => 'سجّل دخولك';
+
+  @override
+  String get loginTitleLine2 => 'وسافر حول العالم';
+
+  @override
+  String get rememberMe => 'تذكرني';
+
+  @override
+  String get forgotPasswordLink => 'نسيت كلمة المرور؟';
+
+  @override
+  String get loginButton => 'تسجيل الدخول';
+
+  @override
+  String get orSignUpWith => 'أو سجّل باستخدام';
+
+  @override
+  String get noAccountPrompt => 'ليس لديك حساب؟ ';
+
+  @override
+  String get createAnAccount => 'أنشئ حسابًا';
+
+  @override
+  String get fullNameHint => 'أدخل اسمك الكامل';
+
+  @override
+  String phoneExactDigits(int count, String country) {
+    return 'أدخل $count أرقام بالضبط لـ $country';
+  }
+
+  @override
+  String phoneDigitRange(int min, int max, String country) {
+    return 'أدخل من $min إلى $max أرقام لـ $country';
+  }
+
+  @override
+  String get passwordMinLength => 'استخدم 8 أحرف على الأقل';
+
+  @override
+  String get passwordsDontMatch => 'كلمتا المرور غير متطابقتين';
+
+  @override
+  String get acceptTermsError => 'يرجى الموافقة على الشروط للمتابعة';
+
+  @override
+  String get phoneHint => 'أدخل رقم هاتفك';
+
+  @override
+  String get addProfilePhotoOptional => 'أضف صورة شخصية (اختياري)';
+
+  @override
+  String get registerTitleLine1 => 'أنشئ حسابك';
+
+  @override
+  String get registerTitleLine2 => 'وابدأ رحلتك';
+
+  @override
+  String get createPasswordHint => 'أنشئ كلمة مرور';
+
+  @override
+  String get confirmPasswordHint => 'أكّد كلمة المرور';
+
+  @override
+  String get agreeToThe => 'أوافق على ';
+
+  @override
+  String get termsOfService => 'شروط الخدمة';
+
+  @override
+  String get createAccountButton => 'إنشاء حساب';
+
+  @override
+  String get enterSixDigitCode => 'أدخل رمز التحقق المكوّن من 6 أرقام';
+
+  @override
+  String get enterAndConfirmPassword => 'أدخل كلمة المرور الجديدة وأكّدها';
+
+  @override
+  String get verifyTitleLine1 => 'تحقّق من';
+
+  @override
+  String get verifyTitleLine2 => 'بريدك الإلكتروني';
+
+  @override
+  String get verifySubtitle =>
+      'أدخل الرمز المكوّن من 6 أرقام المرسل إلى بريدك الإلكتروني.';
+
+  @override
+  String get verificationCodeHint => 'أدخل رمز التحقق';
+
+  @override
+  String get verifyCodeButton => 'تحقّق من الرمز';
+
+  @override
+  String get didntReceiveCode => 'لم يصلك الرمز؟';
+
+  @override
+  String resendInSeconds(int seconds) {
+    return 'إعادة الإرسال بعد $seconds ث';
+  }
+
+  @override
+  String get newPasswordTitleLine1 => 'اختر';
+
+  @override
+  String get newPasswordTitleLine2 => 'كلمة مرور جديدة';
+
+  @override
+  String get newPasswordSubtitle => 'أنشئ كلمة مرور جديدة لحسابك.';
+
+  @override
+  String get newPasswordHint => 'كلمة المرور الجديدة';
+
+  @override
+  String get confirmNewPasswordHint => 'تأكيد كلمة المرور الجديدة';
+
+  @override
+  String get resetPasswordAction => 'إعادة تعيين كلمة المرور';
+
+  @override
+  String get passwordUpdatedSuccess => 'تم تحديث كلمة المرور بنجاح.';
+
+  @override
+  String get backToLoginButton => 'العودة لتسجيل الدخول';
+
+  @override
+  String get photoTooLarge => 'اختر صورة أصغر من 5 ميجابايت.';
+
+  @override
+  String get photoUnreadable => 'تعذّرت قراءة هذه الصورة. جرّب صورة أخرى.';
+
+  @override
+  String get seatListingMissing => 'هذه الرحلة بلا معرّف إدراج.';
+
+  @override
+  String get seatLoadFailed => 'تعذّر تحميل توفر المقاعد.';
+
+  @override
+  String get seatNoLongerAvailable =>
+      'أحد المقاعد التي اخترتها لم يعد متاحًا. يرجى الاختيار مرة أخرى.';
+
+  @override
+  String selectUpToSeats(int count) {
+    return 'اختر حتى $count مقاعد لهذا الحجز.';
+  }
+
+  @override
+  String selectSeatsToContinue(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'اختر $count مقاعد للمتابعة.',
+      one: 'اختر مقعدًا واحدًا للمتابعة.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fareNotEnoughSeats => 'لم يعد في هذه الفئة مقاعد كافية.';
+
+  @override
+  String get flightAvailabilityUnverified => 'تعذّر التحقق من توفر الرحلة.';
+
+  @override
+  String get flightConflictsBooking => 'تتعارض هذه الرحلة مع حجز آخر في حسابك.';
+
+  @override
+  String get seatsNoLongerAvailable => 'هذه المقاعد لم تعد متاحة.';
+
+  @override
+  String get paymentNotCompletedNoTrip => 'لم يكتمل الدفع. لم يتم حفظ أي رحلة.';
+
+  @override
+  String paymentHoldNotReleased(String details) {
+    return 'لم يكتمل الدفع وتعذّر إلغاء حجز المقعد المؤقت. $details';
+  }
+
+  @override
+  String get paymentHoldReleased =>
+      'لم يكتمل الدفع. تم إلغاء حجز مقعدك المؤقت.';
+
+  @override
+  String get chooseSeats => 'اختر المقاعد';
+
+  @override
+  String get refreshAvailability => 'تحديث التوفر';
+
+  @override
+  String proceedToPaymentAmount(String amount) {
+    return 'المتابعة إلى الدفع · $amount';
+  }
+
+  @override
+  String get seatAvailabilityUnavailable => 'توفر المقاعد غير متاح حاليًا.';
+
+  @override
+  String get aircraftDetails => 'تفاصيل الطائرة';
+
+  @override
+  String get sharedInventory => 'مخزون مشترك';
+
+  @override
+  String cabinNumber(String number) {
+    return 'المقصورة $number';
+  }
+
+  @override
+  String get optionalExtras => 'إضافات اختيارية';
+
+  @override
+  String get optionalExtrasSubtitle => 'أضف ما تحتاجه فقط';
+
+  @override
+  String get extraLegroomSeats => 'مقاعد بمساحة إضافية للأرجل';
+
+  @override
+  String get taxesAndFees => 'الضرائب والرسوم';
+
+  @override
+  String get estimatedTotal => 'الإجمالي التقديري';
+
+  @override
+  String get retryShort => 'إعادة المحاولة';
+
+  @override
+  String get boardingDirect => 'مباشر';
+
+  @override
+  String get boardingOneStop => 'توقف واحد';
+
+  @override
+  String get clearSearch => 'مسح البحث';
+
+  @override
+  String get passwordResetTitleLine1 => 'تمت إعادة';
+
+  @override
+  String get passwordResetTitleLine2 => 'تعيين كلمة المرور';
+
+  @override
+  String get boardingDate => 'التاريخ';
+
+  @override
+  String get boardingFlight => 'الرحلة';
+
+  @override
+  String get boardingClass => 'الدرجة';
+
+  @override
+  String get boardingRef => 'المرجع';
+
+  @override
+  String get resendCodeLink => 'إعادة إرسال الرمز';
+
+  @override
+  String get attractionLocationUnavailable => 'موقع هذا المكان غير متاح.';
+
+  @override
+  String fareTimesPassengers(String fare, int count) {
+    return 'سعر $fare × $count';
+  }
 }

@@ -253,7 +253,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
     if (flightId == null) {
       setState(() {
         _loading = false;
-        _seatError = 'This flight is missing its listing ID.';
+        _seatError = AppLocalizations.of(context).seatListingMissing;
       });
       return;
     }
@@ -269,7 +269,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       _refreshing = false;
       _loading = false;
       if (result.isFailure || result.data == null) {
-        _seatError = result.errorMessage ?? 'Could not load seat availability.';
+        _seatError = result.errorMessage ?? AppLocalizations.of(context).seatLoadFailed;
       } else {
         final nextMap = result.data!;
         final validSeats = <String>{
@@ -288,7 +288,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
             _heldSeats.remove(seat);
           }
           _lostSeatMessage =
-              'A seat you selected is no longer available. Please choose again.';
+              AppLocalizations.of(context).seatNoLongerAvailable;
         }
         _seatMap = nextMap;
         _selectedExtras.removeWhere((key) => !nextMap.extras.containsKey(key));
@@ -341,7 +341,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
     if (_selectedSeats.length >= widget.passengerCount) {
       AppSnackbar.info(
         context,
-        'Select up to ${widget.passengerCount} seats for this booking.',
+        AppLocalizations.of(context).selectUpToSeats(widget.passengerCount),
       );
       return;
     }
@@ -485,12 +485,12 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
             _selectedSeats.isEmpty)) {
       AppSnackbar.error(
         context,
-        'Select ${widget.passengerCount} seat${widget.passengerCount == 1 ? '' : 's'} to continue.',
+        AppLocalizations.of(context).selectSeatsToContinue(widget.passengerCount),
       );
       return;
     }
     if (fare.availableSeats < widget.passengerCount) {
-      AppSnackbar.error(context, 'This fare no longer has enough seats.');
+      AppSnackbar.error(context, AppLocalizations.of(context).fareNotEnoughSeats);
       return;
     }
 
@@ -515,8 +515,8 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
           context,
           availability.isFailure
               ? availability.errorMessage ??
-                  'Could not verify flight availability.'
-              : 'This flight conflicts with another booking on your account.',
+                  AppLocalizations.of(context).flightAvailabilityUnverified
+              : AppLocalizations.of(context).flightConflictsBooking,
         );
         return;
       }
@@ -530,7 +530,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
           setState(() => _submitting = false);
           AppSnackbar.error(
             context,
-            reservation.errorMessage ?? 'Those seats are no longer available.',
+            reservation.errorMessage ?? AppLocalizations.of(context).seatsNoLongerAvailable,
           );
           await _loadSeatMap();
           return;
@@ -577,7 +577,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       if (isDuffel) {
         setState(() => _submitting = false);
         AppSnackbar.error(
-            context, 'Payment was not completed. No trip was saved.');
+            context, AppLocalizations.of(context).paymentNotCompletedNoTrip);
         return;
       }
       final release =
@@ -590,8 +590,8 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       AppSnackbar.error(
         context,
         release.isFailure
-            ? 'Payment was not completed and the seat hold could not be released. ${release.errorMessage ?? ''}'
-            : 'Payment was not completed. Your seat hold was released.',
+            ? AppLocalizations.of(context).paymentHoldNotReleased(release.errorMessage ?? '')
+            : AppLocalizations.of(context).paymentHoldReleased,
       );
       await _loadSeatMap();
       return;
@@ -700,11 +700,11 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
         backgroundColor: _page,
         foregroundColor: _ink,
         elevation: 0,
-        title: const Text('Choose seats',
-            style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(AppLocalizations.of(context).chooseSeats,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           IconButton(
-            tooltip: 'Refresh availability',
+            tooltip: AppLocalizations.of(context).refreshAvailability,
             onPressed: _submitting || _refreshing ? null : _loadSeatMap,
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -766,11 +766,13 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 728),
                 child: FlightPrimaryButton(
-                  label: 'Proceed to Payment · ${checkoutMoney(
-                    _currencyCode,
-                    _totalPrice,
-                    locale: Localizations.localeOf(context).languageCode,
-                  )}',
+                  label: AppLocalizations.of(context).proceedToPaymentAmount(
+                    checkoutMoney(
+                      _currencyCode,
+                      _totalPrice,
+                      locale: Localizations.localeOf(context).languageCode,
+                    ),
+                  ),
                   icon: Icons.lock_rounded,
                   loading: _submitting,
                   onPressed: _seatMap != null &&
@@ -926,8 +928,8 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
       );
     }
     if (map == null || cabin == null) {
-      return const FlightSeatErrorPanel(
-        message: 'Seat availability is not available right now.',
+      return FlightSeatErrorPanel(
+        message: AppLocalizations.of(context).seatAvailabilityUnavailable,
         retrying: false,
         onRetry: null,
       );

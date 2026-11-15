@@ -1,3 +1,4 @@
+import '../../../../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -45,11 +46,11 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     final email = _emailCtrl.text.trim();
     if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      _showMessage('Enter a valid email address');
+      _showMessage(AppLocalizations.of(context).authInvalidEmail);
       return;
     }
     if (_passCtrl.text.isEmpty) {
-      _showMessage('Enter your password');
+      _showMessage(AppLocalizations.of(context).authPasswordHint);
       return;
     }
 
@@ -107,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       children: [
         Text(
-          'Login to',
+          AppLocalizations.of(context).loginTitleLine1,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
             fontSize: 22,
@@ -117,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         Text(
-          'Travel Around the Globe',
+          AppLocalizations.of(context).loginTitleLine2,
           textAlign: TextAlign.center,
           style: GoogleFonts.poppins(
             fontSize: 22,
@@ -130,14 +131,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
         _InputField(
           controller: _emailCtrl,
-          hint: 'Enter your email',
+          hint: AppLocalizations.of(context).authEmailHint,
           icon: Icons.mail_outline_rounded,
           keyboardType: TextInputType.emailAddress,
         ),
         const SizedBox(height: 14),
         _InputField(
           controller: _passCtrl,
-          hint: 'Enter your password',
+          hint: AppLocalizations.of(context).authPasswordHint,
           icon: Icons.lock_outline_rounded,
           obscure: _obscure,
           suffix: IconButton(
@@ -178,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Remember me',
+                  AppLocalizations.of(context).rememberMe,
                   style:
                       GoogleFonts.poppins(fontSize: 12, color: AppColors.hint),
                 ),
@@ -190,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   : () =>
                       Navigator.of(context).pushNamed(AppRoutes.forgotPassword),
               child: Text(
-                'Forgot password?',
+                AppLocalizations.of(context).forgotPasswordLink,
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -203,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 18),
 
         _PressableButton(
-          label: 'Login',
+          label: AppLocalizations.of(context).loginButton,
           loading: _loading,
           onTap: _submitLogin,
         ),
@@ -215,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
-                  'Or sign up with',
+                  AppLocalizations.of(context).orSignUpWith,
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     color: AppColors.hint,
@@ -255,11 +256,11 @@ class _LoginScreenState extends State<LoginScreen> {
               : () => Navigator.of(context).pushNamed(AppRoutes.register),
           child: Text.rich(
             TextSpan(
-              text: "Don't have an account? ",
+              text: AppLocalizations.of(context).noAccountPrompt,
               style: GoogleFonts.poppins(fontSize: 12, color: AppColors.text),
               children: [
                 TextSpan(
-                  text: 'Create an account',
+                  text: AppLocalizations.of(context).createAnAccount,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

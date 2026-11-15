@@ -2677,6 +2677,12 @@ public class ApiController {
     public Map<String, Object> paymentAttempt(
             @PathVariable String sessionId, HttpServletRequest request) {
         long userId = requireUserId(request);
+        if (!paymentAttemptsTableAvailable()) {
+            return Map.of(
+                    "attempted", false,
+                    "paid", false,
+                    "session_id", sessionId);
+        }
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 SELECT id, status FROM payment_attempts
                 WHERE session_id = ? AND user_id = ?
@@ -2724,6 +2730,19 @@ public class ApiController {
                     HttpStatus.UNPROCESSABLE_ENTITY, "currency must be a 3-letter code");
         }
         String status = paid ? "success" : "failed";
+        if (!paymentAttemptsTableAvailable()) {
+            // Simulator only: without the ledger migration the outcome cannot be
+            // stored, but checkout must not fail. Bookings then proceed without a
+            // payment_attempt_id, exactly as they did before the ledger existed.
+            LOG.warn("payment_attempts table is missing; apply migration "
+                    + "20261104_payment_attempts.sql to record simulated payments");
+            Map<String, Object> unrecorded = new LinkedHashMap<>();
+            unrecorded.put("status", status);
+            unrecorded.put("paid", paid);
+            unrecorded.put("is_simulation", true);
+            unrecorded.put("recorded", false);
+            return ResponseEntity.status(HttpStatus.CREATED).body(unrecorded);
+        }
         jdbc.update("""
                 INSERT INTO payment_attempts
                     (session_id, user_id, amount, currency, status, is_simulation)
@@ -3010,6 +3029,22 @@ public class ApiController {
         Object userId = request.getAttribute("authUserId");
         if (!(userId instanceof Number number)) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthenticated");
         return number.longValue();
+    }
+
+    /**
+     * Returns false only when the database positively reports that the
+     * payment ledger migration has not been applied.
+     */
+    private boolean paymentAttemptsTableAvailable() {
+        try {
+            Boolean exists = jdbc.queryForObject(
+                    "SELECT to_regclass('public.payment_attempts') IS NOT NULL",
+                    Boolean.class);
+            return !Boolean.FALSE.equals(exists);
+        } catch (org.springframework.dao.DataAccessException exception) {
+            LOG.warn("Could not check payment ledger migration status", exception);
+            return true;
+        }
     }
 
     private Long lockSuccessfulPaymentAttempt(Map<String, Object> body, long userId) {

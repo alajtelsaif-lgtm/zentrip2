@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zentrip/l10n/app_localizations.dart';
 import 'package:zentrip/features/auth/presentation/screens/register_screen.dart';
 
 void main() {
@@ -10,7 +11,11 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MaterialApp(home: RegisterScreen()));
+    await tester.pumpWidget(const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: RegisterScreen()));
     await tester.pump(const Duration(milliseconds: 100));
 
     final phoneField = find.byWidgetPredicate(

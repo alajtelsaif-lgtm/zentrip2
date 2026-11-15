@@ -122,8 +122,9 @@ class _PhotoPickerAvatarState extends State<PhotoPickerAvatar> {
       if (!mounted || picked == null) return;
 
       final length = await picked.length();
+      if (!mounted) return;
       if (length == 0 || length > _maxPhotoBytes) {
-        _showPhotoError('Choose an image smaller than 5 MB.');
+        _showPhotoError(AppLocalizations.of(context).photoTooLarge);
         return;
       }
 
@@ -136,7 +137,7 @@ class _PhotoPickerAvatarState extends State<PhotoPickerAvatar> {
       widget.onChanged(picked);
     } catch (_) {
       if (mounted) {
-        _showPhotoError('Could not read this image. Please try another.');
+        _showPhotoError(AppLocalizations.of(context).photoUnreadable);
       }
     }
   }

@@ -61,6 +61,28 @@ class ApiControllerTest {
     }
 
     @Test
+    void simulatedPaymentStillSucceedsWhenLedgerMigrationIsMissing() {
+        when(jdbc.queryForObject(
+                eq("SELECT to_regclass('public.payment_attempts') IS NOT NULL"),
+                eq(Boolean.class)))
+                .thenReturn(false);
+
+        ResponseEntity<?> response = controller.recordPaymentAttempt(
+                "mock_session-1",
+                Map.of("paid", true, "amount", 120, "currency", "usd"),
+                authenticatedRequest());
+
+        assertEquals(201, response.getStatusCode().value());
+        Map<?, ?> body = (Map<?, ?>) response.getBody();
+        assertEquals(true, body.get("paid"));
+        assertEquals("success", body.get("status"));
+        assertEquals(false, body.get("recorded"));
+        assertTrue(!body.containsKey("attempt_id"));
+        verify(jdbc, never()).update(contains("INSERT INTO payment_attempts"),
+                any(Object[].class));
+    }
+
+    @Test
     void fcmTokenRegistrationUsesOnlyTheAuthenticatedUserContext() {
         when(jdbc.queryForObject(
                 eq("SELECT public.zentrip_register_user_push_token(?, ?)"),

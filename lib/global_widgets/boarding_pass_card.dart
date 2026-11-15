@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 import '../models/trip_model.dart';
@@ -61,7 +62,7 @@ class BoardingPassCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          trip.isDirect ? 'Direct' : '1 Stop',
+                          trip.isDirect ? AppLocalizations.of(context).boardingDirect : AppLocalizations.of(context).boardingOneStop,
                           style: const TextStyle(
                               fontSize: 10,
                               color: Colors.white,
@@ -97,14 +98,14 @@ class BoardingPassCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _InfoChip(
-                      label: 'Date',
+                      label: AppLocalizations.of(context).boardingDate,
                       value: DateTimeUtils.formatShortDate(trip.departureDate,
                           locale: 'en')),
-                  _InfoChip(label: 'Flight', value: trip.flightNumber),
-                  _InfoChip(label: 'Class', value: trip.seatClass ?? 'Economy'),
+                  _InfoChip(label: AppLocalizations.of(context).boardingFlight, value: trip.flightNumber),
+                  _InfoChip(label: AppLocalizations.of(context).boardingClass, value: trip.seatClass ?? 'Economy'),
                   if (trip.bookingRef != null)
                     _InfoChip(
-                        label: 'Ref', value: trip.bookingRef!.split('-').last),
+                        label: AppLocalizations.of(context).boardingRef, value: trip.bookingRef!.split('-').last),
                 ],
               ),
             ),

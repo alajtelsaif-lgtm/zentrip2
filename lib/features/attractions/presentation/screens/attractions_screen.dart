@@ -158,7 +158,7 @@ class _AttractionsScreenState extends State<AttractionsScreen> {
                         suffixIcon: _searchCtrl.text.isEmpty
                             ? null
                             : IconButton(
-                                tooltip: 'Clear search',
+                                tooltip: AppLocalizations.of(context).clearSearch,
                                 onPressed: _clearSearch,
                                 icon: const Icon(Icons.close_rounded,
                                     color: AppColors.textSecondary, size: 19),

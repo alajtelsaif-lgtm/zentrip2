@@ -151,19 +151,35 @@
   "notifTimeAgoNow": "Now",
   "notifTimeAgoMinutes": "{minutes}m ago",
   "@notifTimeAgoMinutes": {
-    "placeholders": { "minutes": { "type": "Object" } }
+    "placeholders": {
+      "minutes": {
+        "type": "Object"
+      }
+    }
   },
   "notifUnreadCount": "{count} unread notifications",
   "@notifUnreadCount": {
-    "placeholders": { "count": { "type": "Object" } }
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
   },
   "notifTimeAgoHours": "{hours}h ago",
   "@notifTimeAgoHours": {
-    "placeholders": { "hours": { "type": "Object" } }
+    "placeholders": {
+      "hours": {
+        "type": "Object"
+      }
+    }
   },
   "notifTimeAgoDays": "{days}d ago",
   "@notifTimeAgoDays": {
-    "placeholders": { "days": { "type": "Object" } }
+    "placeholders": {
+      "days": {
+        "type": "Object"
+      }
+    }
   },
   "tripReminders": "Trip Reminders",
   "tripRemindersDesc": "Get notified before your trips",
@@ -205,10 +221,18 @@
   "tripShareText": "My flight: {origin} → {destination} on {date} (flight {flightNumber}). Booked via Zentrip!",
   "@tripShareText": {
     "placeholders": {
-      "origin": {"type": "Object"},
-      "destination": {"type": "Object"},
-      "date": {"type": "Object"},
-      "flightNumber": {"type": "Object"}
+      "origin": {
+        "type": "Object"
+      },
+      "destination": {
+        "type": "Object"
+      },
+      "date": {
+        "type": "Object"
+      },
+      "flightNumber": {
+        "type": "Object"
+      }
     }
   },
   "itineraryTitle": "Trip Itinerary",
@@ -268,7 +292,13 @@
   "travelPaceBalanced": "Balanced",
   "travelPacePacked": "Packed",
   "travelDurationLabel": "Trip length: {days} days",
-  "@travelDurationLabel": { "placeholders": { "days": { "type": "int" } } },
+  "@travelDurationLabel": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "travelersLabel": "Travelers",
   "travelDestinationLabel": "Preferred destination (optional)",
   "travelDestinationHint": "e.g. Istanbul",
@@ -514,7 +544,6 @@
   "attractionBooking": "Booking...",
   "attractionBookTicket": "Book a Ticket — {price}",
   "attractionOpenOnMap": "Open on Map",
-  "attractionMapComingSoon": "Map view is coming soon",
   "chatOnlineStatus": "Connected to AI",
   "chatHistoryTooltip": "Chat history",
   "chatDeleteTitle": "Delete Conversation",
@@ -554,7 +583,7 @@
   "flightWeek": "A week",
   "flightMonth": "A month",
   "flightOther": "Other",
-  "flightDuration": "Trip duration",
+  "flightDuration": "Duration",
   "flightDays": "days",
   "flightWhenToGo": "When do you want to go?",
   "flightSelectUpToMonths": "Select up to 3 months",
@@ -579,7 +608,6 @@
   "flightAircraft": "Aircraft",
   "flightBookingReferenceLabel": "Booking reference",
   "flightSelectedSeats": "Selected seats",
-  "flightDuration": "Duration",
   "flightBookingConfirmed": "Booking Confirmed",
   "flightConfirmationError": "Your booking could not be confirmed. Retry to safely check its status.",
   "flightBackToHome": "Back to Home",
@@ -733,22 +761,38 @@
   "commonGreetingNamed": "Hi, {name} 👋",
   "resendCodeIn": "Resend code in {seconds}s",
   "@resendCodeIn": {
-    "placeholders": { "seconds": { "type": "Object" } }
+    "placeholders": {
+      "seconds": {
+        "type": "Object"
+      }
+    }
   },
   "codeInvalidWithAttempts": "The code you entered is incorrect. {count} attempts left",
   "@codeInvalidWithAttempts": {
-    "placeholders": { "count": { "type": "Object" } }
+    "placeholders": {
+      "count": {
+        "type": "Object"
+      }
+    }
   },
   "tooManyAttempts": "Too many failed attempts. Please request a new code.",
   "tripsSuggestedFromPackage": "Suggested from your package",
   "tripsRepeatLastSearch": "Repeat last search",
   "tripsSearchFlightsTo": "Search flights to {destination}",
   "@tripsSearchFlightsTo": {
-    "placeholders": { "destination": { "type": "Object" } }
+    "placeholders": {
+      "destination": {
+        "type": "Object"
+      }
+    }
   },
   "tripsSearchHotelsIn": "Search hotels in {destination}",
   "@tripsSearchHotelsIn": {
-    "placeholders": { "destination": { "type": "Object" } }
+    "placeholders": {
+      "destination": {
+        "type": "Object"
+      }
+    }
   },
   "tripsGoToFlightSearch": "Go to flight search",
   "tripsGoToHotelSearch": "Go to hotel search",
@@ -762,7 +806,11 @@
   "bookThisOffer": "Book This Offer",
   "packageBookingSuccess": "Your package to {destination} is booked!",
   "@packageBookingSuccess": {
-    "placeholders": { "destination": { "type": "Object" } }
+    "placeholders": {
+      "destination": {
+        "type": "Object"
+      }
+    }
   },
   "tripsFlightInfo": "Flight Information",
   "tripsAirline": "Airline",
@@ -1124,5 +1172,168 @@
   "offerSourceDuffel": "Duffel",
   "tryAgain": "Try again",
   "invalidComparisonBudget": "Enter a valid amount ≥0",
-  "referenceRatePolicy": "Rates older than 4 days are flagged; rates older than 7 days are not used."
+  "referenceRatePolicy": "Rates older than 4 days are flagged; rates older than 7 days are not used.",
+  "authInvalidEmail": "Enter a valid email address",
+  "forgotTitleLine1": "Forgot Your Password?",
+  "forgotTitleLine2": "We'll Get You Back On Track",
+  "forgotSubtitle": "Enter the email linked to your account and we'll send you a code to reset your password.",
+  "authEmailHint": "Enter your email",
+  "sendResetCode": "Send Reset Code",
+  "rememberedIt": "Remembered it?",
+  "backToLoginLower": "Back to login",
+  "authPasswordHint": "Enter your password",
+  "loginTitleLine1": "Login to",
+  "loginTitleLine2": "Travel Around the Globe",
+  "rememberMe": "Remember me",
+  "forgotPasswordLink": "Forgot password?",
+  "loginButton": "Login",
+  "orSignUpWith": "Or sign up with",
+  "noAccountPrompt": "Don't have an account? ",
+  "createAnAccount": "Create an account",
+  "fullNameHint": "Enter your full name",
+  "phoneExactDigits": "Enter exactly {count} digits for {country}",
+  "@phoneExactDigits": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneDigitRange": "Enter {min}-{max} digits for {country}",
+  "@phoneDigitRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      },
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "passwordMinLength": "Use at least 8 characters",
+  "passwordsDontMatch": "Passwords don't match",
+  "acceptTermsError": "Please accept the terms to continue",
+  "phoneHint": "Enter your phone number",
+  "addProfilePhotoOptional": "Add a profile photo (optional)",
+  "registerTitleLine1": "Create Your Account",
+  "registerTitleLine2": "Start Your Journey",
+  "createPasswordHint": "Create a password",
+  "confirmPasswordHint": "Confirm your password",
+  "agreeToThe": "I agree to the ",
+  "termsOfService": "Terms of Service",
+  "createAccountButton": "Create Account",
+  "enterSixDigitCode": "Enter the 6-digit verification code",
+  "enterAndConfirmPassword": "Enter and confirm your new password",
+  "verifyTitleLine1": "Verify Your",
+  "verifyTitleLine2": "Email Address",
+  "verifySubtitle": "Enter the 6-digit code sent to your email address.",
+  "verificationCodeHint": "Enter verification code",
+  "verifyCodeButton": "Verify Code",
+  "didntReceiveCode": "Didn't receive a code?",
+  "resendInSeconds": "Resend in {seconds} s",
+  "@resendInSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "newPasswordTitleLine1": "Choose a",
+  "newPasswordTitleLine2": "New Password",
+  "newPasswordSubtitle": "Create a new password for your account.",
+  "newPasswordHint": "New password",
+  "confirmNewPasswordHint": "Confirm new password",
+  "resetPasswordAction": "Reset Password",
+  "passwordUpdatedSuccess": "Your password has been updated successfully.",
+  "backToLoginButton": "Back to Login",
+  "photoTooLarge": "Choose an image smaller than 5 MB.",
+  "photoUnreadable": "Could not read this image. Please try another.",
+  "seatListingMissing": "This flight is missing its listing ID.",
+  "seatLoadFailed": "Could not load seat availability.",
+  "seatNoLongerAvailable": "A seat you selected is no longer available. Please choose again.",
+  "selectUpToSeats": "Select up to {count} seats for this booking.",
+  "@selectUpToSeats": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectSeatsToContinue": "{count, plural, =1{Select 1 seat to continue.} other{Select {count} seats to continue.}}",
+  "@selectSeatsToContinue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fareNotEnoughSeats": "This fare no longer has enough seats.",
+  "flightAvailabilityUnverified": "Could not verify flight availability.",
+  "flightConflictsBooking": "This flight conflicts with another booking on your account.",
+  "seatsNoLongerAvailable": "Those seats are no longer available.",
+  "paymentNotCompletedNoTrip": "Payment was not completed. No trip was saved.",
+  "paymentHoldNotReleased": "Payment was not completed and the seat hold could not be released. {details}",
+  "@paymentHoldNotReleased": {
+    "placeholders": {
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentHoldReleased": "Payment was not completed. Your seat hold was released.",
+  "chooseSeats": "Choose seats",
+  "refreshAvailability": "Refresh availability",
+  "proceedToPaymentAmount": "Proceed to Payment · {amount}",
+  "@proceedToPaymentAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "seatAvailabilityUnavailable": "Seat availability is not available right now.",
+  "aircraftDetails": "Aircraft details",
+  "sharedInventory": "Shared inventory",
+  "cabinNumber": "Cabin {number}",
+  "@cabinNumber": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "optionalExtras": "Optional extras",
+  "optionalExtrasSubtitle": "Add only what you need",
+  "extraLegroomSeats": "Extra-legroom seats",
+  "taxesAndFees": "Taxes and fees",
+  "estimatedTotal": "Estimated total",
+  "retryShort": "Retry",
+  "boardingDirect": "Direct",
+  "boardingOneStop": "1 Stop",
+  "clearSearch": "Clear search",
+  "passwordResetTitleLine1": "Password",
+  "passwordResetTitleLine2": "Reset",
+  "boardingDate": "Date",
+  "boardingFlight": "Flight",
+  "boardingClass": "Class",
+  "boardingRef": "Ref",
+  "resendCodeLink": "Resend code",
+  "attractionLocationUnavailable": "The location of this place is not available.",
+  "fareTimesPassengers": "{fare} fare × {count}",
+  "@fareTimesPassengers": {
+    "placeholders": {
+      "fare": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
