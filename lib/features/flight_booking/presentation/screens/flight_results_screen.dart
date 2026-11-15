@@ -617,7 +617,9 @@ class _FlightCardState extends State<_FlightCard> {
                       widget.comparisonPrice == null
                           ? l10n.priceUnavailable
                           : formatProviderMoney(widget.comparisonPrice!,
-                              widget.comparisonCurrency),
+                              widget.comparisonCurrency,
+                              locale:
+                                  Localizations.localeOf(context).languageCode),
                       textAlign: TextAlign.end,
                       style: const TextStyle(
                           fontSize: 17,
@@ -634,7 +636,7 @@ class _FlightCardState extends State<_FlightCard> {
                     Text(
                       originalAmount == null
                           ? '${l10n.providerPrice}: ${l10n.priceUnavailable}'
-                          : '${l10n.providerPrice}: ${formatProviderMoney(originalAmount!, flight.priceCurrencyCode)}',
+                          : '${l10n.providerPrice}: ${formatProviderMoney(originalAmount!, flight.priceCurrencyCode, locale: Localizations.localeOf(context).languageCode)}',
                       textAlign: TextAlign.end,
                       style: const TextStyle(
                           fontSize: 12,

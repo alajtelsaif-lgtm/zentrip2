@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/utils/date_time_utils.dart';
+import '../../../../core/utils/money_format.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../global_widgets/boarding_pass_card.dart';
 import '../../../../global_widgets/confirm_dialog.dart';
@@ -74,6 +75,16 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final locale = Localizations.localeOf(context).languageCode;
     final trip = _trip;
+    final bookedAmount = trip.bookingDisplayAmount ?? trip.price ?? 0;
+    final bookedCurrency = trip.bookingDisplayAmount == null
+        ? trip.priceCurrencyCode
+        : trip.bookingCurrencyCode;
+    final bookedPriceLabel = formatBookingCurrencyAmount(
+      bookedAmount,
+      bookedCurrency,
+      locale: locale,
+      decimalDigits: 2,
+    );
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -146,11 +157,10 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         if (trip.bookingDisplayAmount != null ||
                             trip.price != null)
                           _DetailRow(
-                              l10n.tripsTotalPrice,
-                              trip.isSimulated
-                                  ? '${trip.bookingDisplayAmount == null ? trip.priceCurrencyCode : trip.bookingCurrencyCode} ${(trip.bookingDisplayAmount ?? trip.price!).toStringAsFixed(2)}'
-                                  : '\$${(trip.bookingDisplayAmount ?? trip.price!).toStringAsFixed(2)}',
-                              Icons.attach_money_rounded),
+                            l10n.tripsTotalPrice,
+                            bookedPriceLabel,
+                            Icons.attach_money_rounded,
+                          ),
                         if (trip.selectedSeats.isNotEmpty)
                           _DetailRow(
                               l10n.tripSeatsLabel,

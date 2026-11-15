@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../global_widgets/app_network_image.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -304,8 +305,8 @@ class _OfferCard extends StatelessWidget {
             label: '${offer.durationNights} ${l10n.adminNights}',
             color: AppColors.accentTeal),
         _CatalogBadge(
-            label:
-                '${l10n.adminCalculatedOfferTotal}: \$${offer.totalPricePerPerson.toStringAsFixed(0)}',
+            label: l10n.adminCalculatedOfferTotal,
+            amount: offer.totalPricePerPerson,
             color: AppColors.accentGreen),
         for (final highlight in offer.highlights.take(4))
           _CatalogBadge(label: highlight, color: AppColors.primary),
@@ -393,7 +394,9 @@ class _CatalogCard extends StatelessWidget {
                               style: Theme.of(context).textTheme.bodySmall),
                           if (price != null) ...[
                             const Spacer(),
-                            Text('\$${price!.toStringAsFixed(0)}',
+                            CurrencyAmountText(
+                                amount: price!,
+                                decimalDigits: 0,
                                 style: const TextStyle(
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.w800)),
@@ -436,8 +439,13 @@ class _CatalogCard extends StatelessWidget {
 class _CatalogBadge extends StatelessWidget {
   final String label;
   final Color color;
+  final double? amount;
 
-  const _CatalogBadge({required this.label, required this.color});
+  const _CatalogBadge({
+    required this.label,
+    required this.color,
+    this.amount,
+  });
 
   @override
   Widget build(BuildContext context) => Container(
@@ -447,11 +455,19 @@ class _CatalogBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: color.withValues(alpha: .22)),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-              color: color, fontSize: 12, fontWeight: FontWeight.w600),
-        ),
+        child: amount == null
+            ? Text(
+                label,
+                style: TextStyle(
+                    color: color, fontSize: 12, fontWeight: FontWeight.w600),
+              )
+            : CurrencyAmountText(
+                amount: amount!,
+                prefix: '$label: ',
+                decimalDigits: 0,
+                style: TextStyle(
+                    color: color, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
       );
 }
 
@@ -671,8 +687,9 @@ class _CatalogEditorState extends State<_CatalogEditor> {
           labelText: l10n.adminLinkedFlight,
           hintText: l10n.adminSelectFlight,
           filled: true,
-          fillColor:
-              isDark ? AppColors.darkSurfaceSecondary : AppColors.surfaceSecondary,
+          fillColor: isDark
+              ? AppColors.darkSurfaceSecondary
+              : AppColors.surfaceSecondary,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -683,17 +700,27 @@ class _CatalogEditorState extends State<_CatalogEditor> {
         items: widget.flights
             .map((flight) => DropdownMenuItem(
                   value: flight,
-                  child: Text(
-                    '${flight.airline} · ${flight.flightNumber} · '
-                    '${flight.originCode} → ${flight.destinationCode} '
-                    '· \$${flight.economyPrice.toStringAsFixed(0)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${flight.airline} · ${flight.flightNumber} · '
+                          '${flight.originCode} → ${flight.destinationCode}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      CurrencyAmountText(
+                        amount: flight.economyPrice,
+                        sourceCurrencyCode: flight.priceCurrencyCode,
+                        decimalDigits: 0,
+                      ),
+                    ],
                   ),
                 ))
             .toList(),
-        validator: (value) =>
-            value == null ? l10n.adminSelectFlight : null,
+        validator: (value) => value == null ? l10n.adminSelectFlight : null,
         onChanged: widget.flights.isEmpty
             ? null
             : (flight) => setState(() => _selectedFlight = flight),
@@ -719,8 +746,7 @@ class _CatalogEditorState extends State<_CatalogEditor> {
           description: _fields['description']!.text.trim(),
           imageUrl: _fields['image_url']!.text.trim(),
           pricePerPerson: (_selectedFlight?.economyPrice ?? 0) +
-              _number('hotel_price_per_night') *
-                  _int('duration_nights', 7),
+              _number('hotel_price_per_night') * _int('duration_nights', 7),
           flightPricePerPerson: _selectedFlight?.economyPrice ?? 0,
           hotelPricePerNight: _number('hotel_price_per_night'),
           durationNights: _int('duration_nights', 7),
@@ -850,8 +876,12 @@ class _CatalogEditorState extends State<_CatalogEditor> {
                           _fields['hotel_price_per_night']!.text.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            '${l10n.adminCalculatedOfferTotal}: \$${((_selectedFlight?.economyPrice ?? 0) + _number('hotel_price_per_night') * _int('duration_nights', 7)).toStringAsFixed(0)}',
+                          child: CurrencyAmountText(
+                            amount: (_selectedFlight?.economyPrice ?? 0) +
+                                _number('hotel_price_per_night') *
+                                    _int('duration_nights', 7),
+                            prefix: '${l10n.adminCalculatedOfferTotal}: ',
+                            decimalDigits: 0,
                             style: const TextStyle(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w800),

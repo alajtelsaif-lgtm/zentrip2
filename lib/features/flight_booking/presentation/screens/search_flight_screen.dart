@@ -1180,6 +1180,8 @@ class _FlightCard extends StatelessWidget {
                                     formatProviderMoney(
                                       perPerson,
                                       flight.priceCurrencyCode,
+                                      locale: Localizations.localeOf(context)
+                                          .languageCode,
                                     ),
                                     style: const TextStyle(
                                       color: AppColors.primary,

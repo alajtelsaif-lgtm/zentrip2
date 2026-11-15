@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../global_widgets/app_network_image.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/travel_package_model.dart';
 import '../../../trips/presentation/screens/package_detail_screen.dart';
@@ -53,7 +54,8 @@ class _PackagesListScreenState extends State<PackagesListScreen> {
       _packages = result.data ?? [];
       _error = result.isFailure ? result.errorMessage : null;
       _loading = false;
-      if (_category != 'all' && !_packages.any((p) => p.category == _category)) {
+      if (_category != 'all' &&
+          !_packages.any((p) => p.category == _category)) {
         _category = 'all';
       }
     });
@@ -92,7 +94,10 @@ class _PackagesListScreenState extends State<PackagesListScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isDeals = widget.args.kind == PackagesListKind.deals;
-    final categories = ['all', ...{for (final p in _packages) p.category}];
+    final categories = [
+      'all',
+      ...{for (final p in _packages) p.category}
+    ];
     final visible = _visible;
 
     return Scaffold(
@@ -164,8 +169,7 @@ class _PackagesListScreenState extends State<PackagesListScreen> {
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: AppColors.textSecondary)),
                   const SizedBox(height: 16),
-                  OutlinedButton(
-                      onPressed: _reload, child: Text(l10n.retry)),
+                  OutlinedButton(onPressed: _reload, child: Text(l10n.retry)),
                 ],
               ),
             ),
@@ -298,8 +302,11 @@ class _PackageTile extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                               color: Colors.white)),
                       const SizedBox(height: 2),
-                      Text(
-                        '${l10n.homeStartingFrom} \$${package.pricePerPerson.toStringAsFixed(0)} · ${package.durationLabel}',
+                      CurrencyAmountText(
+                        amount: package.pricePerPerson,
+                        prefix: '${l10n.homeStartingFrom} ',
+                        suffix: ' · ${package.durationLabel}',
+                        decimalDigits: 0,
                         style: TextStyle(
                             fontSize: 12,
                             color: Colors.white.withValues(alpha: 0.9)),

@@ -16,6 +16,7 @@ import '../../../../global_widgets/app_logo.dart';
 import '../../../../global_widgets/app_network_image.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../global_widgets/confirm_dialog.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/admin_dashboard_model.dart';
 import '../../../../models/flight_model.dart';
@@ -510,11 +511,8 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
               _MetricCard(
                   width: width,
                   title: l10n.partnerBookedValue,
-                  value: NumberFormat.currency(
-                          locale: Localizations.localeOf(context).toString(),
-                          symbol: '\$',
-                          decimalDigits: 0)
-                      .format(data.bookedValue),
+                  value: '',
+                  amount: data.bookedValue,
                   icon: Icons.payments_outlined,
                   color: AppColors.accentOrange),
             ],
@@ -643,10 +641,12 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
             ),
           ],
           const SizedBox(height: 4),
-          Text(
-            listing.type == 'hotel'
-                ? '${l10n.hotelNightPrice} · ${NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(listing.price)}'
-                : '${_serviceLabel(l10n, _serviceForListingType(listing.type))} · ${NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(listing.price)}',
+          CurrencyAmountText(
+            amount: listing.price,
+            decimalDigits: 2,
+            prefix: listing.type == 'hotel'
+                ? '${l10n.hotelNightPrice} · '
+                : '${_serviceLabel(l10n, _serviceForListingType(listing.type))} · ',
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           if (listing.type == 'hotel') ...[
@@ -1063,9 +1063,9 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                    NumberFormat.currency(symbol: '\$', decimalDigits: 2)
-                        .format(item.amount),
+                CurrencyAmountText(
+                    amount: item.amount,
+                    decimalDigits: 2,
                     style: const TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 5),
                 Text(item.status,
@@ -2777,6 +2777,7 @@ class _MetricCard extends StatelessWidget {
   final double width;
   final String title;
   final String value;
+  final double? amount;
   final IconData icon;
   final Color color;
 
@@ -2784,6 +2785,7 @@ class _MetricCard extends StatelessWidget {
     required this.width,
     required this.title,
     required this.value,
+    this.amount,
     required this.icon,
     required this.color,
   });
@@ -2797,9 +2799,16 @@ class _MetricCard extends StatelessWidget {
             children: [
               Icon(icon, color: color),
               const SizedBox(height: 14),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 25, fontWeight: FontWeight.w800)),
+              amount == null
+                  ? Text(value,
+                      style: const TextStyle(
+                          fontSize: 25, fontWeight: FontWeight.w800))
+                  : CurrencyAmountText(
+                      amount: amount!,
+                      decimalDigits: 0,
+                      style: const TextStyle(
+                          fontSize: 25, fontWeight: FontWeight.w800),
+                    ),
               const SizedBox(height: 4),
               Text(title,
                   style: TextStyle(

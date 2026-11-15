@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../features/notifications/logic/notifications_store.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_booking_model.dart';
@@ -237,8 +238,12 @@ class _BookingConfirmedScreenState extends State<BookingConfirmedScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    '${l10n.packageStayTotal}: \$${(offer.hotelPricePerNight * offer.durationNights * widget.draft.passengerCount).toStringAsFixed(2)}',
+                  CurrencyAmountText(
+                    amount: offer.hotelPricePerNight *
+                        offer.durationNights *
+                        widget.draft.passengerCount,
+                    prefix: '${l10n.packageStayTotal}: ',
+                    decimalDigits: 2,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -524,7 +529,11 @@ class FlightTicketCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     _TicketDetail(
                       label: l10n.flightTotal,
-                      value: checkoutMoney(currencyCode, totalPrice),
+                      value: checkoutMoney(
+                        currencyCode,
+                        totalPrice,
+                        locale: Localizations.localeOf(context).languageCode,
+                      ),
                       valueSize: 17,
                       alignEnd: true,
                     ),

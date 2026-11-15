@@ -5716,6 +5716,12 @@ abstract class AppLocalizations {
   /// **'قارن بعملة'**
   String get compareIn;
 
+  /// No description provided for @lydFixedRate.
+  ///
+  /// In ar, this message translates to:
+  /// **'سعر مرجعي ثابت: 1 دولار أمريكي = 6.4 دينار ليبي'**
+  String get lydFixedRate;
+
   /// No description provided for @refreshRates.
   ///
   /// In ar, this message translates to:

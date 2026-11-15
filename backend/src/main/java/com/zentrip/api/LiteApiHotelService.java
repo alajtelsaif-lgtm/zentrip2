@@ -111,6 +111,10 @@ public class LiteApiHotelService {
         } catch (RuntimeException exception) {
             return unavailable("LiteAPI hotel search received an unsupported currency.");
         }
+        // LYD is converted locally from USD at the app's fixed reference rate.
+        // Do not send LYD to LiteAPI as a provider settlement currency.
+        String providerCurrency = normalizedCurrency.equals("LYD")
+                ? "USD" : normalizedCurrency;
 
         String normalizedCountryCode = countryCode == null
                 ? ""
@@ -195,7 +199,7 @@ public class LiteApiHotelService {
                             checkOut,
                             rooms,
                             guests,
-                            normalizedCurrency,
+                            providerCurrency,
                             latitude,
                             longitude,
                             hotelIds))

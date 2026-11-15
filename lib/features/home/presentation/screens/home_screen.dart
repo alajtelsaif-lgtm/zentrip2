@@ -10,6 +10,7 @@ import '../../../../features/flight_booking/presentation/widgets/flexible_flight
 import '../../../../features/notifications/logic/notifications_store.dart';
 import '../../../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../../../global_widgets/app_snackbar.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/services/current_location_service.dart';
 import '../../../../features/attractions/logic/attractions_controller.dart';
@@ -803,8 +804,10 @@ class _HomeOffersSection extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              Text(
-                                '${l10n.homeStartingFrom} \$${offer.pricePerPerson.toStringAsFixed(0)}',
+                              CurrencyAmountText(
+                                amount: offer.pricePerPerson,
+                                prefix: '${l10n.homeStartingFrom} ',
+                                decimalDigits: 0,
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,

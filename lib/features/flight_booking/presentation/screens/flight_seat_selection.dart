@@ -766,8 +766,11 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 728),
                 child: FlightPrimaryButton(
-                  label:
-                      'Proceed to Payment · ${checkoutMoney(_currencyCode, _totalPrice)}',
+                  label: 'Proceed to Payment · ${checkoutMoney(
+                    _currencyCode,
+                    _totalPrice,
+                    locale: Localizations.localeOf(context).languageCode,
+                  )}',
                   icon: Icons.lock_rounded,
                   loading: _submitting,
                   onPressed: _seatMap != null &&
@@ -853,6 +856,7 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
                     ? widget.flight.priceCurrencyCode
                     : 'USD',
                 _totalPrice,
+                locale: Localizations.localeOf(context).languageCode,
               ),
               caption: labels.travellerPrice(widget.passengerCount),
               buttonLabel: labels.continueLabel,
@@ -992,7 +996,11 @@ class _FlightSeatSelectionScreenState extends State<FlightSeatSelectionScreen>
                       color: _ink, fontWeight: FontWeight.w700)),
             ),
             Text(
-              '${widget.flight.priceCurrencyCode} ${_totalPrice.toStringAsFixed(2)}',
+              checkoutMoney(
+                _currencyCode,
+                _totalPrice,
+                locale: Localizations.localeOf(context).languageCode,
+              ),
               style: const TextStyle(color: _navy, fontWeight: FontWeight.w800),
             ),
           ],

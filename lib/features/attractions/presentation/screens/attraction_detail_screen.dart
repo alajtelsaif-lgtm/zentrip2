@@ -9,6 +9,7 @@ import '../../../../global_widgets/app_network_image.dart';
 import '../../../../global_widgets/app_shell.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../global_widgets/booking_load_error.dart';
+import '../../../../core/services/currency_service.dart';
 import '../../../../global_widgets/payment_checkout_screen.dart';
 import '../../../../features/notifications/logic/notifications_store.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -219,7 +220,7 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
                         const Icon(Icons.place_rounded,
                             color: AppColors.accentPurple, size: 16),
                         const SizedBox(width: 4),
-                         Text(a.location,
+                        Text(a.location,
                             style: const TextStyle(
                                 color: AppColors.textSecondary, fontSize: 13))
                       ]),
@@ -291,7 +292,13 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
                             l10n.attractionEntryFee,
                             a.isFree
                                 ? l10n.free
-                                : '\$${a.entryFee?.toStringAsFixed(0) ?? '?'}'),
+                                : a.entryFee == null
+                                    ? '—'
+                                    : CurrencyService.instance.format(
+                                        a.entryFee!,
+                                        locale: Localizations.localeOf(context)
+                                            .languageCode,
+                                      )),
                       ]).animate().fade(delay: 200.ms),
                   const SizedBox(height: 28),
                 ],
@@ -309,8 +316,13 @@ class _AttractionDetailScreenState extends State<AttractionDetailScreen> {
                         : const Icon(Icons.confirmation_num_rounded),
                     label: Text(_isBooking
                         ? l10n.attractionBooking
-                        : l10n.attractionBookTicket(
-                            '\$${a.entryFee?.toStringAsFixed(0) ?? '?'}')),
+                        : l10n.attractionBookTicket(a.entryFee == null
+                            ? '—'
+                            : CurrencyService.instance.format(
+                                a.entryFee!,
+                                locale: Localizations.localeOf(context)
+                                    .languageCode,
+                              ))),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.accentPurple),
                   ).animate().fade(delay: 250.ms)

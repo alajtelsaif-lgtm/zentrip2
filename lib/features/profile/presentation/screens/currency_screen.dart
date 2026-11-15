@@ -19,6 +19,8 @@ class CurrencyScreen extends StatelessWidget {
           listenable: CurrencyService.instance,
           builder: (_, __) {
             final current = CurrencyService.instance.selected;
+            final isArabic =
+                Localizations.localeOf(context).languageCode == 'ar';
             return ListView(
               children: CurrencyService.supported.map((c) {
                 final isSelected = c.code == current.code;
@@ -29,28 +31,68 @@ class CurrencyScreen extends StatelessWidget {
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primarySurface : (isDark ? AppColors.darkSurface : AppColors.surface),
+                      color: isSelected
+                          ? AppColors.primarySurface
+                          : (isDark
+                              ? AppColors.darkSurface
+                              : AppColors.surface),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isSelected ? AppColors.primary : (isDark ? AppColors.darkBorder : AppColors.border), width: isSelected ? 2 : 1),
+                      border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : (isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.border),
+                          width: isSelected ? 2 : 1),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          width: 40, height: 40,
+                          width: 40,
+                          height: 40,
                           alignment: Alignment.center,
-                          decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                          child: Text(c.symbol, style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)),
+                          decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10)),
+                          child: Text(
+                            c.code == 'LYD' && !isArabic ? 'LYD' : c.symbol,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(c.code, style: TextStyle(fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500, fontSize: 15)),
-                            Text(c.nameAr, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                            Text(c.code,
+                                style: TextStyle(
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    fontSize: 15)),
+                            Text(
+                              isArabic ? c.nameAr : c.nameEn,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (c.code == 'LYD')
+                              Text(
+                                AppLocalizations.of(context).lydFixedRate,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11,
+                                ),
+                              ),
                           ],
                         ),
                         const Spacer(),
-                        if (isSelected) const Icon(Icons.check_circle_rounded, color: AppColors.primary),
+                        if (isSelected)
+                          const Icon(Icons.check_circle_rounded,
+                              color: AppColors.primary),
                       ],
                     ),
                   ),

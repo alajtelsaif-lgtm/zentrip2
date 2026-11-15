@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/money_format.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../models/flight_model.dart';
 import '../../../../models/flight_seat_map.dart';
 
@@ -73,18 +75,14 @@ class FlightFareCard extends StatelessWidget {
     this.showAvailability = true,
   });
 
-  String get _currencyPrefix => switch (currencyCode.toUpperCase()) {
-        'USD' => '\$',
-        'EUR' => '€',
-        'GBP' => '£',
-        _ => '$currencyCode ',
-      };
-
-  String get _price => fare.price.toStringAsFixed(2);
-
   @override
   Widget build(BuildContext context) {
     final foreground = selected ? Colors.white : _ink;
+    final formattedPrice = formatCurrencyAmount(
+      fare.price,
+      currencyCode,
+      locale: Localizations.localeOf(context).languageCode,
+    );
     final availability = showAvailability
         ? ', ${fare.availableSeats} seats${fare.sharedInventory ? ', shared inventory' : ''}'
         : '';
@@ -92,7 +90,7 @@ class FlightFareCard extends StatelessWidget {
       button: true,
       enabled: enabled,
       selected: selected,
-      label: '${fare.label}, $_currencyPrefix$_price$availability',
+      label: '${fare.label}, $formattedPrice$availability',
       child: Material(
         color: selected ? _navy : Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -117,7 +115,7 @@ class FlightFareCard extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text('$_currencyPrefix$_price',
+                  child: Text(formattedPrice,
                       style: TextStyle(
                           color: foreground,
                           fontSize: 28,
@@ -366,7 +364,11 @@ class FlightExtrasPanel extends StatelessWidget {
               value: selectedExtras.contains(entry.key),
               title: Text(_extraLabel(entry.key),
                   style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('\$${entry.value.toStringAsFixed(2)}'),
+              subtitle: CurrencyAmountText(
+                amount: entry.value,
+                decimalDigits: 2,
+                style: DefaultTextStyle.of(context).style,
+              ),
               onChanged: enabled
                   ? (value) => onChanged(entry.key, value == true)
                   : null,
@@ -392,13 +394,6 @@ class FlightPriceBreakdown extends StatelessWidget {
   final double totalPrice;
   final String currencyCode;
   final double Function(double) convertAmount;
-
-  String get _currencyPrefix => switch (currencyCode.toUpperCase()) {
-        'USD' => '\$',
-        'EUR' => '€',
-        'GBP' => '£',
-        _ => '$currencyCode ',
-      };
 
   const FlightPriceBreakdown({
     super.key,
@@ -436,10 +431,10 @@ class FlightPriceBreakdown extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _priceRow('${fare.label} fare × $passengerCount', base),
-          if (premium > 0) _priceRow('Extra-legroom seats', premium),
-          if (extra > 0) _priceRow('Optional extras', extra),
-          _priceRow('Taxes and fees', taxes + map.bookingFee),
+          _priceRow(context, '${fare.label} fare × $passengerCount', base),
+          if (premium > 0) _priceRow(context, 'Extra-legroom seats', premium),
+          if (extra > 0) _priceRow(context, 'Optional extras', extra),
+          _priceRow(context, 'Taxes and fees', taxes + map.bookingFee),
           const Divider(height: 22),
           Row(
             children: [
@@ -450,7 +445,12 @@ class FlightPriceBreakdown extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         fontSize: 15)),
               ),
-              Text('$_currencyPrefix${totalPrice.toStringAsFixed(2)}',
+              Text(
+                  formatCurrencyAmount(
+                    totalPrice,
+                    currencyCode,
+                    locale: Localizations.localeOf(context).languageCode,
+                  ),
                   style: const TextStyle(
                       color: _navy, fontWeight: FontWeight.w900, fontSize: 18)),
             ],
@@ -463,7 +463,8 @@ class FlightPriceBreakdown extends StatelessWidget {
     );
   }
 
-  Widget _priceRow(String title, double amount) => Padding(
+  Widget _priceRow(BuildContext context, String title, double amount) =>
+      Padding(
         padding: const EdgeInsets.only(bottom: 9),
         child: Row(
           children: [
@@ -471,7 +472,12 @@ class FlightPriceBreakdown extends StatelessWidget {
               child: Text(title,
                   style: const TextStyle(color: _muted, fontSize: 13)),
             ),
-            Text('$_currencyPrefix${convertAmount(amount).toStringAsFixed(2)}',
+            Text(
+                formatCurrencyAmount(
+                  convertAmount(amount),
+                  currencyCode,
+                  locale: Localizations.localeOf(context).languageCode,
+                ),
                 style:
                     const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
           ],

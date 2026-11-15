@@ -25,7 +25,9 @@ import java.util.function.Supplier;
  * response keys or the amount/currency used by existing booking flows.
  */
 public class UnifiedInventoryService {
-    private static final Set<String> DISPLAY_CURRENCIES = Set.of("USD", "EUR", "GBP");
+    private static final Set<String> DISPLAY_CURRENCIES =
+            Set.of("USD", "EUR", "GBP", "LYD");
+    private static final BigDecimal LYD_UNITS_PER_USD = new BigDecimal("6.4");
     private static final Executor PROVIDER_EXECUTOR = new ThreadPoolExecutor(
             2,
             4,
@@ -299,7 +301,7 @@ public class UnifiedInventoryService {
         String normalized = value == null ? "USD" : value.trim().toUpperCase(Locale.ROOT);
         if (!DISPLAY_CURRENCIES.contains(normalized)) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "currency must be USD, EUR, or GBP");
+                    HttpStatus.BAD_REQUEST, "currency must be USD, EUR, GBP, or LYD");
         }
         return normalized;
     }
@@ -423,15 +425,17 @@ public class UnifiedInventoryService {
         Map<String, BigDecimal> rates = new LinkedHashMap<>();
         rates.put("USD", BigDecimal.ONE);
         Object rows = response.get("rates");
-        if (!(rows instanceof List<?> list)) return rates;
-        for (Object value : list) {
-            if (!(value instanceof Map<?, ?> row)) continue;
-            String quote = text(row.get("quote")).toUpperCase(Locale.ROOT);
-            BigDecimal rate = decimal(row.get("rate"));
-            if (quote.matches("[A-Z]{3}") && rate != null && rate.signum() > 0) {
-                rates.putIfAbsent(quote, rate);
+        if (rows instanceof List<?> list) {
+            for (Object value : list) {
+                if (!(value instanceof Map<?, ?> row)) continue;
+                String quote = text(row.get("quote")).toUpperCase(Locale.ROOT);
+                BigDecimal rate = decimal(row.get("rate"));
+                if (quote.matches("[A-Z]{3}") && rate != null && rate.signum() > 0) {
+                    rates.putIfAbsent(quote, rate);
+                }
             }
         }
+        rates.put("LYD", LYD_UNITS_PER_USD);
         return rates;
     }
 

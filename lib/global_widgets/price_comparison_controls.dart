@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 import '../core/services/price_comparison.dart';
+import '../core/utils/money_format.dart';
 import '../l10n/app_localizations.dart';
 
 /// Currency and reference-rate controls shared by the flight and hotel results.
@@ -60,6 +61,7 @@ class PriceComparisonControls extends StatelessWidget {
                   key: ValueKey(comparison.currency),
                   initialValue: comparison.currency,
                   isDense: true,
+                  isExpanded: true,
                   decoration: InputDecoration(
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -73,7 +75,15 @@ class PriceComparisonControls extends StatelessWidget {
                   items: comparison.currencies
                       .map((currency) => DropdownMenuItem(
                             value: currency,
-                            child: Text(currency),
+                            child: Text(
+                              currencySelectionLabel(
+                                currency,
+                                locale: Localizations.localeOf(context)
+                                    .languageCode,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ))
                       .toList(),
                   onChanged: comparison.isLoading
@@ -154,7 +164,9 @@ class PriceComparisonControls extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             date == null
-                ? l10n.frankfurterRatesUnavailable
+                ? comparison.currency == 'LYD'
+                    ? l10n.lydFixedRate
+                    : l10n.frankfurterRatesUnavailable
                 : l10n.frankfurterRatesDate(
                     MaterialLocalizations.of(context).formatMediumDate(date),
                   ),

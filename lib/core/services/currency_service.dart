@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../constants/currency_rates.dart';
 import 'api_service.dart';
+import '../utils/money_format.dart';
 
 /// تحويل وعرض الأسعار بعملات متعددة. كل الأسعار في التطبيق (Flight/Hotel/
 /// Car/Package/BookingModel) متخزنة بالدولار (USD) كوحدة أساسية داخلية،
@@ -10,7 +12,8 @@ class Currency {
   final String code; // ISO 4217
   final String symbol;
   final String nameAr;
-  const Currency(this.code, this.symbol, this.nameAr);
+  final String nameEn;
+  const Currency(this.code, this.symbol, this.nameAr, this.nameEn);
 }
 
 class CurrencyService extends ChangeNotifier {
@@ -18,9 +21,10 @@ class CurrencyService extends ChangeNotifier {
   CurrencyService._();
 
   static const List<Currency> supported = [
-    Currency('USD', '\$', 'دولار أمريكي'),
-    Currency('EUR', '€', 'يورو'),
-    Currency('GBP', '£', 'جنيه إسترليني'),
+    Currency('USD', '\$', 'دولار أمريكي', 'US Dollar'),
+    Currency('EUR', '€', 'يورو', 'Euro'),
+    Currency('GBP', '£', 'جنيه إسترليني', 'British Pound'),
+    Currency('LYD', 'د.ل', 'دينار ليبي', 'Libyan Dinar'),
   ];
 
   /// Fallback quotes are used only when the cached Frankfurter service cannot
@@ -29,6 +33,7 @@ class CurrencyService extends ChangeNotifier {
     'USD': 1.0,
     'EUR': 0.92,
     'GBP': 0.79,
+    'LYD': usdToLydRate,
   };
   static const _prefsKey = 'selected_currency';
 
@@ -50,10 +55,13 @@ class CurrencyService extends ChangeNotifier {
   Future<void> _loadRates() async {
     try {
       final latest = await ApiService.instance.exchangeRates();
-      final liveRates = <String, double>{'USD': 1};
+      final liveRates = Map<String, double>.of(_fallbackRates);
       for (final entry in latest.rates.entries) {
-        liveRates[entry.key] = entry.value.unitsPerUsd;
+        if (entry.key != 'LYD') {
+          liveRates[entry.key] = entry.value.unitsPerUsd;
+        }
       }
+      liveRates['LYD'] = usdToLydRate;
       _rates = liveRates;
     } catch (_) {
       _rates = Map.of(_fallbackRates);
@@ -80,15 +88,39 @@ class CurrencyService extends ChangeNotifier {
     await prefs.setString(_prefsKey, c.code);
   }
 
+  double? convertFrom(double amount, String sourceCurrencyCode) {
+    if (!amount.isFinite || amount < 0) return null;
+    final source = sourceCurrencyCode.trim().toUpperCase();
+    final target = _selected.code;
+    if (source == target) return amount;
+    final sourceRate = _rates[source] ?? _fallbackRates[source];
+    final targetRate = _rates[target] ?? _fallbackRates[target];
+    if (sourceRate == null || targetRate == null) return null;
+    return amount / sourceRate * targetRate;
+  }
+
+  /// Converts between reference currencies without changing stored or charged
+  /// amounts. Rates are expressed as units per USD, so USD remains the pivot.
+  double? convertTo(
+    double amount,
+    String sourceCurrencyCode,
+    String targetCurrencyCode,
+  ) {
+    if (!amount.isFinite || amount < 0) return null;
+    final source = sourceCurrencyCode.trim().toUpperCase();
+    final target = targetCurrencyCode.trim().toUpperCase();
+    final sourceRate = _rates[source];
+    final targetRate = _rates[target];
+    if (sourceRate == null || targetRate == null || sourceRate <= 0) {
+      return null;
+    }
+    return amount / sourceRate * targetRate;
+  }
+
   double convert(double usdAmount) =>
-      usdAmount * (_rates[_selected.code] ?? 1.0);
+      convertFrom(usdAmount, 'USD') ?? usdAmount;
 
   /// بيرجّع السعر جاهز للعرض بالعملة المختارة (مثال: "235 د.ل").
-  String format(double usdAmount) {
-    final converted = convert(usdAmount);
-    final formatted = converted >= 100
-        ? converted.toStringAsFixed(0)
-        : converted.toStringAsFixed(2);
-    return '$formatted ${_selected.symbol}';
-  }
+  String format(double usdAmount, {String locale = 'en'}) =>
+      formatCurrencyAmount(convert(usdAmount), _selected.code, locale: locale);
 }

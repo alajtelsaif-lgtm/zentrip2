@@ -80,7 +80,8 @@ class _FlightReviewPayScreenState extends State<FlightReviewPayScreen> {
     final paying = widget.paying;
     final onBack = widget.onBack;
     final onPromoCodeChanged = widget.onPromoCodeChanged;
-    final total = checkoutMoney(currencyCode, totalPrice);
+    final locale = Localizations.localeOf(context).languageCode;
+    final total = checkoutMoney(currencyCode, totalPrice, locale: locale);
     final canPay = _acceptedFareRules && onPay != null;
     return CheckoutScaffold(
       header: FlightBookingFlowHeader(
@@ -195,7 +196,11 @@ class _FlightReviewPayScreenState extends State<FlightReviewPayScreen> {
                   CheckoutDataRow(
                     label: line.label,
                     value: line.value ??
-                        checkoutMoney(currencyCode, line.amount ?? 0),
+                        checkoutMoney(
+                          currencyCode,
+                          line.amount ?? 0,
+                          locale: locale,
+                        ),
                   ),
                 if (seats.isNotEmpty)
                   CheckoutDataRow(label: labels.seats, value: seats.join(', ')),

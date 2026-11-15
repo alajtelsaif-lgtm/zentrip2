@@ -781,7 +781,7 @@ class PartnerControllerTest {
                         null,
                         1,
                         2,
-                        "LYD",
+                        "CAD",
                         null,
                         null,
                         null,

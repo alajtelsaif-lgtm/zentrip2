@@ -92,7 +92,11 @@ class FlightPassengersScreen extends StatelessWidget {
         onBack: onBack,
       ),
       footer: CheckoutFooter(
-        total: checkoutMoney(currencyCode, totalPrice),
+        total: checkoutMoney(
+          currencyCode,
+          totalPrice,
+          locale: Localizations.localeOf(context).languageCode,
+        ),
         caption: '$fareLabel · ${labels.travellerPrice(passengers.length)}',
         buttonLabel: labels.continueLabel,
         onPressed: onContinue,

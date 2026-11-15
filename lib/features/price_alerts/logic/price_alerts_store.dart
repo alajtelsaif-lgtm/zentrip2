@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/currency_service.dart';
+import '../../../core/utils/money_format.dart';
 import '../../../core/services/api_service.dart';
 import '../../../features/notifications/logic/notifications_store.dart';
+import '../../../global_widgets/locale_controller.dart';
 import '../../../models/flight_model.dart';
 import '../../../models/price_alert_model.dart';
 
@@ -15,19 +18,26 @@ class PriceAlertsStore extends ChangeNotifier {
   final List<PriceAlert> _alerts = [];
   List<PriceAlert> get all => List.unmodifiable(_alerts);
 
-  String get _key => 'price_alerts_${ApiService.instance.currentUser?.email ?? 'guest'}';
+  String get _key =>
+      'price_alerts_${ApiService.instance.currentUser?.email ?? 'guest'}';
 
-  bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
-  bool isTracking(String originCode, String destinationCode, DateTime departureDate) =>
-      _alerts.any((a) => a.originCode == originCode && a.destinationCode == destinationCode && _sameDay(a.departureDate, departureDate));
+  bool isTracking(
+          String originCode, String destinationCode, DateTime departureDate) =>
+      _alerts.any((a) =>
+          a.originCode == originCode &&
+          a.destinationCode == destinationCode &&
+          _sameDay(a.departureDate, departureDate));
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_key) ?? [];
     _alerts
       ..clear()
-      ..addAll(raw.map((e) => PriceAlert.fromJson(jsonDecode(e) as Map<String, dynamic>)));
+      ..addAll(raw.map(
+          (e) => PriceAlert.fromJson(jsonDecode(e) as Map<String, dynamic>)));
     notifyListeners();
   }
 
@@ -43,20 +53,26 @@ class PriceAlertsStore extends ChangeNotifier {
     required double priceUsd,
   }) async {
     if (isTracking(originCode, destinationCode, departureDate)) return;
-    _alerts.insert(0, PriceAlert(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      originCode: originCode,
-      destinationCode: destinationCode,
-      departureDate: departureDate,
-      referencePriceUsd: priceUsd,
-      createdAt: DateTime.now(),
-    ));
+    _alerts.insert(
+        0,
+        PriceAlert(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          originCode: originCode,
+          destinationCode: destinationCode,
+          departureDate: departureDate,
+          referencePriceUsd: priceUsd,
+          createdAt: DateTime.now(),
+        ));
     notifyListeners();
     await _persist();
   }
 
-  Future<void> untrack(String originCode, String destinationCode, DateTime departureDate) async {
-    _alerts.removeWhere((a) => a.originCode == originCode && a.destinationCode == destinationCode && _sameDay(a.departureDate, departureDate));
+  Future<void> untrack(
+      String originCode, String destinationCode, DateTime departureDate) async {
+    _alerts.removeWhere((a) =>
+        a.originCode == originCode &&
+        a.destinationCode == destinationCode &&
+        _sameDay(a.departureDate, departureDate));
     notifyListeners();
     await _persist();
   }
@@ -69,7 +85,8 @@ class PriceAlertsStore extends ChangeNotifier {
 
   /// بتتنادى بعد كل نتيجة بحث رحلات جديدة — بتقارن بالتنبيهات المسجّلة،
   /// ولو لقت سعر أقل من آخر سعر مسجّل، بتولّد إشعار وتحدّث السعر المرجعي.
-  Future<void> checkResults(List<FlightModel> results, {required String promoTitle}) async {
+  Future<void> checkResults(List<FlightModel> results,
+      {required String promoTitle}) async {
     var changed = false;
     for (final flight in results) {
       final idx = _alerts.indexWhere((a) =>
@@ -78,13 +95,28 @@ class PriceAlertsStore extends ChangeNotifier {
           _sameDay(a.departureDate, flight.departureTime));
       if (idx == -1) continue;
       final alert = _alerts[idx];
-      if (flight.economyPrice < alert.referencePriceUsd) {
+      final priceUsd = CurrencyService.instance.convertTo(
+        flight.economyPrice,
+        flight.priceCurrencyCode,
+        'USD',
+      );
+      if (priceUsd != null && priceUsd < alert.referencePriceUsd) {
+        final locale = LocaleController.instance.locale.languageCode;
+        final converted = CurrencyService.instance.convertFrom(priceUsd, 'USD');
+        final formattedPrice = converted == null
+            ? formatProviderMoney(
+                priceUsd,
+                'USD',
+                locale: locale,
+              )
+            : CurrencyService.instance.format(converted, locale: locale);
         await NotificationsStore.instance.add(
           kind: NotifKind.promo,
           title: promoTitle,
-          subtitle: '${flight.originCode} → ${flight.destinationCode}: \$${flight.economyPrice.toStringAsFixed(0)}',
+          subtitle:
+              '${flight.originCode} → ${flight.destinationCode}: $formattedPrice',
         );
-        _alerts[idx] = alert.copyWith(referencePriceUsd: flight.economyPrice);
+        _alerts[idx] = alert.copyWith(referencePriceUsd: priceUsd);
         changed = true;
       }
     }
@@ -96,6 +128,7 @@ class PriceAlertsStore extends ChangeNotifier {
 
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_key, _alerts.map((a) => jsonEncode(a.toJson())).toList());
+    await prefs.setStringList(
+        _key, _alerts.map((a) => jsonEncode(a.toJson())).toList());
   }
 }

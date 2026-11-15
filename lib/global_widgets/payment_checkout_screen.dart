@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../core/constants/app_colors.dart';
 import '../core/services/api_service.dart';
+import '../core/utils/money_format.dart';
 import '../l10n/app_localizations.dart';
 import '../models/payment_session.dart';
 import '../models/payment_attempt_receipt.dart';
@@ -129,7 +130,11 @@ class _PaymentCheckoutScreenState extends State<PaymentCheckoutScreen> {
                   if (widget.amount != null) ...[
                     const SizedBox(height: 12),
                     Text(
-                      '${l10n.flightTotal}: ${widget.currencyCode} ${widget.amount!.toStringAsFixed(2)}',
+                      '${l10n.flightTotal}: ${formatBookingCurrencyAmount(
+                        widget.amount!,
+                        widget.currencyCode,
+                        locale: Localizations.localeOf(context).languageCode,
+                      )}',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,

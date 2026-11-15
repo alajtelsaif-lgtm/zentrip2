@@ -5,7 +5,9 @@ import '../../../../core/utils/date_time_utils.dart';
 import '../../../../global_widgets/app_network_image.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../global_widgets/confirm_dialog.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../global_widgets/review_form_sheet.dart';
+import '../../../../core/utils/money_format.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../logic/trips_controller.dart';
 
@@ -228,9 +230,16 @@ class TripItemCard extends StatelessWidget {
                         const Spacer(),
                       if (item.price != null)
                         Text(
-                            item.isSimulated
-                                ? '${item.priceCurrencyCode} ${item.price!.toStringAsFixed(2)}'
-                                : '\$${item.price!.toStringAsFixed(0)}',
+                            item.priceCurrencyCode.toUpperCase() == 'LYD'
+                                ? formatProviderMoney(
+                                    item.price!,
+                                    item.priceCurrencyCode,
+                                    locale: Localizations.localeOf(context)
+                                        .languageCode,
+                                  )
+                                : item.isSimulated
+                                    ? '${item.priceCurrencyCode} ${item.price!.toStringAsFixed(2)}'
+                                    : '\$${item.price!.toStringAsFixed(0)}',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 16,
@@ -320,8 +329,15 @@ Future<bool?> showBookingDetailsSheet(BuildContext context, TripItem item) {
                     _DetailLine(
                         Icons.confirmation_num_rounded, booking!.refCode!),
                   if ((booking?.price ?? transfer?.price) != null)
-                    _DetailLine(Icons.attach_money_rounded,
-                        '\$${(booking?.price ?? transfer?.price)!.toStringAsFixed(0)}'),
+                    _DetailLine(
+                      Icons.attach_money_rounded,
+                      '',
+                      trailing: CurrencyAmountText(
+                        amount: (booking?.price ?? transfer?.price)!,
+                        decimalDigits: 0,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   if (booking != null && item.canReview) ...[
                     SizedBox(
@@ -329,8 +345,8 @@ Future<bool?> showBookingDetailsSheet(BuildContext context, TripItem item) {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           Navigator.pop(context);
-                      ReviewFormSheet.show(context,
-                          itemId: booking.id, itemType: booking.type.name);
+                          ReviewFormSheet.show(context,
+                              itemId: booking.id, itemType: booking.type.name);
                         },
                         icon: const Icon(Icons.rate_review_outlined, size: 16),
                         label: Text(l10n.writeAReview),
@@ -395,7 +411,8 @@ Future<bool?> showBookingDetailsSheet(BuildContext context, TripItem item) {
 class _DetailLine extends StatelessWidget {
   final IconData icon;
   final String text;
-  const _DetailLine(this.icon, this.text);
+  final Widget? trailing;
+  const _DetailLine(this.icon, this.text, {this.trailing});
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -403,7 +420,10 @@ class _DetailLine extends StatelessWidget {
         child: Row(children: [
           Icon(icon, size: 16, color: AppColors.primary),
           const SizedBox(width: 8),
-          Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Expanded(
+            child: trailing ??
+                Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ),
         ]),
       );
 }

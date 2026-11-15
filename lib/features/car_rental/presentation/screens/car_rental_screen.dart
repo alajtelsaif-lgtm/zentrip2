@@ -7,6 +7,7 @@ import '../../../../core/services/current_location_service.dart';
 import '../../../../global_widgets/app_network_image.dart';
 import '../../../../global_widgets/app_snackbar.dart';
 import '../../../../global_widgets/booking_loading_overlay.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
 import '../../../../models/car_model.dart';
@@ -617,13 +618,17 @@ class _CarCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text('\$${car.totalPriceForDays(days).toStringAsFixed(0)}',
+                CurrencyAmountText(
+                    amount: car.totalPriceForDays(days),
+                    decimalDigits: 0,
                     style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 18,
                         color: AppColors.primary)),
-                Text(
-                    '\$${car.pricePerDay.toStringAsFixed(0)} ${l10n.carPerDaySuffix}',
+                CurrencyAmountText(
+                    amount: car.pricePerDay,
+                    decimalDigits: 0,
+                    suffix: ' ${l10n.carPerDaySuffix}',
                     style: const TextStyle(
                         fontSize: 10, color: AppColors.textSecondary)),
                 Text(l10n.carDaysCount(days),

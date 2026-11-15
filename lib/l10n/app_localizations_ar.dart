@@ -3028,6 +3028,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get compareIn => 'قارن بعملة';
 
   @override
+  String get lydFixedRate => 'سعر مرجعي ثابت: 1 دولار أمريكي = 6.4 دينار ليبي';
+
+  @override
   String get refreshRates => 'تحديث الأسعار';
 
   @override

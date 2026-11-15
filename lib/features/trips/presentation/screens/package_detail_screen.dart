@@ -8,6 +8,7 @@ import '../../../../features/flight_booking/logic/flight_controller.dart';
 import '../../../../features/flight_booking/presentation/screens/flight_booking_flow_screen.dart';
 import '../../../../global_widgets/app_network_image.dart';
 import '../../../../global_widgets/app_snackbar.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/destination_info_model.dart';
 import '../../../../models/travel_package_model.dart';
@@ -230,8 +231,9 @@ class _PackageDetailScreenState extends State<PackageDetailScreen> {
                           Text(l10n.packageTotalPrice,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w700, fontSize: 14)),
-                          Text(
-                              '\$${package.totalPricePerPerson.toStringAsFixed(0)}',
+                          CurrencyAmountText(
+                              amount: package.totalPricePerPerson,
+                              decimalDigits: 0,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 22,
@@ -354,7 +356,9 @@ class _PriceLine extends StatelessWidget {
             child: Text(label,
                 style: const TextStyle(
                     fontSize: 13, color: AppColors.textSecondary))),
-        Text('\$${value.toStringAsFixed(0)}',
+        CurrencyAmountText(
+            amount: value,
+            decimalDigits: 0,
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
       ],
     );

@@ -406,7 +406,7 @@ class _HotelCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${l10n.providerPrice} · ${hotel.isLiteApiOffer ? 'LiteAPI' : l10n.offerSourcePartner}: ${hotel.comparisonNightlyPrice == null ? l10n.priceUnavailable : formatProviderMoney(hotel.pricePerNight, hotel.priceCurrencyCode)}',
+                          '${l10n.providerPrice} · ${hotel.isLiteApiOffer ? 'LiteAPI' : l10n.offerSourcePartner}: ${hotel.comparisonNightlyPrice == null ? l10n.priceUnavailable : formatProviderMoney(hotel.pricePerNight, hotel.priceCurrencyCode, locale: Localizations.localeOf(context).languageCode)}',
                           style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
@@ -419,7 +419,7 @@ class _HotelCard extends StatelessWidget {
                         Text(
                           comparisonPrice == null
                               ? '${l10n.comparisonEstimate}: ${l10n.priceUnavailable}'
-                              : '${l10n.comparisonEstimate}: ${formatProviderMoney(comparisonPrice!, comparisonCurrency)}',
+                              : '${l10n.comparisonEstimate}: ${formatProviderMoney(comparisonPrice!, comparisonCurrency, locale: Localizations.localeOf(context).languageCode)}',
                           style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.accentTeal,
@@ -430,7 +430,7 @@ class _HotelCard extends StatelessWidget {
                                 fontSize: 10, color: AppColors.textSecondary)),
                         const SizedBox(height: 5),
                         Text(
-                          '${l10n.hotelTotalLabel}: ${hotel.comparisonNightlyPrice == null ? l10n.priceUnavailable : formatProviderMoney(hotel.pricingFor(nights, rooms: rooms).totalPrice, hotel.priceCurrencyCode)} ${l10n.hotelNightsSuffix(nights)}',
+                          '${l10n.hotelTotalLabel}: ${hotel.comparisonNightlyPrice == null ? l10n.priceUnavailable : formatProviderMoney(hotel.pricingFor(nights, rooms: rooms).totalPrice, hotel.priceCurrencyCode, locale: Localizations.localeOf(context).languageCode)} ${l10n.hotelNightsSuffix(nights)}',
                           style: const TextStyle(
                               fontSize: 11, color: AppColors.textSecondary),
                         ),

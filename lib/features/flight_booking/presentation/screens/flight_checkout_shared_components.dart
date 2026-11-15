@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/money_format.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
 import 'flight_primary_button.dart';
@@ -568,13 +569,12 @@ InputDecoration checkoutInputDecoration(String label, IconData icon) =>
       ),
     );
 
-String checkoutMoney(String currency, double value) =>
-    '${switch (currency.toUpperCase()) {
-      'USD' => '\$',
-      'EUR' => '€',
-      'GBP' => '£',
-      _ => '$currency ',
-    }}${value.toStringAsFixed(2)}';
+String checkoutMoney(
+  String currency,
+  double value, {
+  String locale = 'en',
+}) =>
+    formatCurrencyAmount(value, currency, locale: locale);
 
 String checkoutClock(DateTime value) =>
     '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';

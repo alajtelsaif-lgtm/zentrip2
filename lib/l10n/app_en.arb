@@ -1069,6 +1069,7 @@
   "airportNearestLabel": "Nearest airport",
   "airportCategoryAddLocation": "Add a city or place, for example Nature in Bali, Indonesia.",
   "compareIn": "Compare in",
+  "lydFixedRate": "Fixed reference rate: 1 USD = 6.4 LYD",
   "refreshRates": "Refresh rates",
   "retryRates": "Retry rates",
   "frankfurterRatesUnavailable": "Frankfurter daily reference rates · no rate date available",

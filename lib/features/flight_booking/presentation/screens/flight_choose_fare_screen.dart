@@ -57,7 +57,11 @@ class FlightChooseFareScreen extends StatelessWidget {
         onBack: onBack,
       ),
       footer: CheckoutFooter(
-        total: checkoutMoney(currencyCode, amount),
+        total: checkoutMoney(
+          currencyCode,
+          amount,
+          locale: Localizations.localeOf(context).languageCode,
+        ),
         caption: labels.travellerPrice(passengerCount),
         buttonLabel: labels.continueLabel,
         onPressed: onContinue,
@@ -142,6 +146,7 @@ class FlightChooseFareScreen extends StatelessWidget {
                                 : 'USD',
                           ) ??
                           selected.price,
+                      locale: Localizations.localeOf(context).languageCode,
                     ),
                   ),
                   if (showAvailability)
@@ -225,6 +230,7 @@ class _FareChoiceCard extends StatelessWidget {
                     currencyCode,
                     comparison.convert(fare.price, sourceCurrencyCode) ??
                         fare.price,
+                    locale: Localizations.localeOf(context).languageCode,
                   ),
                   style: const TextStyle(
                       color: AppColors.textPrimary,

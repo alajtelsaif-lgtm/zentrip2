@@ -1457,9 +1457,9 @@ class ApiService {
     void Function(String status, String reason)? onStatus,
   }) async {
     final normalizedCurrency = currency.trim().toUpperCase();
-    if (!const {'USD', 'EUR', 'GBP'}.contains(normalizedCurrency)) {
+    if (!const {'USD', 'EUR', 'GBP', 'LYD'}.contains(normalizedCurrency)) {
       throw ArgumentError.value(
-          currency, 'currency', 'Only USD, EUR, and GBP are supported');
+          currency, 'currency', 'Only USD, EUR, GBP, and LYD are supported');
     }
     if (useMockMode) {
       await Future.delayed(_mockDelay);

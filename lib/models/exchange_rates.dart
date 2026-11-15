@@ -1,3 +1,5 @@
+import '../core/constants/currency_rates.dart';
+
 /// Reference rates only. Never write converted amounts back to provider models.
 class ExchangeRate {
   final double unitsPerUsd;
@@ -46,7 +48,9 @@ class ExchangeRates {
   }
 
   ExchangeRate? _usable(String code, DateTime now) {
+    code = code.trim().toUpperCase();
     if (code == 'USD') return ExchangeRate(1, now);
+    if (code == 'LYD') return ExchangeRate(usdToLydRate, now);
     final rate = rates[code];
     if (rate == null ||
         rate.date.isAfter(now) ||
@@ -69,7 +73,8 @@ class ExchangeRates {
   DateTime? oldestDate(Iterable<String> currencies, DateTime now) {
     final dates = currencies
         .toSet()
-        .where((c) => c != 'USD')
+        .map((c) => c.trim().toUpperCase())
+        .where((c) => c != 'USD' && c != 'LYD')
         .map((c) => _usable(c, now)?.date)
         .whereType<DateTime>()
         .toList()

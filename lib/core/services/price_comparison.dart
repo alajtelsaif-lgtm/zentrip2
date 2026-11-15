@@ -1,13 +1,15 @@
 import 'package:flutter/foundation.dart';
+import '../constants/currency_rates.dart';
 import '../../models/exchange_rates.dart';
 
 /// Shared by result controllers; no booking or settlement code depends on this.
 class PriceComparison extends ChangeNotifier {
-  static const List<String> supportedCurrencies = ['USD', 'EUR', 'GBP'];
+  static const List<String> supportedCurrencies = ['USD', 'EUR', 'GBP', 'LYD'];
   static const Map<String, double> fallbackUnitsPerUsd = {
     'USD': 1,
     'EUR': 0.92,
     'GBP': 0.79,
+    'LYD': usdToLydRate,
   };
 
   final Future<ExchangeRates> Function() loadRates;

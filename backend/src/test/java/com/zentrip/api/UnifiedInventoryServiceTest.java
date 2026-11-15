@@ -222,16 +222,40 @@ class UnifiedInventoryServiceTest {
     }
 
     @Test
-    void onlySupportedDisplayCurrenciesAreAccepted() {
+    void unsupportedDisplayCurrenciesAreRejected() {
         ResponseStatusException error = assertThrows(
                 ResponseStatusException.class,
                 () -> service.filterHotels(
                         List.of(),
                         new UnifiedInventoryService.HotelFilters(
-                                "LYD", null, null, null, null, null, null)));
+                                "CAD", null, null, null, null, null, null)));
 
         assertEquals(400, error.getStatusCode().value());
         assertFalse(error.getReason().isBlank());
+    }
+
+    @Test
+    void hotelPriceFiltersUseTheFixedLydReferenceRate() {
+        when(exchangeRates.latest()).thenReturn(Map.of("rates", List.of()));
+        Map<String, Object> hotel = Map.of(
+                "id", "hotel-usd-100",
+                "name", "USD hotel",
+                "price", new BigDecimal("100.00"),
+                "price_currency", "USD");
+
+        UnifiedInventoryService.FilterOutcome result = service.filterHotels(
+                List.of(hotel),
+                new UnifiedInventoryService.HotelFilters(
+                        "LYD",
+                        new BigDecimal("640"),
+                        new BigDecimal("640"),
+                        null,
+                        null,
+                        null,
+                        null));
+
+        assertEquals(1, result.hotels().size());
+        assertEquals("hotel-usd-100", result.hotels().getFirst().get("id"));
     }
 
     @Test

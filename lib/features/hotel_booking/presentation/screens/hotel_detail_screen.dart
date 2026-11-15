@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/money_format.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/services/api_result.dart';
 import '../../../../global_widgets/app_network_image.dart';
@@ -38,8 +39,13 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
   int _photoIndex = 0;
   Future<ApiResult<List<ReviewModel>>>? _hotelReviewsFuture;
 
-  String _formatPrice(HotelModel hotel, double amount, {int decimals = 0}) =>
-      '${hotel.priceCurrencyCode} ${amount.toStringAsFixed(decimals)}';
+  String _formatPrice(HotelModel hotel, double amount, {int decimals = 0}) {
+    final locale = Localizations.localeOf(context).languageCode;
+    if (hotel.priceCurrencyCode.toUpperCase() == 'LYD') {
+      return formatCurrencyAmount(amount, 'LYD', locale: locale);
+    }
+    return '${hotel.priceCurrencyCode} ${amount.toStringAsFixed(decimals)}';
+  }
 
   String _formatAvailablePrice(
     HotelModel hotel,
@@ -466,12 +472,15 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
       '${offer['total_amount'] ?? offer['stay_total'] ?? ''}',
     );
     if (amount == null || !amount.isFinite) return '—';
-    final currency =
-        (offer['total_currency'] ??
-                offer['price_currency'] ??
-                offer['currency'] ??
-                fallbackCurrency)
-            .toString();
+    final currency = (offer['total_currency'] ??
+            offer['price_currency'] ??
+            offer['currency'] ??
+            fallbackCurrency)
+        .toString();
+    final locale = Localizations.localeOf(context).languageCode;
+    if (currency.toUpperCase() == 'LYD') {
+      return formatCurrencyAmount(amount, 'LYD', locale: locale);
+    }
     return '$currency ${amount.toStringAsFixed(2)}';
   }
 

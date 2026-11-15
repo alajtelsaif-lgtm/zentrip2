@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
+import '../../../../core/services/currency_service.dart';
+import '../../../../core/utils/money_format.dart';
 import '../../../../global_widgets/booking_load_error.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/flight_model.dart';
@@ -55,8 +57,20 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   }
 
   String _formatPrice(FlightModel flight, double amount) {
-    final prefix = flight.isDuffelOffer ? '${flight.priceCurrencyCode} ' : '\$';
-    return '$prefix${amount.toStringAsFixed(2)}';
+    final locale = Localizations.localeOf(context).languageCode;
+    final sourceCurrency =
+        flight.isDuffelOffer ? flight.priceCurrencyCode : 'USD';
+    final converted =
+        CurrencyService.instance.convertFrom(amount, sourceCurrency);
+    if (converted == null) {
+      return formatProviderMoney(amount, sourceCurrency, locale: locale);
+    }
+    return formatCurrencyAmount(
+      converted,
+      CurrencyService.instance.selected.code,
+      locale: locale,
+      decimalDigits: 2,
+    );
   }
 
   @override

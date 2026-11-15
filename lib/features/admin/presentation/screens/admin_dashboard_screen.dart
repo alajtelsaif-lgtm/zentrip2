@@ -5,6 +5,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../global_widgets/app_logo.dart';
 import '../../../../global_widgets/confirm_dialog.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/admin_dashboard_model.dart';
 import '../../../../routes/app_routes.dart';
@@ -600,11 +601,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               _MetricCard(
                 width: cardWidth,
                 title: l10n.adminBookedValue,
-                value: NumberFormat.currency(
-                  locale: Localizations.localeOf(context).toString(),
-                  symbol: '\$',
-                  decimalDigits: 0,
-                ).format(data.bookedValue),
+                value: '',
+                amount: data.bookedValue,
                 icon: Icons.payments_outlined,
                 color: AppColors.accentGreen,
                 footnote: l10n.adminReservationCount,
@@ -847,6 +845,7 @@ class _MetricCard extends StatelessWidget {
   final double width;
   final String title;
   final String value;
+  final double? amount;
   final IconData icon;
   final Color color;
   final String footnote;
@@ -856,6 +855,7 @@ class _MetricCard extends StatelessWidget {
     required this.width,
     required this.title,
     required this.value,
+    this.amount,
     required this.icon,
     required this.color,
     required this.footnote,
@@ -912,10 +912,18 @@ class _MetricCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w800),
-            ),
+            child: amount == null
+                ? Text(
+                    value,
+                    style: const TextStyle(
+                        fontSize: 27, fontWeight: FontWeight.w800),
+                  )
+                : CurrencyAmountText(
+                    amount: amount!,
+                    decimalDigits: 0,
+                    style: const TextStyle(
+                        fontSize: 27, fontWeight: FontWeight.w800),
+                  ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -1047,11 +1055,6 @@ class _ReservationTile extends StatelessWidget {
         ? '—'
         : DateFormat.yMMMd(Localizations.localeOf(context).toString())
             .format(reservation.reservationDate!.toLocal());
-    final amount = NumberFormat.currency(
-      locale: Localizations.localeOf(context).toString(),
-      symbol: '\$',
-      decimalDigits: 0,
-    ).format(reservation.amount);
     final normalizedStatus = reservation.status.toLowerCase();
     final statusColor = normalizedStatus.contains('cancel')
         ? AppColors.accentRed
@@ -1122,7 +1125,9 @@ class _ReservationTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(amount,
+              CurrencyAmountText(
+                  amount: reservation.amount,
+                  decimalDigits: 0,
                   style: const TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w700)),
               const SizedBox(height: 5),

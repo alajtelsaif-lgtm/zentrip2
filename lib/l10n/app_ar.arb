@@ -1040,6 +1040,7 @@
   "airportNearestLabel": "أقرب مطار",
   "airportCategoryAddLocation": "أضف مدينة أو مكاناً، مثل الطبيعة في بالي، إندونيسيا.",
   "compareIn": "قارن بعملة",
+  "lydFixedRate": "سعر مرجعي ثابت: 1 دولار أمريكي = 6.4 دينار ليبي",
   "refreshRates": "تحديث الأسعار",
   "retryRates": "إعادة محاولة الأسعار",
   "frankfurterRatesUnavailable": "أسعار فرانكفورتر المرجعية اليومية · لا يتوفر تاريخ للأسعار",

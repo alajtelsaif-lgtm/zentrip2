@@ -3042,6 +3042,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get compareIn => 'Compare in';
 
   @override
+  String get lydFixedRate => 'Fixed reference rate: 1 USD = 6.4 LYD';
+
+  @override
   String get refreshRates => 'Refresh rates';
 
   @override

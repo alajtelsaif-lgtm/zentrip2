@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../global_widgets/app_network_image.dart';
+import '../../../../global_widgets/currency_amount_text.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../models/attraction_model.dart';
 import '../../../../models/attraction_place_suggestion.dart';
@@ -417,12 +418,19 @@ class _AttrCard extends StatelessWidget {
                                             color: Colors.white,
                                             fontWeight: FontWeight.w800,
                                             fontSize: 13))
-                                    : Text(
-                                        '\$${attraction.entryFee?.toStringAsFixed(0) ?? '?'}',
-                                        style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 15)),
+                                    : attraction.entryFee == null
+                                        ? const Text('—',
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 15))
+                                        : CurrencyAmountText(
+                                            amount: attraction.entryFee!,
+                                            decimalDigits: 0,
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 15)),
                             ]),
                         ]),
                   ],

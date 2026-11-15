@@ -17,7 +17,7 @@ ExchangeRates rates({DateTime? date}) => ExchangeRates(
       rates: {
         'EUR': ExchangeRate(0.5, date ?? now),
         'GBP': ExchangeRate(0.25, date ?? now),
-        'LYD': ExchangeRate(5, date ?? now),
+        'LYD': ExchangeRate(6.4, date ?? now),
       },
       fetchedAt: now,
     );
@@ -65,17 +65,29 @@ void main() {
     expect(formatProviderMoney(75.25, 'GBP'), '£75.25');
     expect(formatProviderMoney(75.251, 'TND'), 'TND 75.251');
     expect(formatProviderMoney(75.251, 'LYD'), 'LYD 75.251');
+    expect(formatProviderMoney(75.251, 'LYD', locale: 'ar'), contains('د.ل'));
     expect(formatProviderMoney(100, 'JPY'), 'JPY 100');
   });
 
-  test('currency selectors expose only USD, EUR and GBP', () {
+  test('currency selectors expose USD, EUR, GBP and LYD', () {
     final c = comparison();
     expect(
       CurrencyService.supported.map((currency) => currency.code).toList(),
-      ['USD', 'EUR', 'GBP'],
+      ['USD', 'EUR', 'GBP', 'LYD'],
     );
-    expect(c.currencies, ['USD', 'EUR', 'GBP']);
-    expect(() => c.setCurrency('LYD'), throwsArgumentError);
+    expect(c.currencies, ['USD', 'EUR', 'GBP', 'LYD']);
+    expect(() => c.setCurrency('LYD'), returnsNormally);
+    expect(c.convert(100, 'USD'), closeTo(640, 0.001));
+    c.dispose();
+  });
+
+  test('LYD conversion always uses the fixed 6.4 units per USD rate', () async {
+    final c = comparison();
+    await c.refresh();
+    c.setCurrency('LYD');
+    expect(c.convert(100, 'USD'), closeTo(640, 0.001));
+    expect(c.convert(640, 'LYD'), closeTo(640, 0.001));
+    c.dispose();
   });
 
   test('Frankfurter failure uses explicit USD-pivot display fallback rates',
