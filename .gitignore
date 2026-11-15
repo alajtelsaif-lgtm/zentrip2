@@ -51,3 +51,4 @@ backend/.phpunit.result.cache
 
 # Uploaded credential files must never enter repository history
 /attached_assets/*.env
+backend/uploads/
