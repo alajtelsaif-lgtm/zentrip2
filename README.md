@@ -34,6 +34,9 @@ For an existing database, first run the read-only schema/policy inspection query
 8. `backend/src/main/resources/migrations/20261105_user_push_tokens.sql`
 9. `backend/src/main/resources/migrations/20261107_user_notifications.sql` — creates the authenticated notification inbox; apply before enabling booking notifications.
 10. `backend/src/main/resources/migrations/20261107_offer_flight_link.sql` — adds the existing partner-flight association to travel offers.
+11. `backend/src/main/resources/migrations/20261115_user_saved_data.sql` — stores favorites, flight price alerts, and app settings (notification toggles, language, currency, theme) per account instead of only on the device.
+
+Shortcut: `backend/scripts/supabase_sync_to_project.sql` contains steps 1–11 plus a guarded cleanup, in this order, and is safe to rerun. Paste it into SQL Editor after taking a backup; its last result must show `OK` on every row.
 
 The feature migrations are transactional and safe to rerun after a successful commit. Do not mark an older migration as applied merely because a similarly named table exists; verify its columns, policies, grants, and helper functions first. The backend does not run production migrations automatically. After applying, confirm `zentrip_api_runtime` is `NOLOGIN` and `NOBYPASSRLS`, the database login can `SET ROLE zentrip_api_runtime`, and the visit tables deny direct `anon`/`authenticated` access while runtime API calls still work. If `SUPABASE_DB_USER` is not `postgres`, verify it can assume the runtime role.
 

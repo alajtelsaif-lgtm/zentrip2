@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/services/user_settings_sync.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LocaleController extends ChangeNotifier {
@@ -43,6 +44,7 @@ class LocaleController extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, locale.languageCode);
+    await UserSettingsSync.instance.push({'locale': locale.languageCode});
   }
 
   Future<void> toggleLocale() async {

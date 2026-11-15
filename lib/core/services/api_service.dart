@@ -157,6 +157,13 @@ class ApiService {
     });
   }
 
+  /// Lets tests answer HTTP calls without a server.
+  @visibleForTesting
+  set httpClientAdapterForTesting(HttpClientAdapter adapter) {
+    init();
+    _dio.httpClientAdapter = adapter;
+  }
+
   void init() {
     if (_initialized) return;
     _initialized = true;
@@ -777,6 +784,87 @@ class ApiService {
       await _dio.put('/notifications/read-all');
     });
   }
+
+  // ── Saved user data (favorites, price alerts, settings) ─────────────────
+  //
+  // These were device-only before. They are stored per account on the server
+  // so they follow the user to other devices; the local copy stays as an
+  // offline cache.
+
+  /// Saved data lives on the server only for signed-in customers.
+  bool get canSyncSavedData =>
+      !useMockMode && currentUser != null && currentUser!.role == 'customer';
+
+  List<Map<String, dynamic>> _rows(dynamic data, String key) {
+    final rows = data is Map ? data[key] : null;
+    if (rows is! List) throw FormatException('Response must contain $key');
+    return rows
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
+
+  Future<ApiResult<List<Map<String, dynamic>>>> getFavorites() =>
+      _request(() async =>
+          _rows((await _dio.get('/favorites')).data, 'favorites'));
+
+  Future<ApiResult<void>> saveFavorite(Map<String, dynamic> favorite) =>
+      _request(() async {
+        await _dio.post('/favorites', data: favorite);
+      });
+
+  Future<ApiResult<void>> removeFavorite(String id) => _request(() async {
+        await _dio.delete('/favorites', queryParameters: {'id': id});
+      });
+
+  Future<ApiResult<List<Map<String, dynamic>>>> getPriceAlerts() =>
+      _request(() async =>
+          _rows((await _dio.get('/price-alerts')).data, 'price_alerts'));
+
+  Future<ApiResult<Map<String, dynamic>>> savePriceAlert({
+    required String originCode,
+    required String destinationCode,
+    required DateTime departureDate,
+    required double referencePriceUsd,
+  }) =>
+      _request(() async {
+        final response = await _dio.post('/price-alerts', data: {
+          'origin_code': originCode,
+          'destination_code': destinationCode,
+          'departure_date':
+              '${departureDate.year.toString().padLeft(4, '0')}-'
+                  '${departureDate.month.toString().padLeft(2, '0')}-'
+                  '${departureDate.day.toString().padLeft(2, '0')}',
+          'reference_price_usd': referencePriceUsd,
+        });
+        return Map<String, dynamic>.from(
+            (response.data as Map)['price_alert'] as Map);
+      });
+
+  Future<ApiResult<void>> updatePriceAlertPrice(
+          String id, double referencePriceUsd) =>
+      _request(() async {
+        await _dio.patch('/price-alerts/${Uri.encodeComponent(id)}',
+            data: {'reference_price_usd': referencePriceUsd});
+      });
+
+  Future<ApiResult<void>> removePriceAlert(String id) => _request(() async {
+        await _dio.delete('/price-alerts/${Uri.encodeComponent(id)}');
+      });
+
+  Future<ApiResult<Map<String, dynamic>>> getUserSettings() =>
+      _request(() async {
+        final data = (await _dio.get('/settings')).data;
+        final settings = data is Map ? data['settings'] : null;
+        return settings is Map
+            ? Map<String, dynamic>.from(settings)
+            : <String, dynamic>{};
+      });
+
+  Future<ApiResult<void>> saveUserSettings(Map<String, Object> changes) =>
+      _request(() async {
+        await _dio.put('/settings', data: changes);
+      });
 
   // ── AI Chatbot (Python Service) ──────────────────────────────────────────
 

@@ -65,7 +65,12 @@ WITH checks(sort_order, item, present, fixed_by) AS (
          EXISTS (SELECT 1 FROM pg_attribute
                  WHERE attrelid = to_regclass('public.offers')
                    AND attname = 'flight_listing_id' AND NOT attisdropped),
-         '20261107_offer_flight_link.sql')
+         '20261107_offer_flight_link.sql'),
+    (90, 'tables user_favorites / user_price_alerts / user_settings',
+         to_regclass('public.user_favorites') IS NOT NULL
+         AND to_regclass('public.user_price_alerts') IS NOT NULL
+         AND to_regclass('public.user_settings') IS NOT NULL,
+         '20261115_user_saved_data.sql')
 )
 SELECT sort_order,
        item,

@@ -81,7 +81,10 @@ public class SecurityConfig {
                     "/api/maps/**",
                     "/api/ai", "/api/ai/**",
                     "/api/preferences/travel", "/api/preferences/travel/**",
-                    "/api/profile", "/api/profile/**"
+                    "/api/profile", "/api/profile/**",
+                    "/api/favorites", "/api/favorites/**",
+                    "/api/price-alerts", "/api/price-alerts/**",
+                    "/api/settings", "/api/settings/**"
                 ).hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.GET, "/api/reviews").permitAll()
                 .requestMatchers(

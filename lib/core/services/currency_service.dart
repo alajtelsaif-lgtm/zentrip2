@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/currency_rates.dart';
 import 'api_service.dart';
+import 'user_settings_sync.dart';
 import '../utils/money_format.dart';
 
 /// تحويل وعرض الأسعار بعملات متعددة. كل الأسعار في التطبيق (Flight/Hotel/
@@ -86,6 +87,7 @@ class CurrencyService extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, c.code);
+    await UserSettingsSync.instance.push({'currency': c.code});
   }
 
   double? convertFrom(double amount, String sourceCurrencyCode) {

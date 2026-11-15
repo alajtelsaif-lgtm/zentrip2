@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/user_settings_sync.dart';
 import '../../../../l10n/app_localizations.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
@@ -36,6 +37,7 @@ class _NotificationSettingsScreenState
   Future<void> _save(String key, bool val) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(key, val);
+    await UserSettingsSync.instance.push({key: val});
   }
 
   @override

@@ -12,6 +12,7 @@ import '../../../../features/notifications/logic/notifications_store.dart';
 import '../../../../features/price_alerts/logic/price_alerts_store.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../routes/app_routes.dart';
+import '../../../../core/services/user_settings_sync.dart';
 import '../../../onboarding/presentation/screens/onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -105,6 +106,7 @@ class _SplashScreenState extends State<SplashScreen> {
       _runOptionalLoad('favorites', FavoritesController.instance.load),
       _runOptionalLoad('notifications', NotificationsStore.instance.load),
       _runOptionalLoad('price alerts', PriceAlertsStore.instance.load),
+      _runOptionalLoad('settings', UserSettingsSync.instance.pullAndApply),
     ]);
   }
 

@@ -47,7 +47,8 @@ class PriceAlert {
         departureDate:
             DateTime.tryParse((j['departure_date'] ?? '').toString()) ??
                 DateTime.now(),
-        referencePriceUsd: _doubleFromDynamic(j['reference_price']),
+        referencePriceUsd: _doubleFromDynamic(
+            j['reference_price_usd'] ?? j['reference_price']),
         createdAt: DateTime.tryParse((j['created_at'] ?? '').toString()) ??
             DateTime.now(),
       );

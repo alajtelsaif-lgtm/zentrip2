@@ -7,6 +7,7 @@ import '../../../core/services/social_auth_service.dart';
 import '../../../features/favorites/logic/favorites_controller.dart';
 import '../../../features/notifications/logic/notifications_store.dart';
 import '../../../features/price_alerts/logic/price_alerts_store.dart';
+import '../../../core/services/user_settings_sync.dart';
 import '../../../models/user_model.dart';
 
 /// كل منطق المصادقة — الشاشات تستمع عبر ListenableBuilder ولا تتحدث مع
@@ -32,6 +33,7 @@ class AuthController extends ChangeNotifier {
         await FavoritesController.instance.load();
         await NotificationsStore.instance.load();
         await PriceAlertsStore.instance.load();
+        await UserSettingsSync.instance.pullAndApply();
         await PushNotificationService.instance.syncTokenWithBackend();
       }
       return r;
@@ -58,6 +60,7 @@ class AuthController extends ChangeNotifier {
         await FavoritesController.instance.load();
         await NotificationsStore.instance.load();
         await PriceAlertsStore.instance.load();
+        await UserSettingsSync.instance.pullAndApply();
         await PushNotificationService.instance.syncTokenWithBackend();
       }
       return r;
@@ -78,6 +81,7 @@ class AuthController extends ChangeNotifier {
         await FavoritesController.instance.load();
         await NotificationsStore.instance.load();
         await PriceAlertsStore.instance.load();
+        await UserSettingsSync.instance.pullAndApply();
         await PushNotificationService.instance.syncTokenWithBackend();
       }
       return r;
@@ -94,6 +98,7 @@ class AuthController extends ChangeNotifier {
         await FavoritesController.instance.load();
         await NotificationsStore.instance.load();
         await PriceAlertsStore.instance.load();
+        await UserSettingsSync.instance.pullAndApply();
         await PushNotificationService.instance.syncTokenWithBackend();
       }
       return r;

@@ -1387,4 +1387,95 @@ class PostgresMigrationIntegrationTest {
     private int visibleCount(String query, Object... args) {
         return jdbc.queryForObject(query, Integer.class, args);
     }
+
+    @Test
+    void favoritesPriceAlertsAndSettingsArePersistedPerUser() throws Exception {
+        String auth = "Bearer " + token;
+        // Favorites: save twice (upsert), read back, delete.
+        Map<String, Object> favorite = new java.util.HashMap<>(Map.of(
+                "id", "attraction:red castle:tripoli", "type", "attraction",
+                "title", "Red Castle", "subtitle", "Tripoli, Libya",
+                "latitude", 32.8955, "longitude", 13.1806));
+        postJson("/api/favorites", favorite, 200);
+        favorite.put("title", "Red Castle Museum");
+        postJson("/api/favorites", favorite, 200);
+        http.perform(get("/api/favorites").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.favorites.length()").value(1))
+                .andExpect(jsonPath("$.favorites[0].id").value("attraction:red castle:tripoli"))
+                .andExpect(jsonPath("$.favorites[0].title").value("Red Castle Museum"))
+                .andExpect(jsonPath("$.favorites[0].latitude").value(32.8955));
+
+        // Price alerts: create (idempotent per route/date), lower the price, delete.
+        JsonNode alert = postJson("/api/price-alerts", Map.of(
+                "origin_code", "tip", "destination_code", "IST",
+                "departure_date", "2035-12-01T00:00:00.000",
+                "reference_price_usd", 250.5), 200).path("price_alert");
+        long alertId = alert.path("id").asLong();
+        assertEquals("TIP", alert.path("origin_code").asText());
+        assertEquals("2035-12-01", alert.path("departure_date").asText());
+        assertEquals(alertId, postJson("/api/price-alerts", Map.of(
+                "origin_code", "TIP", "destination_code", "IST",
+                "departure_date", "2035-12-01", "reference_price_usd", 999), 200)
+                .path("price_alert").path("id").asLong());
+        http.perform(patch("/api/price-alerts/" + alertId).header("Authorization", auth)
+                        .contentType("application/json")
+                        .content("{\"reference_price_usd\": 199.99}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.price_alert.reference_price_usd").value(199.99));
+
+        // Settings: partial updates are merged.
+        http.perform(put("/api/settings").header("Authorization", auth)
+                        .contentType("application/json")
+                        .content("{\"notif_promo\": false, \"locale\": \"ar\"}"))
+                .andExpect(status().isOk());
+        http.perform(put("/api/settings").header("Authorization", auth)
+                        .contentType("application/json").content("{\"currency\": \"lyd\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.settings.notif_promo").value(false))
+                .andExpect(jsonPath("$.settings.locale").value("ar"))
+                .andExpect(jsonPath("$.settings.currency").value("LYD"));
+        http.perform(put("/api/settings").header("Authorization", auth)
+                        .contentType("application/json").content("{\"is_admin\": true}"))
+                .andExpect(status().isUnprocessableEntity());
+
+        // Another customer sees none of it and cannot change it.
+        String otherToken = UUID.randomUUID().toString();
+        long otherUserId = jdbc.queryForObject("""
+                INSERT INTO users (name, email, password)
+                VALUES ('Other saved-data user', ?, 'unused-test-hash') RETURNING id
+                """, Long.class, otherToken + "@example.invalid");
+        jdbc.update("INSERT INTO api_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+                otherUserId, TokenAuthFilter.sha256(otherToken),
+                Timestamp.from(Instant.now().plusSeconds(3600)));
+        String otherAuth = "Bearer " + otherToken;
+        http.perform(get("/api/favorites").header("Authorization", otherAuth))
+                .andExpect(jsonPath("$.favorites.length()").value(0));
+        http.perform(get("/api/price-alerts").header("Authorization", otherAuth))
+                .andExpect(jsonPath("$.price_alerts.length()").value(0));
+        http.perform(get("/api/settings").header("Authorization", otherAuth))
+                .andExpect(jsonPath("$.settings.locale").doesNotExist());
+        http.perform(patch("/api/price-alerts/" + alertId).header("Authorization", otherAuth)
+                        .contentType("application/json")
+                        .content("{\"reference_price_usd\": 1}"))
+                .andExpect(status().isNotFound());
+        http.perform(delete("/api/price-alerts/" + alertId).header("Authorization", otherAuth))
+                .andExpect(status().isNoContent());
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM user_price_alerts WHERE id = ?", Integer.class, alertId));
+
+        // Guests are rejected.
+        http.perform(get("/api/favorites")).andExpect(status().isUnauthorized());
+
+        // Owner removes data.
+        http.perform(delete("/api/favorites").param("id", "attraction:red castle:tripoli")
+                        .header("Authorization", auth))
+                .andExpect(status().isNoContent());
+        http.perform(delete("/api/price-alerts/" + alertId).header("Authorization", auth))
+                .andExpect(status().isNoContent());
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM user_favorites WHERE user_id = ?", Integer.class, userId));
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM user_price_alerts WHERE user_id = ?", Integer.class, userId));
+    }
 }

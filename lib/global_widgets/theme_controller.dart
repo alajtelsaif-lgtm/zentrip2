@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/services/user_settings_sync.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeController extends ChangeNotifier {
@@ -31,6 +32,8 @@ class ThemeController extends ChangeNotifier {
       ThemeMode.light => 'light',
       ThemeMode.system => 'system',
     });
+    await UserSettingsSync.instance
+        .push({'theme': UserSettingsSync.themeName(mode)});
   }
 
   Future<void> toggleTheme() async {
