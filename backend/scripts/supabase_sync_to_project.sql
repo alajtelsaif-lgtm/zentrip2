@@ -1,0 +1,1597 @@
+-- =====================================================================
+-- Zentrip: bring the Supabase database in line with the project schema
+-- =====================================================================
+-- Paste the WHOLE file into Supabase SQL Editor and press Run.
+--
+-- BEFORE RUNNING: take a backup (Database > Backups, or pg_dump).
+--
+-- What it does, in order (the project's own migration files, unchanged):
+--   1. schema_migrations ledger
+--   2. airport directory columns/indexes
+--   3. runtime role zentrip_api_runtime + RLS policies (project versions)
+--   4. landmark catalog tables
+--   5. hotel_destinations
+--   6. core data RLS + visit-count lockdown + legacy review table
+--   7. payment_attempts            (fixes failing checkouts)
+--   8. user_push_tokens
+--   9. user_notifications
+--  10. offers.flight_listing_id    (fixes creating offers)
+--  11. cleanup: drop flyway_schema_history (baseline only) and the unused
+--      users.remember_token column
+--
+-- Safety: every section is its own transaction and first checks its
+-- prerequisites. If one section fails, it is rolled back entirely and the
+-- editor stops; sections before it stay applied. Fix the reported problem
+-- and run the whole file again - finished sections are safe to rerun.
+-- No customer rows (users, bookings, trips, ...) are deleted.
+-- =====================================================================
+
+
+-- ---------------------------------------------------------------------
+-- 20261101_schema_migrations.sql
+-- ---------------------------------------------------------------------
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS public.schema_migrations (
+    version VARCHAR(120) PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+REVOKE ALL ON public.schema_migrations FROM PUBLIC, anon, authenticated;
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261101_schema_migrations', 'schema_migrations')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
+
+
+-- ---------------------------------------------------------------------
+-- 20261101_global_airport_directory.sql
+-- ---------------------------------------------------------------------
+-- Additive airport-directory migration. It preserves existing airport rows.
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.airports') IS NULL
+       OR to_regclass('public.schema_migrations') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261101_global_airport_directory requires public.airports and schema_migrations; apply the base schema and migration tracker first';
+    END IF;
+END
+$$;
+
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS icao_code CHAR(4);
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS airport_type VARCHAR(32) NOT NULL DEFAULT 'medium_airport';
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS is_major BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS scheduled_service BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS iso_country CHAR(2);
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS keywords TEXT NOT NULL DEFAULT '';
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS wikipedia_link VARCHAR(2048);
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS source_id BIGINT;
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS source_provider VARCHAR(32) NOT NULL DEFAULT 'legacy';
+ALTER TABLE public.airports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS airports_icao_code_index ON public.airports (icao_code);
+CREATE INDEX IF NOT EXISTS airports_country_city_index ON public.airports (iso_country, city);
+CREATE INDEX IF NOT EXISTS airports_city_search_index ON public.airports (LOWER(city));
+CREATE INDEX IF NOT EXISTS airports_country_search_index ON public.airports (LOWER(country));
+CREATE INDEX IF NOT EXISTS airports_name_search_index ON public.airports (LOWER(airport_name));
+CREATE INDEX IF NOT EXISTS airports_coordinates_index ON public.airports (latitude, longitude)
+    WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261101_global_airport_directory', 'global_airport_directory')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
+
+
+-- ---------------------------------------------------------------------
+-- 20261101_role_access_rls.sql
+-- ---------------------------------------------------------------------
+-- Run against the existing Supabase database before restarting the backend.
+-- This migration adds a non-login runtime role so the JDBC app does not bypass
+-- RLS through the postgres/BYPASSRLS connection. It does not alter row data.
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR to_regclass('public.users') IS NULL
+       OR to_regclass('public.partners') IS NULL
+       OR to_regclass('public.bookings') IS NULL
+       OR to_regclass('public.trips') IS NULL
+       OR to_regclass('public.transfers') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261101_role_access_rls requires schema_migrations and the core users, partners, bookings, trips, and transfers tables; apply the base schema and migration tracker first';
+    END IF;
+END
+$$;
+
+DO $$
+DECLARE
+    existing_role pg_roles%ROWTYPE;
+BEGIN
+    SELECT * INTO existing_role
+    FROM pg_roles
+    WHERE rolname = 'zentrip_api_runtime';
+    IF NOT FOUND THEN
+        CREATE ROLE zentrip_api_runtime
+            NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+    ELSIF existing_role.rolcanlogin
+          OR existing_role.rolsuper
+          OR existing_role.rolbypassrls THEN
+        RAISE EXCEPTION 'zentrip_api_runtime exists with unsafe role attributes';
+    END IF;
+END
+$$;
+
+GRANT zentrip_api_runtime TO postgres;
+GRANT USAGE ON SCHEMA public TO zentrip_api_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public
+    TO zentrip_api_runtime;
+REVOKE ALL ON public.schema_migrations FROM zentrip_api_runtime;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public
+    TO zentrip_api_runtime;
+
+CREATE OR REPLACE FUNCTION public.zentrip_rls_user_id()
+RETURNS BIGINT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT NULLIF(current_setting('app.user_id', true), '')::BIGINT
+$$;
+
+CREATE OR REPLACE FUNCTION public.zentrip_rls_role()
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT COALESCE(
+        NULLIF(current_setting('app.auth_role', true), ''),
+        'anonymous'
+    )
+$$;
+
+CREATE OR REPLACE FUNCTION public.zentrip_rls_partner_id()
+RETURNS BIGINT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT NULLIF(current_setting('app.partner_id', true), '')::BIGINT
+$$;
+
+GRANT EXECUTE ON FUNCTION public.zentrip_rls_user_id()
+    TO zentrip_api_runtime, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.zentrip_rls_role()
+    TO zentrip_api_runtime, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.zentrip_rls_partner_id()
+    TO zentrip_api_runtime, anon, authenticated;
+
+-- Public catalog reads remain public; writes are restricted to the owner or admin.
+DROP POLICY IF EXISTS partner_listings_public_read ON public.partner_listings;
+CREATE POLICY partner_listings_public_read
+    ON public.partner_listings FOR SELECT TO anon, authenticated
+    USING (
+        active = TRUE
+        AND public.zentrip_rls_role() <> 'partner'
+        AND EXISTS (
+            SELECT 1 FROM public.partners p
+            WHERE p.id = partner_listings.partner_id
+              AND LOWER(p.status) = 'active'
+        )
+    );
+DROP POLICY IF EXISTS zentrip_partner_listings_public_runtime ON public.partner_listings;
+CREATE POLICY zentrip_partner_listings_public_runtime
+    ON public.partner_listings FOR SELECT TO zentrip_api_runtime
+    USING (
+        active = TRUE
+        AND public.zentrip_rls_role() <> 'partner'
+        AND EXISTS (
+            SELECT 1 FROM public.partners p
+            WHERE p.id = partner_listings.partner_id
+              AND LOWER(p.status) = 'active'
+        )
+    );
+DROP POLICY IF EXISTS zentrip_partner_listings_admin ON public.partner_listings;
+CREATE POLICY zentrip_partner_listings_admin
+    ON public.partner_listings FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+DROP POLICY IF EXISTS zentrip_partner_listings_partner ON public.partner_listings;
+CREATE POLICY zentrip_partner_listings_partner
+    ON public.partner_listings FOR ALL TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'partner'
+        AND partner_id = public.zentrip_rls_partner_id()
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'partner'
+        AND partner_id = public.zentrip_rls_partner_id()
+    );
+
+-- Partner rows: active partners are public; a partner can only read its own row.
+DROP POLICY IF EXISTS partners_public_read ON public.partners;
+CREATE POLICY partners_public_read
+    ON public.partners FOR SELECT TO anon, authenticated
+    USING (
+        LOWER(status) = 'active'
+        AND public.zentrip_rls_role() <> 'partner'
+    );
+DROP POLICY IF EXISTS zentrip_partners_public_runtime ON public.partners;
+CREATE POLICY zentrip_partners_public_runtime
+    ON public.partners FOR SELECT TO zentrip_api_runtime
+    USING (
+        LOWER(status) = 'active'
+        AND public.zentrip_rls_role() <> 'partner'
+    );
+DROP POLICY IF EXISTS zentrip_partners_admin ON public.partners;
+CREATE POLICY zentrip_partners_admin
+    ON public.partners FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+DROP POLICY IF EXISTS zentrip_partners_owner_read ON public.partners;
+CREATE POLICY zentrip_partners_owner_read
+    ON public.partners FOR SELECT TO zentrip_api_runtime, authenticated
+    USING (
+        id = public.zentrip_rls_partner_id()
+        AND public.zentrip_rls_role() = 'partner'
+    );
+
+-- Partner bookings are read-only and must reference a listing owned by that partner.
+DROP POLICY IF EXISTS bookings_owner_all ON public.bookings;
+DROP POLICY IF EXISTS zentrip_bookings_customer ON public.bookings;
+CREATE POLICY zentrip_bookings_customer
+    ON public.bookings FOR ALL TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    );
+DROP POLICY IF EXISTS zentrip_bookings_admin ON public.bookings;
+CREATE POLICY zentrip_bookings_admin
+    ON public.bookings FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+DROP POLICY IF EXISTS zentrip_bookings_partner_read ON public.bookings;
+CREATE POLICY zentrip_bookings_partner_read
+    ON public.bookings FOR SELECT TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'partner'
+        AND partner_id = public.zentrip_rls_partner_id()
+        AND partner_listing_id IS NOT NULL
+        AND EXISTS (
+            SELECT 1 FROM public.partner_listings l
+            WHERE l.id = bookings.partner_listing_id
+              AND l.partner_id = public.zentrip_rls_partner_id()
+        )
+    );
+
+DROP POLICY IF EXISTS trips_owner_all ON public.trips;
+DROP POLICY IF EXISTS zentrip_trips_customer ON public.trips;
+CREATE POLICY zentrip_trips_customer
+    ON public.trips FOR ALL TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    );
+DROP POLICY IF EXISTS zentrip_trips_admin ON public.trips;
+CREATE POLICY zentrip_trips_admin
+    ON public.trips FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+DROP POLICY IF EXISTS zentrip_trips_partner_read ON public.trips;
+CREATE POLICY zentrip_trips_partner_read
+    ON public.trips FOR SELECT TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'partner'
+        AND partner_id = public.zentrip_rls_partner_id()
+        AND partner_listing_id IS NOT NULL
+        AND EXISTS (
+            SELECT 1 FROM public.partner_listings l
+            WHERE l.id = trips.partner_listing_id
+              AND l.partner_id = public.zentrip_rls_partner_id()
+        )
+    );
+
+DROP POLICY IF EXISTS transfers_owner_all ON public.transfers;
+DROP POLICY IF EXISTS zentrip_transfers_customer ON public.transfers;
+CREATE POLICY zentrip_transfers_customer
+    ON public.transfers FOR ALL TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    );
+DROP POLICY IF EXISTS zentrip_transfers_admin ON public.transfers;
+CREATE POLICY zentrip_transfers_admin
+    ON public.transfers FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+DROP POLICY IF EXISTS zentrip_transfers_partner_read ON public.transfers;
+CREATE POLICY zentrip_transfers_partner_read
+    ON public.transfers FOR SELECT TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'partner'
+        AND partner_id = public.zentrip_rls_partner_id()
+        AND partner_listing_id IS NOT NULL
+        AND EXISTS (
+            SELECT 1 FROM public.partner_listings l
+            WHERE l.id = transfers.partner_listing_id
+              AND l.partner_id = public.zentrip_rls_partner_id()
+        )
+    );
+
+-- User identity rows are private, except booking-linked customer details for the owning partner.
+DROP POLICY IF EXISTS zentrip_users_runtime_self_read ON public.users;
+CREATE POLICY zentrip_users_runtime_self_read
+    ON public.users FOR SELECT TO zentrip_api_runtime
+    USING (id = public.zentrip_rls_user_id());
+DROP POLICY IF EXISTS zentrip_users_customer_update ON public.users;
+CREATE POLICY zentrip_users_customer_update
+    ON public.users FOR UPDATE TO zentrip_api_runtime
+    USING (
+        public.zentrip_rls_role() = 'customer'
+        AND id = public.zentrip_rls_user_id()
+        AND role = 'customer'
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'customer'
+        AND id = public.zentrip_rls_user_id()
+        AND role = 'customer'
+        AND partner_id IS NULL
+    );
+DROP POLICY IF EXISTS zentrip_users_partner_booking_read ON public.users;
+CREATE POLICY zentrip_users_partner_booking_read
+    ON public.users FOR SELECT TO zentrip_api_runtime
+    USING (
+        public.zentrip_rls_role() = 'partner'
+        AND role = 'customer'
+        AND (
+            EXISTS (
+                SELECT 1 FROM public.bookings b
+                JOIN public.partner_listings l ON l.id = b.partner_listing_id
+                WHERE b.user_id = users.id
+                  AND b.partner_id = public.zentrip_rls_partner_id()
+                  AND l.partner_id = public.zentrip_rls_partner_id()
+            )
+            OR EXISTS (
+                SELECT 1 FROM public.trips t
+                JOIN public.partner_listings l ON l.id = t.partner_listing_id
+                WHERE t.user_id = users.id
+                  AND t.partner_id = public.zentrip_rls_partner_id()
+                  AND l.partner_id = public.zentrip_rls_partner_id()
+            )
+            OR EXISTS (
+                SELECT 1 FROM public.transfers x
+                JOIN public.partner_listings l ON l.id = x.partner_listing_id
+                WHERE x.user_id = users.id
+                  AND x.partner_id = public.zentrip_rls_partner_id()
+                  AND l.partner_id = public.zentrip_rls_partner_id()
+            )
+        )
+    );
+DROP POLICY IF EXISTS zentrip_users_admin ON public.users;
+CREATE POLICY zentrip_users_admin
+    ON public.users FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+-- Per-user application tables.
+DROP POLICY IF EXISTS ai_chat_messages_owner_all ON public.ai_chat_messages;
+DROP POLICY IF EXISTS zentrip_ai_chat_owner ON public.ai_chat_messages;
+CREATE POLICY zentrip_ai_chat_owner
+    ON public.ai_chat_messages FOR ALL TO zentrip_api_runtime, authenticated
+    USING (user_id = public.zentrip_rls_user_id())
+    WITH CHECK (user_id = public.zentrip_rls_user_id());
+
+DROP POLICY IF EXISTS zentrip_api_tokens_owner ON public.api_tokens;
+CREATE POLICY zentrip_api_tokens_owner
+    ON public.api_tokens FOR ALL TO zentrip_api_runtime
+    USING (user_id = public.zentrip_rls_user_id())
+    WITH CHECK (user_id = public.zentrip_rls_user_id());
+
+DROP POLICY IF EXISTS flight_seat_holds_owner_read ON public.flight_seat_holds;
+DROP POLICY IF EXISTS zentrip_flight_seat_holds_customer ON public.flight_seat_holds;
+CREATE POLICY zentrip_flight_seat_holds_customer
+    ON public.flight_seat_holds FOR ALL TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    );
+DROP POLICY IF EXISTS zentrip_flight_seat_holds_admin ON public.flight_seat_holds;
+CREATE POLICY zentrip_flight_seat_holds_admin
+    ON public.flight_seat_holds FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+DROP POLICY IF EXISTS zentrip_airports_public_runtime ON public.airports;
+CREATE POLICY zentrip_airports_public_runtime
+    ON public.airports FOR SELECT TO zentrip_api_runtime USING (TRUE);
+DROP POLICY IF EXISTS zentrip_catalog_metadata_public_runtime ON public.offer_catalog_metadata;
+CREATE POLICY zentrip_catalog_metadata_public_runtime
+    ON public.offer_catalog_metadata FOR SELECT TO zentrip_api_runtime USING (TRUE);
+DROP POLICY IF EXISTS zentrip_offers_public_runtime ON public.offers;
+CREATE POLICY zentrip_offers_public_runtime
+    ON public.offers FOR SELECT TO zentrip_api_runtime USING (is_active = TRUE);
+DROP POLICY IF EXISTS zentrip_offers_admin ON public.offers;
+CREATE POLICY zentrip_offers_admin
+    ON public.offers FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+DROP POLICY IF EXISTS zentrip_monuments_public_runtime ON public.tourist_monuments;
+CREATE POLICY zentrip_monuments_public_runtime
+    ON public.tourist_monuments FOR SELECT TO zentrip_api_runtime
+    USING (is_active = TRUE);
+DROP POLICY IF EXISTS zentrip_monuments_admin ON public.tourist_monuments;
+CREATE POLICY zentrip_monuments_admin
+    ON public.tourist_monuments FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+DROP POLICY IF EXISTS travel_preferences_owner_all ON public.travel_preferences;
+DROP POLICY IF EXISTS zentrip_travel_preferences_owner ON public.travel_preferences;
+CREATE POLICY zentrip_travel_preferences_owner
+    ON public.travel_preferences FOR ALL TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    );
+DROP POLICY IF EXISTS zentrip_travel_preferences_admin ON public.travel_preferences;
+CREATE POLICY zentrip_travel_preferences_admin
+    ON public.travel_preferences FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+DROP POLICY IF EXISTS user_profiles_owner_all ON public.user_profiles;
+DROP POLICY IF EXISTS zentrip_user_profiles_owner ON public.user_profiles;
+CREATE POLICY zentrip_user_profiles_owner
+    ON public.user_profiles FOR ALL TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    );
+DROP POLICY IF EXISTS zentrip_user_profiles_admin ON public.user_profiles;
+CREATE POLICY zentrip_user_profiles_admin
+    ON public.user_profiles FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+DROP POLICY IF EXISTS transfer_schedules_owner_all ON public.transfer_schedules;
+DROP POLICY IF EXISTS zentrip_transfer_schedules_customer ON public.transfer_schedules;
+CREATE POLICY zentrip_transfer_schedules_customer
+    ON public.transfer_schedules FOR ALL TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'customer'
+        AND EXISTS (
+            SELECT 1 FROM public.transfers t
+            WHERE t.id = transfer_schedules.transfer_id
+              AND t.user_id = public.zentrip_rls_user_id()
+        )
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'customer'
+        AND EXISTS (
+            SELECT 1 FROM public.transfers t
+            WHERE t.id = transfer_schedules.transfer_id
+              AND t.user_id = public.zentrip_rls_user_id()
+        )
+    );
+DROP POLICY IF EXISTS zentrip_transfer_schedules_admin ON public.transfer_schedules;
+CREATE POLICY zentrip_transfer_schedules_admin
+    ON public.transfer_schedules FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+DROP POLICY IF EXISTS user_reviews_owner_write ON public.user_reviews;
+DROP POLICY IF EXISTS zentrip_user_reviews_public_runtime ON public.user_reviews;
+CREATE POLICY zentrip_user_reviews_public_runtime
+    ON public.user_reviews FOR SELECT TO zentrip_api_runtime USING (TRUE);
+DROP POLICY IF EXISTS zentrip_user_reviews_customer ON public.user_reviews;
+CREATE POLICY zentrip_user_reviews_customer
+    ON public.user_reviews FOR ALL TO zentrip_api_runtime, authenticated
+    USING (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'customer'
+        AND user_id = public.zentrip_rls_user_id()
+    );
+DROP POLICY IF EXISTS zentrip_user_reviews_admin ON public.user_reviews;
+CREATE POLICY zentrip_user_reviews_admin
+    ON public.user_reviews FOR ALL TO zentrip_api_runtime, authenticated
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261101_role_access_rls', 'role_access_rls')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
+
+-- Ensure owner role reads used by the API are constrained even with legacy direct Supabase users.
+
+
+-- ---------------------------------------------------------------------
+-- 20261102_landmark_catalog.sql
+-- ---------------------------------------------------------------------
+-- Additive worldwide landmark cache. Existing tourist_monuments data is untouched.
+-- Run against the target Supabase database deliberately before enabling the catalog.
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zentrip_api_runtime')
+       OR to_regprocedure('public.zentrip_rls_user_id()') IS NULL
+       OR to_regprocedure('public.zentrip_rls_role()') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261102_landmark_catalog requires 20261101_role_access_rls and its zentrip_api_runtime role/helpers';
+    END IF;
+END
+$$;
+
+CREATE TABLE IF NOT EXISTS public.landmark_places (
+    id UUID PRIMARY KEY,
+    canonical_place_id UUID NULL REFERENCES public.landmark_places(id) ON DELETE RESTRICT,
+    provider VARCHAR(40) NOT NULL,
+    provider_place_id VARCHAR(100) NOT NULL,
+    wikidata_id VARCHAR(40) NULL,
+    latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude DOUBLE PRECISION NOT NULL CHECK (longitude BETWEEN -180 AND 180),
+    category VARCHAR(100) NOT NULL DEFAULT 'landmark',
+    rate SMALLINT NOT NULL DEFAULT 0 CHECK (rate BETWEEN 0 AND 3),
+    city VARCHAR(255) NOT NULL DEFAULT '',
+    country VARCHAR(255) NOT NULL DEFAULT '',
+    image_url TEXT NOT NULL DEFAULT '',
+    names JSONB NOT NULL DEFAULT '{}'::jsonb,
+    descriptions JSONB NOT NULL DEFAULT '{}'::jsonb,
+    payload JSONB NOT NULL,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT landmark_places_not_self_canonical
+        CHECK (canonical_place_id IS NULL OR canonical_place_id <> id),
+    CONSTRAINT landmark_places_provider_identity
+        UNIQUE (provider, provider_place_id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS landmark_places_wikidata_root_unique
+    ON public.landmark_places (wikidata_id)
+    WHERE wikidata_id IS NOT NULL AND canonical_place_id IS NULL;
+CREATE INDEX IF NOT EXISTS landmark_places_coordinates_index
+    ON public.landmark_places (latitude, longitude);
+CREATE INDEX IF NOT EXISTS landmark_places_city_country_index
+    ON public.landmark_places (LOWER(country), LOWER(city));
+CREATE INDEX IF NOT EXISTS landmark_places_category_rate_index
+    ON public.landmark_places (category, rate DESC);
+CREATE INDEX IF NOT EXISTS landmark_places_canonical_index
+    ON public.landmark_places (canonical_place_id)
+    WHERE canonical_place_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS public.landmark_place_aliases (
+    id BIGSERIAL PRIMARY KEY,
+    canonical_place_id UUID NOT NULL
+        REFERENCES public.landmark_places(id) ON DELETE CASCADE,
+    alias_name VARCHAR(500) NOT NULL,
+    normalized_name VARCHAR(500) NOT NULL,
+    language VARCHAR(16) NOT NULL DEFAULT 'en',
+    source VARCHAR(40) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT landmark_place_alias_unique
+        UNIQUE (canonical_place_id, normalized_name, language, source)
+);
+CREATE INDEX IF NOT EXISTS landmark_place_alias_name_index
+    ON public.landmark_place_aliases (normalized_name text_pattern_ops);
+
+CREATE TABLE IF NOT EXISTS public.landmark_search_areas (
+    cache_key VARCHAR(64) PRIMARY KEY,
+    area_kind VARCHAR(40) NOT NULL,
+    query_text VARCHAR(500) NOT NULL DEFAULT '',
+    language VARCHAR(16) NOT NULL DEFAULT 'en',
+    south DOUBLE PRECISION NULL,
+    west DOUBLE PRECISION NULL,
+    north DOUBLE PRECISION NULL,
+    east DOUBLE PRECISION NULL,
+    request_payload JSONB NOT NULL,
+    response_payload JSONB NOT NULL,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    CONSTRAINT landmark_search_areas_valid_bounds
+        CHECK (south IS NULL OR north IS NULL OR south <= north)
+);
+CREATE INDEX IF NOT EXISTS landmark_search_areas_expiry_index
+    ON public.landmark_search_areas (expires_at);
+CREATE INDEX IF NOT EXISTS landmark_search_areas_bounds_index
+    ON public.landmark_search_areas (south, west, north, east);
+
+CREATE TABLE IF NOT EXISTS public.landmark_merge_candidates (
+    id UUID PRIMARY KEY,
+    left_place_id UUID NOT NULL
+        REFERENCES public.landmark_places(id) ON DELETE CASCADE,
+    right_place_id UUID NOT NULL
+        REFERENCES public.landmark_places(id) ON DELETE CASCADE,
+    distance_meters DOUBLE PRECISION NOT NULL CHECK (distance_meters >= 0),
+    confidence NUMERIC(4,3) NULL CHECK (confidence BETWEEN 0 AND 1),
+    evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'merged', 'separate', 'rejected')),
+    reviewed_at TIMESTAMPTZ NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT landmark_merge_pair_order CHECK (left_place_id < right_place_id),
+    CONSTRAINT landmark_merge_pair_unique UNIQUE (left_place_id, right_place_id)
+);
+CREATE INDEX IF NOT EXISTS landmark_merge_candidates_status_index
+    ON public.landmark_merge_candidates (status, created_at);
+
+ALTER TABLE public.landmark_places ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.landmark_place_aliases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.landmark_search_areas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.landmark_merge_candidates ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.landmark_places, public.landmark_place_aliases,
+    public.landmark_search_areas, public.landmark_merge_candidates
+    FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.landmark_places TO zentrip_api_runtime;
+GRANT SELECT, INSERT, UPDATE ON public.landmark_place_aliases TO zentrip_api_runtime;
+GRANT SELECT, INSERT, UPDATE ON public.landmark_search_areas TO zentrip_api_runtime;
+GRANT SELECT, INSERT, UPDATE ON public.landmark_merge_candidates TO zentrip_api_runtime;
+GRANT USAGE, SELECT ON SEQUENCE public.landmark_place_aliases_id_seq
+    TO zentrip_api_runtime;
+
+DROP POLICY IF EXISTS zentrip_landmark_places_runtime ON public.landmark_places;
+DROP POLICY IF EXISTS zentrip_landmark_aliases_runtime ON public.landmark_place_aliases;
+DROP POLICY IF EXISTS zentrip_landmark_search_areas_runtime ON public.landmark_search_areas;
+DROP POLICY IF EXISTS zentrip_landmark_merge_candidates_runtime ON public.landmark_merge_candidates;
+
+CREATE POLICY zentrip_landmark_places_runtime
+    ON public.landmark_places FOR ALL TO zentrip_api_runtime
+    USING (TRUE) WITH CHECK (TRUE);
+DROP POLICY IF EXISTS zentrip_landmark_aliases_runtime ON public.landmark_place_aliases;
+CREATE POLICY zentrip_landmark_aliases_runtime
+    ON public.landmark_place_aliases FOR ALL TO zentrip_api_runtime
+    USING (TRUE) WITH CHECK (TRUE);
+DROP POLICY IF EXISTS zentrip_landmark_search_areas_runtime ON public.landmark_search_areas;
+CREATE POLICY zentrip_landmark_search_areas_runtime
+    ON public.landmark_search_areas FOR ALL TO zentrip_api_runtime
+    USING (TRUE) WITH CHECK (TRUE);
+DROP POLICY IF EXISTS zentrip_landmark_merge_candidates_runtime ON public.landmark_merge_candidates;
+CREATE POLICY zentrip_landmark_merge_candidates_runtime
+    ON public.landmark_merge_candidates FOR ALL TO zentrip_api_runtime
+    USING (TRUE) WITH CHECK (TRUE);
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261102_landmark_catalog', 'landmark_catalog')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
+
+
+-- ---------------------------------------------------------------------
+-- 20261103_hotel_destination_catalog.sql
+-- ---------------------------------------------------------------------
+-- Additive local destination catalog for hotel search autocomplete.
+-- Existing hotel listings and booking records are unchanged.
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zentrip_api_runtime')
+       OR to_regprocedure('public.zentrip_rls_user_id()') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261103_hotel_destination_catalog requires 20261101_role_access_rls and its zentrip_api_runtime role/helpers';
+    END IF;
+END
+$$;
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TABLE IF NOT EXISTS public.hotel_destinations (
+    destination_type VARCHAR(16) NOT NULL
+        CHECK (destination_type IN ('city', 'zone', 'country')),
+    destination_code VARCHAR(32) NOT NULL,
+    parent_code VARCHAR(32) NOT NULL DEFAULT '',
+    name_en VARCHAR(255) NOT NULL DEFAULT '',
+    name_ar VARCHAR(255) NOT NULL DEFAULT '',
+    country_code VARCHAR(3) NOT NULL DEFAULT '',
+    country_name_en VARCHAR(255) NOT NULL DEFAULT '',
+    country_name_ar VARCHAR(255) NOT NULL DEFAULT '',
+    latitude DOUBLE PRECISION NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude DOUBLE PRECISION NULL CHECK (longitude BETWEEN -180 AND 180),
+    search_text TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (destination_type, destination_code, parent_code)
+);
+
+CREATE INDEX IF NOT EXISTS hotel_destinations_search_trgm_index
+    ON public.hotel_destinations USING GIN (search_text gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS hotel_destinations_type_name_index
+    ON public.hotel_destinations (destination_type, LOWER(name_en));
+CREATE INDEX IF NOT EXISTS hotel_destinations_updated_at_index
+    ON public.hotel_destinations (updated_at DESC);
+
+ALTER TABLE public.hotel_destinations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.hotel_destinations FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.hotel_destinations
+    TO zentrip_api_runtime;
+
+DROP POLICY IF EXISTS hotel_destinations_public_read
+    ON public.hotel_destinations;
+
+DROP POLICY IF EXISTS hotel_destinations_runtime_manage
+    ON public.hotel_destinations;
+DROP POLICY IF EXISTS hotel_destinations_runtime_manage ON public.hotel_destinations;
+CREATE POLICY hotel_destinations_runtime_manage
+    ON public.hotel_destinations FOR ALL TO zentrip_api_runtime
+    USING (TRUE)
+    WITH CHECK (TRUE);
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261103_hotel_destination_catalog', 'hotel_destination_catalog')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
+
+
+-- ---------------------------------------------------------------------
+-- 20261104_core_data_rls.sql
+-- ---------------------------------------------------------------------
+-- Enable the row policies for all application tables after the full schema
+-- and feature-migration chain has been applied.
+-- The application uses zentrip_api_runtime for request-time database work.
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR to_regclass('public.users') IS NULL
+       OR to_regclass('public.partners') IS NULL
+       OR to_regclass('public.tourist_monuments') IS NULL
+       OR to_regclass('public.attraction_visit_counts') IS NULL
+       OR to_regclass('public.attraction_visit_dedup') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zentrip_api_runtime')
+       OR to_regprocedure('public.zentrip_rls_role()') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261104_core_data_rls requires users, partners, tourist_monuments, both attraction visit tables, and zentrip_api_runtime; apply the base schema and role migration first';
+    END IF;
+END
+$$;
+
+-- These values are populated by RlsContextFilter from the verified session.
+-- Do not derive application roles from a client-supplied claim or from a
+-- Supabase auth_user_id column; this project uses its own users/api_tokens.
+CREATE OR REPLACE FUNCTION public.zentrip_rls_user_id()
+RETURNS BIGINT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT NULLIF(current_setting('app.user_id', TRUE), '')::BIGINT
+$$;
+
+CREATE OR REPLACE FUNCTION public.zentrip_rls_role()
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT COALESCE(NULLIF(current_setting('app.auth_role', TRUE), ''), 'anonymous')
+$$;
+
+CREATE OR REPLACE FUNCTION public.zentrip_rls_partner_id()
+RETURNS BIGINT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+    SELECT NULLIF(current_setting('app.partner_id', TRUE), '')::BIGINT
+$$;
+
+GRANT EXECUTE ON FUNCTION public.zentrip_rls_user_id()
+    TO zentrip_api_runtime, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.zentrip_rls_role()
+    TO zentrip_api_runtime, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.zentrip_rls_partner_id()
+    TO zentrip_api_runtime, anon, authenticated;
+
+-- Inventory changes go through this narrow SECURITY DEFINER function instead
+-- of granting customers UPDATE access to every column of public listings.
+CREATE OR REPLACE FUNCTION public.zentrip_adjust_listing_inventory(
+    p_listing_id BIGINT,
+    p_inventory_kind TEXT,
+    p_amount INTEGER,
+    p_restore BOOLEAN
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    IF p_listing_id IS NULL OR p_amount IS NULL OR p_amount < 1 OR p_amount > 10000
+       OR p_inventory_kind IS NULL
+       OR p_inventory_kind NOT IN ('hotel_rooms', 'car_vehicles', 'flight_seats')
+       OR public.zentrip_rls_role() NOT IN ('customer', 'admin')
+       OR (public.zentrip_rls_role() = 'customer'
+           AND public.zentrip_rls_user_id() IS NULL) THEN
+        RETURN FALSE;
+    END IF;
+
+    IF p_inventory_kind = 'hotel_rooms' AND p_restore THEN
+        UPDATE public.partner_listings
+        SET attributes = jsonb_set(
+                COALESCE(attributes, '{}'::jsonb),
+                '{available_rooms}',
+                to_jsonb(available_rooms + p_amount),
+                TRUE),
+            available_rooms = available_rooms + p_amount,
+            updated_at = NOW()
+        WHERE id = p_listing_id AND type = 'hotel';
+    ELSIF p_inventory_kind = 'hotel_rooms' THEN
+        UPDATE public.partner_listings
+        SET attributes = jsonb_set(
+                COALESCE(attributes, '{}'::jsonb),
+                '{available_rooms}',
+                to_jsonb(available_rooms - p_amount),
+                TRUE),
+            available_rooms = available_rooms - p_amount,
+            updated_at = NOW()
+        WHERE id = p_listing_id
+          AND type = 'hotel'
+          AND active = TRUE
+          AND available_rooms >= p_amount
+          AND EXISTS (
+              SELECT 1 FROM public.partners p
+              WHERE p.id = partner_listings.partner_id
+                AND LOWER(p.status) = 'active'
+          );
+    ELSIF p_inventory_kind = 'car_vehicles' AND p_restore THEN
+        UPDATE public.partner_listings
+        SET attributes = jsonb_set(
+                COALESCE(attributes, '{}'::jsonb),
+                '{available_vehicles}',
+                to_jsonb(COALESCE((attributes ->> 'available_vehicles')::INTEGER, 0) + p_amount),
+                TRUE),
+            updated_at = NOW()
+        WHERE id = p_listing_id AND type = 'car';
+    ELSIF p_inventory_kind = 'car_vehicles' THEN
+        UPDATE public.partner_listings
+        SET attributes = jsonb_set(
+                COALESCE(attributes, '{}'::jsonb),
+                '{available_vehicles}',
+                to_jsonb(COALESCE((attributes ->> 'available_vehicles')::INTEGER, 1) - p_amount),
+                TRUE),
+            updated_at = NOW()
+        WHERE id = p_listing_id
+          AND type = 'car'
+          AND active = TRUE
+          AND COALESCE((attributes ->> 'available_vehicles')::INTEGER, 1) >= p_amount
+          AND EXISTS (
+              SELECT 1 FROM public.partners p
+              WHERE p.id = partner_listings.partner_id
+                AND LOWER(p.status) = 'active'
+          );
+    ELSIF p_inventory_kind = 'flight_seats' AND p_restore THEN
+        UPDATE public.partner_listings
+        SET attributes = jsonb_set(
+                COALESCE(attributes, '{}'::jsonb),
+                '{seats_available}',
+                to_jsonb(COALESCE((attributes ->> 'seats_available')::INTEGER, 0) + p_amount),
+                TRUE),
+            updated_at = NOW()
+        WHERE id = p_listing_id AND type = 'flight';
+    ELSE
+        UPDATE public.partner_listings
+        SET attributes = jsonb_set(
+                COALESCE(attributes, '{}'::jsonb),
+                '{seats_available}',
+                to_jsonb(COALESCE((attributes ->> 'seats_available')::INTEGER, 0) - p_amount),
+                TRUE),
+            updated_at = NOW()
+        WHERE id = p_listing_id
+          AND type = 'flight'
+          AND active = TRUE
+          AND COALESCE((attributes ->> 'seats_available')::INTEGER, 0) >= p_amount
+          AND EXISTS (
+              SELECT 1 FROM public.partners p
+              WHERE p.id = partner_listings.partner_id
+                AND LOWER(p.status) = 'active'
+          );
+    END IF;
+
+    RETURN FOUND;
+END
+$$;
+
+REVOKE ALL ON FUNCTION public.zentrip_adjust_listing_inventory(BIGINT, TEXT, INTEGER, BOOLEAN)
+    FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.zentrip_adjust_listing_inventory(BIGINT, TEXT, INTEGER, BOOLEAN)
+    TO zentrip_api_runtime;
+
+-- Seat reservations need one serialization point without customer UPDATE
+-- permissions on the listing row. The row lock remains held by the request
+-- transaction while the application creates its seat holds.
+CREATE OR REPLACE FUNCTION public.zentrip_lock_flight_listing(p_listing_id BIGINT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    IF public.zentrip_rls_role() NOT IN ('customer', 'admin')
+       OR (public.zentrip_rls_role() = 'customer'
+           AND public.zentrip_rls_user_id() IS NULL) THEN
+        RETURN FALSE;
+    END IF;
+
+    PERFORM l.id
+    FROM public.partner_listings l
+    JOIN public.partners p ON p.id = l.partner_id
+    WHERE l.id = p_listing_id
+      AND l.type = 'flight'
+      AND l.active = TRUE
+      AND LOWER(p.status) = 'active'
+    FOR UPDATE OF l;
+    RETURN FOUND;
+END
+$$;
+
+REVOKE ALL ON FUNCTION public.zentrip_lock_flight_listing(BIGINT)
+    FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.zentrip_lock_flight_listing(BIGINT)
+    TO zentrip_api_runtime;
+
+CREATE TABLE IF NOT EXISTS public.legacy_attraction_partner_reviews (
+    id BIGSERIAL PRIMARY KEY,
+    partner_id BIGINT NOT NULL UNIQUE
+        REFERENCES public.partners(id) ON DELETE RESTRICT,
+    reviewed_by BIGINT NOT NULL
+        REFERENCES public.users(id) ON DELETE RESTRICT,
+    approved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    decisions JSONB NOT NULL,
+    mapped_listing_count INTEGER NOT NULL DEFAULT 0
+        CHECK (mapped_listing_count >= 0),
+    omitted_listing_count INTEGER NOT NULL DEFAULT 0
+        CHECK (omitted_listing_count >= 0)
+);
+CREATE INDEX IF NOT EXISTS legacy_attraction_reviews_reviewed_by_index
+    ON public.legacy_attraction_partner_reviews (reviewed_by);
+ALTER TABLE public.legacy_attraction_partner_reviews ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.legacy_attraction_partner_reviews
+    FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE
+    ON public.legacy_attraction_partner_reviews TO zentrip_api_runtime;
+GRANT USAGE, SELECT ON SEQUENCE public.legacy_attraction_partner_reviews_id_seq
+    TO zentrip_api_runtime;
+
+DO $$
+DECLARE
+    table_name TEXT;
+    core_tables TEXT[] := ARRAY[
+        'partners',
+        'users',
+        'password_reset_codes',
+        'partner_listings',
+        'airports',
+        'user_reviews',
+        'user_profiles',
+        'ai_chat_messages',
+        'travel_preferences',
+        'tourist_monuments',
+        'legacy_attraction_partner_reviews',
+        'attraction_visit_counts',
+        'attraction_visit_dedup',
+        'offers',
+        'offer_catalog_metadata',
+        'trips',
+        'flight_seat_holds',
+        'bookings',
+        'transfers',
+        'transfer_schedules',
+        'api_tokens',
+        'hotel_destinations',
+        'landmark_places',
+        'landmark_place_aliases',
+        'landmark_search_areas',
+        'landmark_merge_candidates'
+    ];
+BEGIN
+    FOREACH table_name IN ARRAY core_tables LOOP
+        IF to_regclass('public.' || quote_ident(table_name)) IS NOT NULL THEN
+            EXECUTE format(
+                'ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',
+                table_name
+            );
+        END IF;
+    END LOOP;
+END
+$$;
+
+-- The aggregate counters must only be reached through the rate-limited API
+-- running as the non-bypass runtime role.
+REVOKE ALL ON public.attraction_visit_counts, public.attraction_visit_dedup
+    FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE
+    ON public.attraction_visit_counts, public.attraction_visit_dedup
+    TO zentrip_api_runtime;
+
+-- Public auth flows may look up only the email currently being processed.
+-- The API sets this transaction-local value after validating the request.
+DROP POLICY IF EXISTS zentrip_users_auth_email_lookup ON public.users;
+CREATE POLICY zentrip_users_auth_email_lookup
+    ON public.users FOR SELECT TO zentrip_api_runtime
+    USING (
+        public.zentrip_rls_role() = 'anonymous'
+        AND LOWER(email) = LOWER(NULLIF(current_setting('app.auth_email', TRUE), ''))
+    );
+
+DROP POLICY IF EXISTS zentrip_users_registration_insert ON public.users;
+CREATE POLICY zentrip_users_registration_insert
+    ON public.users FOR INSERT TO zentrip_api_runtime
+    WITH CHECK (
+        public.zentrip_rls_role() = 'anonymous'
+        AND role = 'customer'
+        AND partner_id IS NULL
+        AND LOWER(email) = LOWER(NULLIF(current_setting('app.auth_email', TRUE), ''))
+    );
+
+DROP POLICY IF EXISTS zentrip_users_password_reset_update ON public.users;
+CREATE POLICY zentrip_users_password_reset_update
+    ON public.users FOR UPDATE TO zentrip_api_runtime
+    USING (
+        public.zentrip_rls_role() = 'password_reset'
+        AND id = public.zentrip_rls_user_id()
+        AND LOWER(email) = LOWER(NULLIF(current_setting('app.auth_email', TRUE), ''))
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() = 'password_reset'
+        AND id = public.zentrip_rls_user_id()
+        AND LOWER(email) = LOWER(NULLIF(current_setting('app.auth_email', TRUE), ''))
+        AND role IN ('admin', 'partner', 'customer')
+    );
+
+-- Password-reset rows are private to the one email handled in this request.
+DROP POLICY IF EXISTS zentrip_password_reset_codes_email ON public.password_reset_codes;
+CREATE POLICY zentrip_password_reset_codes_email
+    ON public.password_reset_codes FOR ALL TO zentrip_api_runtime
+    USING (
+        public.zentrip_rls_role() IN ('anonymous', 'password_reset')
+        AND LOWER(email) = LOWER(NULLIF(current_setting('app.auth_email', TRUE), ''))
+    )
+    WITH CHECK (
+        public.zentrip_rls_role() IN ('anonymous', 'password_reset')
+        AND LOWER(email) = LOWER(NULLIF(current_setting('app.auth_email', TRUE), ''))
+    );
+
+-- Minted sessions are inserted only after the controller has authenticated
+-- the user and set the verified user ID and database-derived role.
+DROP POLICY IF EXISTS zentrip_api_tokens_authenticated_insert ON public.api_tokens;
+CREATE POLICY zentrip_api_tokens_authenticated_insert
+    ON public.api_tokens FOR INSERT TO zentrip_api_runtime
+    WITH CHECK (
+        user_id = public.zentrip_rls_user_id()
+        AND public.zentrip_rls_role() IN ('admin', 'partner', 'customer')
+    );
+
+-- A partner may read schedule rows only for its own partner-linked transfers.
+DROP POLICY IF EXISTS zentrip_transfer_schedules_partner_read
+    ON public.transfer_schedules;
+DROP POLICY IF EXISTS zentrip_transfer_schedules_partner_read ON public.transfer_schedules;
+CREATE POLICY zentrip_transfer_schedules_partner_read
+    ON public.transfer_schedules FOR SELECT TO zentrip_api_runtime
+    USING (
+        public.zentrip_rls_role() = 'partner'
+        AND EXISTS (
+            SELECT 1
+            FROM public.transfers t
+            JOIN public.partner_listings l ON l.id = t.partner_listing_id
+            WHERE t.id = transfer_schedules.transfer_id
+              AND t.partner_id = public.zentrip_rls_partner_id()
+              AND l.partner_id = public.zentrip_rls_partner_id()
+        )
+    );
+
+-- Authenticated partners may read their own avatar in /auth/me, but cannot
+-- edit customer profile data through this policy.
+DROP POLICY IF EXISTS zentrip_user_profiles_partner_self_read
+    ON public.user_profiles;
+DROP POLICY IF EXISTS zentrip_user_profiles_partner_self_read ON public.user_profiles;
+CREATE POLICY zentrip_user_profiles_partner_self_read
+    ON public.user_profiles FOR SELECT TO zentrip_api_runtime
+    USING (
+        public.zentrip_rls_role() = 'partner'
+        AND user_id = public.zentrip_rls_user_id()
+    );
+
+-- Internal aggregate counters are written only through the rate-limited visit
+-- endpoint and read by attraction/admin handlers. They contain no raw IP data.
+DROP POLICY IF EXISTS zentrip_attraction_visit_counts_runtime
+    ON public.attraction_visit_counts;
+DROP POLICY IF EXISTS zentrip_attraction_visit_counts_runtime ON public.attraction_visit_counts;
+CREATE POLICY zentrip_attraction_visit_counts_runtime
+    ON public.attraction_visit_counts FOR ALL TO zentrip_api_runtime
+    USING (public.zentrip_rls_role() IN ('anonymous', 'customer', 'admin'))
+    WITH CHECK (public.zentrip_rls_role() IN ('anonymous', 'customer', 'admin'));
+
+DROP POLICY IF EXISTS zentrip_attraction_visit_dedup_runtime
+    ON public.attraction_visit_dedup;
+DROP POLICY IF EXISTS zentrip_attraction_visit_dedup_runtime ON public.attraction_visit_dedup;
+CREATE POLICY zentrip_attraction_visit_dedup_runtime
+    ON public.attraction_visit_dedup FOR ALL TO zentrip_api_runtime
+    USING (public.zentrip_rls_role() IN ('anonymous', 'customer', 'admin'))
+    WITH CHECK (public.zentrip_rls_role() IN ('anonymous', 'customer', 'admin'));
+
+-- Legacy attraction review records are an admin-only moderation surface.
+DROP POLICY IF EXISTS zentrip_legacy_attraction_reviews_admin
+    ON public.legacy_attraction_partner_reviews;
+DROP POLICY IF EXISTS zentrip_legacy_attraction_reviews_admin ON public.legacy_attraction_partner_reviews;
+CREATE POLICY zentrip_legacy_attraction_reviews_admin
+    ON public.legacy_attraction_partner_reviews FOR ALL TO zentrip_api_runtime
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261104_core_data_rls', 'core_data_rls')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
+
+
+
+-- ---------------------------------------------------------------------
+-- 20261104_payment_attempts.sql
+-- ---------------------------------------------------------------------
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR to_regclass('public.users') IS NULL
+       OR to_regclass('public.bookings') IS NULL
+       OR to_regclass('public.trips') IS NULL
+       OR to_regclass('public.transfers') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zentrip_api_runtime')
+       OR to_regprocedure('public.zentrip_rls_user_id()') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261104_payment_attempts requires users, bookings, trips, transfers, and the 20261101_role_access_rls runtime role/helpers';
+    END IF;
+END
+$$;
+
+CREATE TABLE IF NOT EXISTS public.payment_attempts (
+    id BIGSERIAL PRIMARY KEY,
+    session_id VARCHAR(128) NOT NULL UNIQUE,
+    booking_id BIGINT NULL UNIQUE
+        REFERENCES public.bookings(id) ON DELETE SET NULL,
+    trip_id BIGINT NULL UNIQUE
+        REFERENCES public.trips(id) ON DELETE SET NULL,
+    transfer_id BIGINT NULL UNIQUE
+        REFERENCES public.transfers(id) ON DELETE SET NULL,
+    user_id BIGINT NOT NULL
+        REFERENCES public.users(id) ON DELETE CASCADE,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
+    currency CHAR(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+    status VARCHAR(10) NOT NULL CHECK (status IN ('success', 'failed')),
+    is_simulation BOOLEAN NOT NULL DEFAULT TRUE CHECK (is_simulation = TRUE),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT payment_attempts_single_booking_link
+        CHECK (num_nonnulls(booking_id, trip_id, transfer_id) <= 1)
+);
+
+CREATE INDEX IF NOT EXISTS payment_attempts_user_created_index
+    ON public.payment_attempts (user_id, created_at DESC);
+
+ALTER TABLE public.payment_attempts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.payment_attempts FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.payment_attempts TO zentrip_api_runtime;
+GRANT USAGE, SELECT ON SEQUENCE public.payment_attempts_id_seq
+    TO zentrip_api_runtime;
+
+DROP POLICY IF EXISTS zentrip_payment_attempts_owner
+    ON public.payment_attempts;
+DROP POLICY IF EXISTS zentrip_payment_attempts_owner ON public.payment_attempts;
+CREATE POLICY zentrip_payment_attempts_owner
+    ON public.payment_attempts FOR ALL TO zentrip_api_runtime
+    USING (user_id = public.zentrip_rls_user_id())
+    WITH CHECK (user_id = public.zentrip_rls_user_id());
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261104_payment_attempts', 'payment_attempts')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
+
+
+-- ---------------------------------------------------------------------
+-- 20261105_user_push_tokens.sql
+-- ---------------------------------------------------------------------
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR to_regclass('public.users') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zentrip_api_runtime')
+       OR to_regprocedure('public.zentrip_rls_user_id()') IS NULL
+       OR to_regprocedure('public.zentrip_rls_role()') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261105_user_push_tokens requires users and the 20261101_role_access_rls runtime role/helpers';
+    END IF;
+END
+$$;
+
+CREATE TABLE IF NOT EXISTS public.user_push_tokens (
+    token TEXT PRIMARY KEY
+        CHECK (length(btrim(token)) BETWEEN 1 AND 4096),
+    user_id BIGINT NOT NULL
+        REFERENCES public.users(id) ON DELETE CASCADE,
+    platform TEXT NOT NULL
+        CHECK (platform IN ('android', 'ios', 'web')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS user_push_tokens_user_id_index
+    ON public.user_push_tokens (user_id);
+
+ALTER TABLE public.user_push_tokens ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS user_push_tokens_owner_read
+    ON public.user_push_tokens;
+DROP POLICY IF EXISTS user_push_tokens_owner_read ON public.user_push_tokens;
+CREATE POLICY user_push_tokens_owner_read
+    ON public.user_push_tokens
+    FOR SELECT TO zentrip_api_runtime
+    USING (user_id = public.zentrip_rls_user_id());
+
+DROP POLICY IF EXISTS user_push_tokens_owner_delete
+    ON public.user_push_tokens;
+DROP POLICY IF EXISTS user_push_tokens_owner_delete ON public.user_push_tokens;
+CREATE POLICY user_push_tokens_owner_delete
+    ON public.user_push_tokens
+    FOR DELETE TO zentrip_api_runtime
+    USING (user_id = public.zentrip_rls_user_id());
+
+CREATE OR REPLACE FUNCTION public.zentrip_register_user_push_token(
+    p_token TEXT,
+    p_platform TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_user_id BIGINT := public.zentrip_rls_user_id();
+BEGIN
+    IF v_user_id IS NULL
+       OR public.zentrip_rls_role() NOT IN ('admin', 'partner', 'customer')
+       OR p_token IS NULL
+       OR p_token <> btrim(p_token)
+       OR length(p_token) NOT BETWEEN 1 AND 4096
+       OR p_platform IS NULL
+       OR p_platform NOT IN ('android', 'ios', 'web') THEN
+        RETURN FALSE;
+    END IF;
+
+    INSERT INTO public.user_push_tokens (token, user_id, platform)
+    VALUES (p_token, v_user_id, p_platform)
+    ON CONFLICT (token) DO UPDATE
+        SET user_id = EXCLUDED.user_id,
+            platform = EXCLUDED.platform,
+            last_seen_at = NOW();
+    RETURN TRUE;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.zentrip_register_user_push_token(TEXT, TEXT)
+    FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.zentrip_register_user_push_token(TEXT, TEXT)
+    TO zentrip_api_runtime;
+
+GRANT SELECT, DELETE ON public.user_push_tokens TO zentrip_api_runtime;
+REVOKE ALL ON public.user_push_tokens FROM PUBLIC, anon, authenticated;
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261105_user_push_tokens', 'user_push_tokens')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
+
+
+-- ---------------------------------------------------------------------
+-- 20261107_user_notifications.sql
+-- ---------------------------------------------------------------------
+BEGIN;
+
+DO $$
+BEGIN
+    IF to_regclass('public.schema_migrations') IS NULL
+       OR to_regclass('public.users') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zentrip_api_runtime')
+       OR to_regprocedure('public.zentrip_rls_user_id()') IS NULL
+       OR to_regprocedure('public.zentrip_rls_role()') IS NULL THEN
+        RAISE EXCEPTION 'Migration 20261107_user_notifications requires users and the 20261101_role_access_rls runtime role/helpers';
+    END IF;
+END
+$$;
+
+CREATE TABLE IF NOT EXISTS public.user_notifications (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    event_key TEXT NOT NULL
+        CHECK (length(btrim(event_key)) BETWEEN 1 AND 200),
+    kind TEXT NOT NULL
+        CHECK (kind IN ('booking', 'cancel', 'chat', 'promo', 'reminder')),
+    title_en TEXT NOT NULL CHECK (length(title_en) BETWEEN 1 AND 255),
+    title_ar TEXT NOT NULL CHECK (length(title_ar) BETWEEN 1 AND 255),
+    body_en TEXT NOT NULL CHECK (length(body_en) BETWEEN 1 AND 1000),
+    body_ar TEXT NOT NULL CHECK (length(body_ar) BETWEEN 1 AND 1000),
+    target_type TEXT CHECK (target_type IN ('trip', 'booking')),
+    target_id BIGINT,
+    booking_ref TEXT CHECK (booking_ref IS NULL OR length(booking_ref) <= 120),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    read_at TIMESTAMPTZ,
+    CONSTRAINT user_notifications_event_key_unique UNIQUE (user_id, event_key)
+);
+
+CREATE INDEX IF NOT EXISTS user_notifications_user_created_index
+    ON public.user_notifications (user_id, created_at DESC, id DESC);
+
+ALTER TABLE public.user_notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS user_notifications_owner_read
+    ON public.user_notifications;
+DROP POLICY IF EXISTS user_notifications_owner_read ON public.user_notifications;
+CREATE POLICY user_notifications_owner_read
+    ON public.user_notifications
+    FOR SELECT TO zentrip_api_runtime
+    USING (user_id = public.zentrip_rls_user_id());
+
+DROP POLICY IF EXISTS user_notifications_owner_insert
+    ON public.user_notifications;
+DROP POLICY IF EXISTS user_notifications_owner_insert ON public.user_notifications;
+CREATE POLICY user_notifications_owner_insert
+    ON public.user_notifications
+    FOR INSERT TO zentrip_api_runtime
+    WITH CHECK (user_id = public.zentrip_rls_user_id());
+
+DROP POLICY IF EXISTS user_notifications_owner_update
+    ON public.user_notifications;
+DROP POLICY IF EXISTS user_notifications_owner_update ON public.user_notifications;
+CREATE POLICY user_notifications_owner_update
+    ON public.user_notifications
+    FOR UPDATE TO zentrip_api_runtime
+    USING (user_id = public.zentrip_rls_user_id())
+    WITH CHECK (user_id = public.zentrip_rls_user_id());
+
+GRANT SELECT, INSERT, UPDATE ON public.user_notifications
+    TO zentrip_api_runtime;
+GRANT USAGE, SELECT ON SEQUENCE public.user_notifications_id_seq
+    TO zentrip_api_runtime;
+REVOKE ALL ON public.user_notifications FROM PUBLIC, anon, authenticated;
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261107_user_notifications', 'user_notifications')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
+
+
+-- ---------------------------------------------------------------------
+-- 20261107_offer_flight_link.sql
+-- ---------------------------------------------------------------------
+BEGIN;
+
+ALTER TABLE public.offers
+    ADD COLUMN IF NOT EXISTS flight_listing_id BIGINT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'offers_flight_listing_id_foreign'
+          AND conrelid = 'public.offers'::regclass
+    ) THEN
+        ALTER TABLE public.offers
+            ADD CONSTRAINT offers_flight_listing_id_foreign
+            FOREIGN KEY (flight_listing_id)
+            REFERENCES public.partner_listings(id)
+            ON DELETE SET NULL;
+    END IF;
+END;
+$$;
+
+CREATE INDEX IF NOT EXISTS offers_flight_listing_index
+    ON public.offers (flight_listing_id);
+
+ALTER TABLE public.offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.offer_catalog_metadata ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.offers, public.offer_catalog_metadata
+    FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.offers TO zentrip_api_runtime;
+GRANT SELECT, INSERT, UPDATE ON public.offer_catalog_metadata
+    TO zentrip_api_runtime;
+
+DROP POLICY IF EXISTS offers_public_active_read ON public.offers;
+CREATE POLICY offers_public_active_read
+    ON public.offers FOR SELECT TO zentrip_api_runtime
+    USING (is_active = TRUE);
+
+DROP POLICY IF EXISTS offers_admin_insert ON public.offers;
+CREATE POLICY offers_admin_insert
+    ON public.offers FOR INSERT TO zentrip_api_runtime
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+DROP POLICY IF EXISTS offers_admin_update ON public.offers;
+CREATE POLICY offers_admin_update
+    ON public.offers FOR UPDATE TO zentrip_api_runtime
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+DROP POLICY IF EXISTS offer_catalog_metadata_public_read
+    ON public.offer_catalog_metadata;
+DROP POLICY IF EXISTS offer_catalog_metadata_public_read ON public.offer_catalog_metadata;
+CREATE POLICY offer_catalog_metadata_public_read
+    ON public.offer_catalog_metadata FOR SELECT TO zentrip_api_runtime
+    USING (EXISTS (
+        SELECT 1 FROM public.offers o
+        WHERE o.id = offer_id AND o.is_active = TRUE
+    ));
+
+DROP POLICY IF EXISTS offer_catalog_metadata_admin_write
+    ON public.offer_catalog_metadata;
+DROP POLICY IF EXISTS offer_catalog_metadata_admin_write ON public.offer_catalog_metadata;
+CREATE POLICY offer_catalog_metadata_admin_write
+    ON public.offer_catalog_metadata FOR ALL TO zentrip_api_runtime
+    USING (public.zentrip_rls_role() = 'admin')
+    WITH CHECK (public.zentrip_rls_role() = 'admin');
+
+INSERT INTO public.schema_migrations (version, name)
+VALUES ('20261107_offer_flight_link', 'offer_flight_link')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;
+
+
+-- ---------------------------------------------------------------------
+-- Cleanup of objects the backend never uses
+-- ---------------------------------------------------------------------
+BEGIN;
+
+-- 1) flyway_schema_history: left over from an earlier tool. The project
+--    tracks migrations in public.schema_migrations instead. Drop it only
+--    if it still contains nothing but the single Flyway baseline row.
+DO $$
+BEGIN
+    IF to_regclass('public.flyway_schema_history') IS NULL THEN
+        RAISE NOTICE 'flyway_schema_history is already gone.';
+    ELSIF EXISTS (SELECT 1 FROM public.flyway_schema_history
+                  WHERE type <> 'BASELINE') THEN
+        RAISE NOTICE 'Kept flyway_schema_history (it has real migration history).';
+    ELSE
+        EXECUTE 'DROP TABLE public.flyway_schema_history';
+        RAISE NOTICE 'Dropped flyway_schema_history (baseline only).';
+    END IF;
+END
+$$;
+
+-- 2) Laravel-era columns on users that no backend code uses.
+--    The API issues its own api_tokens and does not track email
+--    verification, so these columns are always NULL or stale.
+ALTER TABLE public.users DROP COLUMN IF EXISTS remember_token;
+-- Uncomment if you are sure you will not add email verification later:
+-- ALTER TABLE public.users DROP COLUMN IF EXISTS email_verified_at;
+
+-- 3) users.auth_user_id (+ FK to auth.users) exists only in production and
+--    is unused by the custom-session API. Check it is empty before dropping:
+--    SELECT COUNT(*) FROM public.users WHERE auth_user_id IS NOT NULL;
+--    If 0 and you will not move to Supabase Auth:
+-- ALTER TABLE public.users DROP COLUMN IF EXISTS auth_user_id;
+
+COMMIT;
+
+-- ---------------------------------------------------------------------
+-- Final check: every row should say OK
+-- ---------------------------------------------------------------------
+WITH checks(sort_order, item, present, fixed_by) AS (
+    VALUES
+    -- Prerequisites created by the one-time role baseline.
+    (1,  'role zentrip_api_runtime',
+         EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zentrip_api_runtime'),
+         '20261101_role_access_rls.sql'),
+    (2,  'function public.zentrip_rls_user_id()',
+         to_regprocedure('public.zentrip_rls_user_id()') IS NOT NULL,
+         '20261101_role_access_rls.sql'),
+    (3,  'function public.zentrip_rls_role()',
+         to_regprocedure('public.zentrip_rls_role()') IS NOT NULL,
+         '20261101_role_access_rls.sql'),
+    (4,  'function public.zentrip_rls_partner_id()',
+         to_regprocedure('public.zentrip_rls_partner_id()') IS NOT NULL,
+         '20261101_role_access_rls.sql'),
+
+    -- Migration ledger.
+    (10, 'table public.schema_migrations',
+         to_regclass('public.schema_migrations') IS NOT NULL,
+         '20261101_schema_migrations.sql'),
+
+    -- Feature tables. When these are missing the API either falls back
+    -- (landmarks, hotel destinations, notifications) or FAILS (payments).
+    (20, 'tables landmark_places / aliases / search_areas / merge_candidates',
+         to_regclass('public.landmark_places') IS NOT NULL
+         AND to_regclass('public.landmark_place_aliases') IS NOT NULL
+         AND to_regclass('public.landmark_search_areas') IS NOT NULL
+         AND to_regclass('public.landmark_merge_candidates') IS NOT NULL,
+         '20261102_landmark_catalog.sql'),
+    (30, 'table public.hotel_destinations',
+         to_regclass('public.hotel_destinations') IS NOT NULL,
+         '20261103_hotel_destination_catalog.sql'),
+    (40, 'table public.legacy_attraction_partner_reviews',
+         to_regclass('public.legacy_attraction_partner_reviews') IS NOT NULL,
+         '20261104_core_data_rls.sql'),
+    (41, 'RLS enabled on attraction_visit_counts',
+         COALESCE((SELECT relrowsecurity FROM pg_class
+                   WHERE oid = to_regclass('public.attraction_visit_counts')), FALSE),
+         '20261104_core_data_rls.sql'),
+    (42, 'RLS enabled on attraction_visit_dedup',
+         COALESCE((SELECT relrowsecurity FROM pg_class
+                   WHERE oid = to_regclass('public.attraction_visit_dedup')), FALSE),
+         '20261104_core_data_rls.sql'),
+    (43, 'anon has NO direct INSERT on attraction_visit_counts',
+         to_regclass('public.attraction_visit_counts') IS NULL
+         OR NOT has_table_privilege('anon', 'public.attraction_visit_counts', 'INSERT'),
+         '20261104_core_data_rls.sql'),
+    (50, 'table public.payment_attempts  (REQUIRED for every checkout)',
+         to_regclass('public.payment_attempts') IS NOT NULL,
+         '20261104_payment_attempts.sql'),
+    (60, 'table public.user_push_tokens',
+         to_regclass('public.user_push_tokens') IS NOT NULL,
+         '20261105_user_push_tokens.sql'),
+    (70, 'table public.user_notifications',
+         to_regclass('public.user_notifications') IS NOT NULL,
+         '20261107_user_notifications.sql'),
+    (80, 'column offers.flight_listing_id  (REQUIRED to create offers)',
+         EXISTS (SELECT 1 FROM pg_attribute
+                 WHERE attrelid = to_regclass('public.offers')
+                   AND attname = 'flight_listing_id' AND NOT attisdropped),
+         '20261107_offer_flight_link.sql')
+)
+SELECT sort_order,
+       item,
+       CASE WHEN present THEN 'OK' ELSE 'MISSING' END AS status,
+       fixed_by
+FROM checks
+ORDER BY sort_order;

@@ -11,14 +11,14 @@ BEGIN;
 --    if it still contains nothing but the single Flyway baseline row.
 DO $$
 BEGIN
-    IF to_regclass('public.flyway_schema_history') IS NOT NULL
-       AND (SELECT COUNT(*) FROM public.flyway_schema_history) <= 1
-       AND NOT EXISTS (SELECT 1 FROM public.flyway_schema_history
-                       WHERE type <> 'BASELINE') THEN
-        DROP TABLE public.flyway_schema_history;
-        RAISE NOTICE 'Dropped flyway_schema_history (baseline only).';
+    IF to_regclass('public.flyway_schema_history') IS NULL THEN
+        RAISE NOTICE 'flyway_schema_history is already gone.';
+    ELSIF EXISTS (SELECT 1 FROM public.flyway_schema_history
+                  WHERE type <> 'BASELINE') THEN
+        RAISE NOTICE 'Kept flyway_schema_history (it has real migration history).';
     ELSE
-        RAISE NOTICE 'Kept flyway_schema_history (absent or has real history).';
+        EXECUTE 'DROP TABLE public.flyway_schema_history';
+        RAISE NOTICE 'Dropped flyway_schema_history (baseline only).';
     END IF;
 END
 $$;
