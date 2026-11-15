@@ -1517,42 +1517,6 @@ class ApiService {
     return byId.values.toList(growable: false);
   }
 
-  Future<List<String>> searchHotelLocations(String query) async {
-    final normalized = query.trim();
-    if (normalized.length < 2) return const [];
-    List<String> matchingSuggestions(Iterable<HotelModel> hotels) => hotels
-        .expand((hotel) => [hotel.city, hotel.address, hotel.name])
-        .where(
-            (value) => value.toLowerCase().contains(normalized.toLowerCase()))
-        .toSet()
-        .take(12)
-        .toList();
-
-    if (useMockMode) {
-      return matchingSuggestions(MockDataService.hotels());
-    }
-    try {
-      final response = await _dio.get(
-        '/hotels/locations',
-        queryParameters: {'query': normalized},
-      );
-      final remote = (response.data['suggestions'] as List? ?? const [])
-          .map((value) => value.toString())
-          .toList();
-      return {...remote, ...matchingSuggestions(MockDataService.hotels())}
-          .take(12)
-          .toList();
-    } catch (_) {
-      final partnerHotels = (await _loadPartnerInventory('hotel'))
-          .map(HotelModel.fromJson)
-          .toList();
-      return {
-        ...matchingSuggestions(partnerHotels),
-        ...matchingSuggestions(MockDataService.hotels()),
-      }.take(12).toList();
-    }
-  }
-
   Future<List<HotelDestinationSuggestion>> suggestHotelDestinations(
     String query, {
     String languageCode = 'en',

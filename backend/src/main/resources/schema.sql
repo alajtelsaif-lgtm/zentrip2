@@ -361,7 +361,9 @@ CREATE INDEX IF NOT EXISTS offers_flight_listing_index ON offers (flight_listing
 CREATE TABLE IF NOT EXISTS offer_catalog_metadata (
     offer_id VARCHAR(64) NOT NULL PRIMARY KEY,
     badge VARCHAR(100) NOT NULL DEFAULT '',
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT offer_catalog_metadata_offer_foreign
+        FOREIGN KEY (offer_id) REFERENCES offers(id) ON DELETE CASCADE
 );
 
 INSERT INTO offers (
@@ -449,7 +451,11 @@ CREATE TABLE IF NOT EXISTS trips (
     status VARCHAR(30) NOT NULL DEFAULT 'upcoming',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT trips_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT trips_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT trips_partner_id_foreign
+        FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE SET NULL,
+    CONSTRAINT trips_partner_listing_id_foreign
+        FOREIGN KEY (partner_listing_id) REFERENCES partner_listings(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS trips_user_id_index ON trips (user_id);
 CREATE INDEX IF NOT EXISTS trips_partner_id_index ON trips (partner_id);
@@ -494,7 +500,11 @@ CREATE TABLE IF NOT EXISTS bookings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT bookings_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT bookings_partner_listing_id_foreign
-        FOREIGN KEY (partner_listing_id) REFERENCES partner_listings(id) ON DELETE RESTRICT
+        FOREIGN KEY (partner_listing_id) REFERENCES partner_listings(id) ON DELETE RESTRICT,
+    CONSTRAINT bookings_partner_id_foreign
+        FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE SET NULL,
+    CONSTRAINT bookings_trip_id_foreign
+        FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS bookings_user_id_index ON bookings (user_id);
 CREATE INDEX IF NOT EXISTS bookings_partner_id_index ON bookings (partner_id);
@@ -514,7 +524,11 @@ CREATE TABLE IF NOT EXISTS transfers (
     status VARCHAR(50) NOT NULL DEFAULT 'confirmed',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT transfers_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT transfers_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT transfers_partner_id_foreign
+        FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE SET NULL,
+    CONSTRAINT transfers_partner_listing_id_foreign
+        FOREIGN KEY (partner_listing_id) REFERENCES partner_listings(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS transfers_user_id_index ON transfers (user_id);
 CREATE INDEX IF NOT EXISTS transfers_partner_id_index ON transfers (partner_id);
