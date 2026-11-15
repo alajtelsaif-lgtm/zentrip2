@@ -210,14 +210,6 @@ class _SearchFlightScreenState extends State<SearchFlightScreen> {
                 Navigator.pop(sheetContext);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.edit_calendar_rounded),
-              title: Text(l10n.searchFlightsBtn),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _editSearch();
-              },
-            ),
           ],
         ),
       ),
