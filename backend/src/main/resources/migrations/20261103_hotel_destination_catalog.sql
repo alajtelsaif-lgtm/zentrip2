@@ -40,6 +40,9 @@ CREATE INDEX IF NOT EXISTS hotel_destinations_updated_at_index
 
 ALTER TABLE public.hotel_destinations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.hotel_destinations FROM PUBLIC, anon, authenticated;
+-- Reset first: the role baseline's GRANT ON ALL TABLES can add DELETE
+-- when migrations are replayed; keep exactly the privileges below.
+REVOKE ALL ON public.hotel_destinations FROM zentrip_api_runtime;
 GRANT SELECT, INSERT, UPDATE ON public.hotel_destinations
     TO zentrip_api_runtime;
 

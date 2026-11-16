@@ -79,6 +79,9 @@ REVOKE ALL ON FUNCTION public.zentrip_register_user_push_token(TEXT, TEXT)
 GRANT EXECUTE ON FUNCTION public.zentrip_register_user_push_token(TEXT, TEXT)
     TO zentrip_api_runtime;
 
+-- Reset first: the role baseline's GRANT ON ALL TABLES can add DELETE
+-- when migrations are replayed; keep exactly the privileges below.
+REVOKE ALL ON public.user_push_tokens FROM zentrip_api_runtime;
 GRANT SELECT, DELETE ON public.user_push_tokens TO zentrip_api_runtime;
 REVOKE ALL ON public.user_push_tokens FROM PUBLIC, anon, authenticated;
 

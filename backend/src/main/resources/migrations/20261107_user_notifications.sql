@@ -58,6 +58,9 @@ CREATE POLICY user_notifications_owner_update
     USING (user_id = public.zentrip_rls_user_id())
     WITH CHECK (user_id = public.zentrip_rls_user_id());
 
+-- Reset first: the role baseline's GRANT ON ALL TABLES can add DELETE
+-- when migrations are replayed; keep exactly the privileges below.
+REVOKE ALL ON public.user_notifications FROM zentrip_api_runtime;
 GRANT SELECT, INSERT, UPDATE ON public.user_notifications
     TO zentrip_api_runtime;
 GRANT USAGE, SELECT ON SEQUENCE public.user_notifications_id_seq

@@ -114,6 +114,10 @@ ALTER TABLE public.landmark_merge_candidates ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.landmark_places, public.landmark_place_aliases,
     public.landmark_search_areas, public.landmark_merge_candidates
     FROM PUBLIC, anon, authenticated;
+-- Reset first: the role baseline's GRANT ON ALL TABLES can add DELETE
+-- when migrations are replayed; keep exactly the privileges below.
+REVOKE ALL ON public.landmark_places, public.landmark_place_aliases,
+    public.landmark_search_areas, public.landmark_merge_candidates FROM zentrip_api_runtime;
 GRANT SELECT, INSERT, UPDATE ON public.landmark_places TO zentrip_api_runtime;
 GRANT SELECT, INSERT, UPDATE ON public.landmark_place_aliases TO zentrip_api_runtime;
 GRANT SELECT, INSERT, UPDATE ON public.landmark_search_areas TO zentrip_api_runtime;

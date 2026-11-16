@@ -39,6 +39,9 @@ CREATE INDEX IF NOT EXISTS payment_attempts_user_created_index
 
 ALTER TABLE public.payment_attempts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.payment_attempts FROM PUBLIC, anon, authenticated;
+-- Reset first: the role baseline's GRANT ON ALL TABLES can add DELETE
+-- when migrations are replayed; keep exactly the privileges below.
+REVOKE ALL ON public.payment_attempts FROM zentrip_api_runtime;
 GRANT SELECT, INSERT, UPDATE ON public.payment_attempts TO zentrip_api_runtime;
 GRANT USAGE, SELECT ON SEQUENCE public.payment_attempts_id_seq
     TO zentrip_api_runtime;
